@@ -24,7 +24,10 @@ const ALLOWED_ROLES = new Set([
   'kitchen',
   'driver',
 ]);
-const STAFF_ROLES = new Set(['school_admin', 'classroom_staff', 'kitchen']);
+// school_admin / classroom_staff are institution-scoped. kitchen is scoped to
+// a Kitchen entity instead (docs/13 Decision 031) — LunchBox Connect side,
+// not the Nursery/School side, so it is intentionally NOT in this set.
+const STAFF_ROLES = new Set(['school_admin', 'classroom_staff']);
 
 interface Payload {
   email: string;
@@ -32,6 +35,7 @@ interface Payload {
   fullName: string;
   role: string;
   institutionId?: string | null;
+  kitchenId?: string | null;
   phone?: string | null;
   // when false, the account is created without confirming the email (invite-like)
   authenticate?: boolean;
@@ -90,6 +94,7 @@ Deno.serve(async (req) => {
   if (!ALLOWED_ROLES.has(payload.role)) return bad(`role not allowed: ${payload.role}`);
   if (STAFF_ROLES.has(payload.role) && !payload.institutionId)
     return bad('staff roles require institutionId');
+  if (payload.role === 'kitchen' && !payload.kitchenId) return bad('kitchen role requires kitchenId');
   if (!payload.password || payload.password.length < 8)
     return bad('password must be at least 8 characters');
 
@@ -106,7 +111,10 @@ Deno.serve(async (req) => {
   const { error: profileError } = await adminDb.from('app_users').insert({
     user_id: created.user.id,
     role: payload.role,
-    institution_id: payload.institutionId ?? null,
+    // kitchen is a LunchBox Connect entity, not an Institution (docs/13
+    // Decision 031) — never write institutionId for it, even if supplied.
+    institution_id: payload.role === 'kitchen' ? null : (payload.institutionId ?? null),
+    kitchen_id: payload.role === 'kitchen' ? payload.kitchenId : null,
     full_name: payload.fullName,
     email: payload.email,
     phone: payload.phone ?? null,

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { createAccount, listInstitutions, listUsers } from '../lib/api';
-import type { AppRole, AppUser } from '../lib/types';
+import { createAccount, listInstitutions, listKitchens, listUsers } from '../lib/api';
+import type { AppRole, AppUser, Kitchen } from '../lib/types';
 import {
   Btn,
   Banner,
@@ -29,6 +29,7 @@ const ROLES: AppRole[] = [
 export default function UsersPage() {
   const [users, setUsers] = useState<AppUser[] | null>(null);
   const [institutions, setInstitutions] = useState<Array<{ id: string; name: string }>>([]);
+  const [kitchens, setKitchens] = useState<Kitchen[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -39,24 +40,28 @@ export default function UsersPage() {
     fullName: '',
     role: 'parent' as AppRole,
     institutionId: '',
+    kitchenId: '',
     phone: '',
   });
 
   useEffect(() => {
     let active = true;
     void (async () => {
-      const [u, i] = await Promise.all([listUsers(), listInstitutions()]);
+      const [u, i, k] = await Promise.all([listUsers(), listInstitutions(), listKitchens()]);
       if (!active) return;
-      if (u.error || i.error) setError(u.error ?? i.error);
+      if (u.error || i.error || k.error) setError(u.error ?? i.error ?? k.error);
       setUsers(u.data ?? []);
       setInstitutions(i.data ?? []);
+      setKitchens(k.data ?? []);
     })();
     return () => {
       active = false;
     };
   }, []);
 
-  const needsInstitution = ['school_admin', 'classroom_staff', 'kitchen'].includes(form.role);
+  // kitchen is a LunchBox Connect entity, not an Institution (docs/13 Decision 031).
+  const needsInstitution = ['school_admin', 'classroom_staff'].includes(form.role);
+  const needsKitchen = form.role === 'kitchen';
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -67,6 +72,7 @@ export default function UsersPage() {
       fullName: form.fullName.trim(),
       role: form.role,
       institutionId: needsInstitution ? form.institutionId || null : null,
+      kitchenId: needsKitchen ? form.kitchenId || null : null,
       phone: form.phone.trim() || null,
       authenticate: false,
     });
@@ -82,6 +88,7 @@ export default function UsersPage() {
       fullName: '',
       role: 'parent',
       institutionId: '',
+      kitchenId: '',
       phone: '',
     });
     const fresh = await listUsers();
@@ -136,7 +143,9 @@ export default function UsersPage() {
                   <td className="cell-sub">
                     {u.institution_id
                       ? (institutions.find((i) => i.id === u.institution_id)?.name ?? '—')
-                      : 'All / none'}
+                      : u.kitchen_id
+                        ? (kitchens.find((k) => k.id === u.kitchen_id)?.name ?? '—') + ' (Kitchen)'
+                        : 'All / none'}
                   </td>
                   <td>
                     <StatusDot color="green" /> Active
@@ -165,7 +174,8 @@ export default function UsersPage() {
                   !form.email.trim() ||
                   !form.fullName.trim() ||
                   form.password.length < 8 ||
-                  (needsInstitution && !form.institutionId)
+                  (needsInstitution && !form.institutionId) ||
+                  (needsKitchen && !form.kitchenId)
                 }
               >
                 {busy ? 'Creating…' : 'Create account'}
@@ -212,24 +222,42 @@ export default function UsersPage() {
               </Field>
             </div>
             <div className="form-row">
-              <Field
-                label={
-                  needsInstitution ? 'Institution (required for staff)' : 'Institution (optional)'
-                }
-              >
-                <select
-                  value={form.institutionId}
-                  onChange={(e) => setForm({ ...form, institutionId: e.target.value })}
-                  disabled={!needsInstitution}
+              {needsKitchen ? (
+                <Field label="Kitchen (required — LunchBox Connect entity, not an institution)">
+                  <select
+                    value={form.kitchenId}
+                    onChange={(e) => setForm({ ...form, kitchenId: e.target.value })}
+                  >
+                    <option value="">Select…</option>
+                    {kitchens.map((k) => (
+                      <option key={k.id} value={k.id}>
+                        {k.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : (
+                <Field
+                  label={
+                    needsInstitution
+                      ? 'Institution (required for staff)'
+                      : 'Institution (optional)'
+                  }
                 >
-                  <option value="">{needsInstitution ? 'Select…' : 'Not applicable'}</option>
-                  {institutions.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+                  <select
+                    value={form.institutionId}
+                    onChange={(e) => setForm({ ...form, institutionId: e.target.value })}
+                    disabled={!needsInstitution}
+                  >
+                    <option value="">{needsInstitution ? 'Select…' : 'Not applicable'}</option>
+                    {institutions.map((i) => (
+                      <option key={i.id} value={i.id}>
+                        {i.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
               <Field label="Phone (optional)">
                 <input
                   value={form.phone}

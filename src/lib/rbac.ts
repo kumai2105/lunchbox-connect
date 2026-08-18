@@ -18,6 +18,7 @@ export type Resource =
   | 'menu'
   | 'today'
   | 'kitchen'
+  | 'kitchens'
   | 'deliveries'
   | 'reports'
   | 'ops'
@@ -65,6 +66,9 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
     classroom_staff: ['view', 'record'],
   },
   kitchen: { super_admin: ['view'], kitchen: ['view'] },
+  // Kitchen *entities* (docs/13 Decision 031) — Super Admin only, same as
+  // institutions. Not the production-demand screen above.
+  kitchens: { super_admin: ['view', 'create', 'update', 'delete'] },
   deliveries: { super_admin: ['view'], school_admin: ['view'], driver: ['view'] },
   reports: {
     super_admin: ['view'],

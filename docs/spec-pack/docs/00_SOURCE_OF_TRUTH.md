@@ -66,6 +66,25 @@ Any future legal restructuring is:
 
 ---
 
+## 5A. Kitchen / Production Entity
+
+**Kitchen is a confirmed independent LunchBox Connect operational entity, distinct from the legal contracting entity in §5 and distinct from any Institution.**
+
+Confirmed for the MVP:
+
+- The current production Kitchen is **Jazeel Restaurant** (the same entity that is also, separately, the legal contracting party under §5 — two different roles held by the same current entity).
+- LunchBox Connect intends to later operate its own dedicated Kitchen. The architecture must not require rebuilding Institutions, Students, Classes, Guardians, eligibility, Menus, Allergy / Dietary data, Classroom records, Parent accounts, Delivery history, or Reporting when that happens.
+- The Kitchen belongs to the LunchBox Connect operational side. It does not belong to, and is not owned by, any Nursery / School.
+- Kitchen user accounts are LunchBox Connect-side accounts, provisioned only by Super Admin. Nursery / School Admin must not create or manage Kitchen accounts.
+
+See `13_DECISION_LOG.md` Decision 031 for the full decision record and `04_DATA_MODEL.md` §24A for the Kitchen entity definition.
+
+Multiple simultaneous active Kitchens, Kitchen territories, geographic routing, capacity planning, overflow, and Kitchen-transfer workflows remain:
+
+`NOT_YET_DEFINED`
+
+---
+
 ## 6. Customer Model
 
 LunchBox Connect serves institutions such as:

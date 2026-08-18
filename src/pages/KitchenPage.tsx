@@ -26,14 +26,23 @@ export default function KitchenPage() {
 
   const totalEligible = rows?.reduce((sum, r) => sum + r.eligible_students, 0) ?? 0;
   const totalAllergy = rows?.reduce((sum, r) => sum + r.allergy_flagged, 0) ?? 0;
+  const kitchenName = rows?.find((r) => r.kitchen_name)?.kitchen_name ?? null;
 
   return (
     <div>
-      <PageHead title="Kitchen production" hint="derived demand — counts only" />
+      <PageHead
+        title="Kitchen production"
+        hint={kitchenName ? `derived demand for ${kitchenName}` : 'derived demand — counts only'}
+      />
       <Banner kind="info">
         Demand is derived from authoritative eligible records (operational status{' '}
         <b>ACTIVE_BILLABLE_TO_NURSERY</b>). Kitchen staff cannot change eligibility, cannot invent
         counts, and never see student identity (AT-034).
+      </Banner>
+      <Banner kind="info">
+        Responsible Kitchen: <b>{kitchenName ?? '—'}</b>. Kitchen is a LunchBox Connect
+        operational entity, not owned by any institution — this is the current active Kitchen
+        (MVP), not permanently hard-coded (docs/13 Decision 031).
       </Banner>
       <Banner kind="warn">
         Meal-package assignment and the exact production formula are <b>NOT_YET_DEFINED</b> — this

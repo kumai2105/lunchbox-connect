@@ -608,6 +608,18 @@ Kitchen staff must not receive unnecessary:
 
 ---
 
+## 40A. Kitchen Is a LunchBox Connect Entity, Not an Institution Entity
+
+Confirmed rule (docs/13 Decision 031):
+
+Kitchen belongs to the LunchBox Connect operational side. It is not owned by, and must not be scoped to, any single Nursery / School.
+
+Kitchen user accounts are provisioned only by Super Admin. Nursery / School Admin must not create or manage Kitchen accounts.
+
+For the MVP, the current production Kitchen is Jazeel Restaurant — current operational data, not permanently hard-coded business logic. LunchBox Connect intends to later operate its own dedicated Kitchen without requiring the rest of the platform to be rebuilt.
+
+---
+
 ## 41. Driver Access Rule
 
 Drivers may access only assigned deliveries.

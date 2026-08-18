@@ -506,6 +506,23 @@ Kitchen users must not receive unnecessary nursery, parent, financial, or admini
 
 ---
 
+## 31A. Kitchen Belongs to LunchBox Connect, Not the Institution
+
+Confirmed rule (docs/13 Decision 031):
+
+**Kitchen Operations is a LunchBox Connect-side operational domain. It does not belong to, and is not scoped by, any Nursery / School.**
+
+Confirmed consequences:
+
+- Kitchen users are LunchBox Connect operational users, not Nursery employees for software-access purposes.
+- **Nursery / School Admin must not create or manage Kitchen accounts.**
+- **Kitchen accounts are provisioned only by authorized Super Admin users.**
+- A Kitchen user's access scope is the Kitchen entity they are associated with, not an Institution.
+
+For the MVP, the current Kitchen is Jazeel Restaurant. This is current operational data, not a permanent architectural assumption — see `00_SOURCE_OF_TRUTH.md` §5A.
+
+---
+
 ## 32. Kitchen Confirmed Access
 
 Kitchen Operations may access operational information required for:
@@ -660,6 +677,16 @@ This rule is mandatory.
 ## 44. Production-Need Rule
 
 Kitchen users may access only information necessary for approved production, allergy / dietary handling, packing, and dispatch preparation.
+
+This rule is mandatory.
+
+---
+
+## 44A. Kitchen Provisioning Rule
+
+Kitchen user accounts may be provisioned only by Super Admin (docs/13 Decision 031).
+
+Nursery / School Admin must not create, edit, or manage Kitchen accounts, regardless of any other access it holds within its own institution.
 
 This rule is mandatory.
 

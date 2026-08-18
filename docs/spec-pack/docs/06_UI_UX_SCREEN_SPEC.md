@@ -843,6 +843,8 @@ Confirmed scope:
 
 Kitchen must not receive unnecessary parent, financial, or institution-admin data.
 
+Kitchen is a LunchBox Connect operational entity, not an Institution — the portal must show demand across the Kitchen's responsibility, not scope it to one Institution (docs/13 Decision 031).
+
 ---
 
 ## 54. Kitchen Production View

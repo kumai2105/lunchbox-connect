@@ -26,10 +26,21 @@ export interface Institution {
   created_at: string;
 }
 
+// LunchBox Connect operational entity (docs/13 Decision 031) — not owned by
+// any Institution. MVP: Jazeel Restaurant is the current active Kitchen.
+export interface Kitchen {
+  id: string;
+  name: string;
+  active: boolean;
+  created_at: string;
+}
+
 export interface AppUser {
   user_id: string;
   role: AppRole;
   institution_id: string | null;
+  /** Kitchen-role users associate with a Kitchen entity instead of an Institution (docs/13 Decision 031). */
+  kitchen_id: string | null;
   full_name: string;
   email: string;
   phone: string | null;
@@ -130,6 +141,8 @@ export interface DashboardInstitutionRow {
 export interface ProductionDemandRow {
   institution_id: string;
   institution_name: string;
+  kitchen_id: string | null;
+  kitchen_name: string | null;
   eligible_students: number;
   allergy_flagged: number;
 }

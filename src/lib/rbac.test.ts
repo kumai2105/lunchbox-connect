@@ -33,6 +33,7 @@ describe('rbac matrix (9 role domains — docs/02)', () => {
     expect(can('super_admin', 'status', 'set')).toBe(true);
     expect(can('super_admin', 'menu', 'publish')).toBe(true);
     expect(can('super_admin', 'today', 'record')).toBe(true);
+    expect(can('super_admin', 'kitchens', 'create')).toBe(true); // provisions Kitchen entities
   });
 
   it('school_admin is scoped to own institution and never the central menu', () => {
@@ -43,6 +44,16 @@ describe('rbac matrix (9 role domains — docs/02)', () => {
     expect(can('school_admin', 'users', 'view')).toBe(false);
     expect(can('school_admin', 'institutions', 'view')).toBe(false);
     expect(can('school_admin', 'audit', 'view')).toBe(false);
+  });
+
+  it('school_admin cannot manage Kitchen accounts or entities (docs/13 Decision 031)', () => {
+    // Kitchen belongs to the LunchBox Connect operational side, not the
+    // Nursery/School — Nursery Admin has no capability over the kitchens
+    // resource at all, mirroring 'users' (only Super Admin provisions accounts).
+    for (const action of ['view', 'create', 'update', 'delete'] as const) {
+      expect(can('school_admin', 'kitchens', action)).toBe(false);
+      expect(can('school_admin', 'users', action)).toBe(false);
+    }
   });
 
   it('classroom_staff is view+record only, assigned scope (AT-032)', () => {
@@ -61,6 +72,9 @@ describe('rbac matrix (9 role domains — docs/02)', () => {
     expect(can('kitchen', 'status', 'set')).toBe(false); // AT-012
     expect(can('kitchen', 'reports', 'view')).toBe(false);
     expect(can('kitchen', 'today', 'record')).toBe(false);
+    // Kitchen users cannot manage the kitchens entity table themselves either —
+    // provisioning/administration of Kitchen entities is Super Admin only.
+    expect(can('kitchen', 'kitchens', 'view')).toBe(false);
   });
 
   it('driver is scoped to assigned deliveries (AT-033)', () => {

@@ -289,7 +289,7 @@ A User may have:
 - an Institution scope where applicable;
 - Class assignment where applicable;
 - Guardian association where applicable;
-- Kitchen operational scope where applicable;
+- a Kitchen entity association where applicable (Kitchen Operations users associate with a Kitchen, not an Institution — docs/13 Decision 031);
 - assigned Deliveries where applicable.
 
 ### Exact account fields
@@ -664,6 +664,45 @@ An Absence may affect meal operations according to approved rules.
 
 # PART VII — KITCHEN AND PRODUCTION DATA
 
+## 23A. Kitchen
+
+### Entity
+
+`Kitchen`
+
+Represents a LunchBox Connect operational production entity (docs/13 Decision 031). Confirmed as a first-class entity distinct from `Institution` and distinct from the legal contracting entity (docs/00 §5).
+
+### Confirmed purpose
+
+The Kitchen:
+
+- belongs to the LunchBox Connect operational side, not to any Institution;
+- is not owned by, and must not be duplicated per, Institution;
+- is the entity Production references as responsible for fulfilling Production Demand;
+- for the MVP, the current Kitchen is Jazeel Restaurant — operational data, not permanently hard-coded logic.
+
+### Confirmed relationships
+
+A Kitchen:
+
+- may be referenced by Production Demand and Production Record as the responsible Kitchen;
+- may have Kitchen Operations `User` accounts associated with it (in place of an Institution scope);
+- does not own or duplicate the authoritative Student record.
+
+### Confirmed restriction
+
+Changing which Kitchen is active/responsible must not require rebuilding Institution, Student, Class, Guardian, eligibility, Menu, Allergy/Dietary, Classroom, Parent, Delivery, or Reporting data (docs/13 Decision 031).
+
+Multiple simultaneous active Kitchens, territories, geographic routing, capacity planning, overflow, and transfer workflows are:
+
+`NOT_YET_DEFINED`
+
+### Exact fields
+
+`NOT_YET_DEFINED` beyond the minimum needed to identify the entity and its active/responsible status.
+
+---
+
 ## 24. Production Demand
 
 ### Entity / concept
@@ -680,7 +719,8 @@ Production Demand derives from:
 - Institution;
 - approved Meal / Menu assignment;
 - Allergy information where applicable;
-- Dietary Restriction information where applicable.
+- Dietary Restriction information where applicable;
+- the responsible Kitchen entity (docs/13 Decision 031).
 
 ### Confirmed restriction
 
@@ -705,6 +745,8 @@ Kitchen staff must not independently invent production totals that conflict with
 Represents Kitchen operational preparation information.
 
 ### Confirmed purpose
+
+A Production Record must reference the responsible Kitchen entity (docs/13 Decision 031).
 
 Kitchen operations include:
 
@@ -1268,8 +1310,20 @@ The confirmed logical relationships are:
 `Teacher / Nurse / Classroom User`
 → relates to assigned `Class`
 
+`Kitchen`
+→ is a LunchBox Connect operational entity, not owned by any `Institution`
+
+`Kitchen User`
+→ associates with a `Kitchen` entity (not an Institution scope)
+
 `Kitchen User`
 → accesses approved Production and allergy / dietary information
+
+`ProductionDemand`
+→ may relate to the responsible `Kitchen`
+
+`ProductionRecord`
+→ relates to the responsible `Kitchen`
 
 `Driver User`
 → relates to assigned `Delivery`
@@ -1561,6 +1615,7 @@ The confirmed core entities / concepts are:
 - Institutional Billing / Eligibility
 - Student Allergy
 - Student Dietary Restriction
+- Kitchen (docs/13 Decision 031)
 - Menu
 - Meal
 - Ingredient

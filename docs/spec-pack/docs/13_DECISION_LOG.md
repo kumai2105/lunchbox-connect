@@ -380,6 +380,42 @@ rather than invent it.
 
 ---
 
+## Decision 031 — Kitchen Operating Model (Independent Entity)
+
+**Date:** `2026-08-18`
+
+**Decision:** Kitchen is a confirmed independent LunchBox Connect operational entity. It belongs to the LunchBox Connect operational side, not to any Nursery / School, and is not owned by or duplicated per Institution.
+
+The correct operational relationship is:
+
+`Institution → Eligible Students → Production Demand → Kitchen → Production → Dispatch → Delivery → Institution`
+
+For the MVP:
+
+- The current production Kitchen is **Jazeel Restaurant**. This is current operational data, not permanently hard-coded business logic.
+- LunchBox Connect intends to later operate its own dedicated Kitchen. Changing the operational Kitchen must not require rebuilding or corrupting Institutions, Students, Classes, Guardians, eligibility, Menus, Allergy / Dietary data, Classroom records, Parent accounts, Delivery history, or Reporting.
+- Kitchen user accounts are LunchBox Connect-side accounts. They are provisioned only by Super Admin. Nursery / School Admin must not create or manage Kitchen accounts.
+- Kitchen users receive only the Production and required Allergy / Dietary information needed for their approved work (per Decision 011 / Decision 019, both still ACTIVE and unchanged by this decision).
+- Kitchen users must never be able to change Student eligibility to alter Production Demand (per Decision 019, unchanged).
+
+**Not approved MVP behavior** (remain `NOT_YET_DEFINED`, must not be implemented by assumption):
+
+- multiple active Kitchens operating simultaneously;
+- Kitchen territories;
+- geographic Kitchen assignment;
+- automatic Kitchen selection;
+- Production splitting between Kitchens;
+- Kitchen capacity planning;
+- Kitchen overflow rules;
+- branch-to-Kitchen routing;
+- Kitchen transfer workflows.
+
+**Supersedes:** Nothing. Supplements Decision 011 (Kitchen Scope) and Decision 019 (Kitchen Production Source), both of which remain ACTIVE and unchanged — this decision adds the entity/ownership model those decisions did not previously specify.
+
+**Status:** ACTIVE
+
+---
+
 ## Superseded Rule Register
 
 ### S-001 — Direct Parent-Payment Enrolment

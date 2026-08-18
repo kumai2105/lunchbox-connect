@@ -7,6 +7,7 @@ import {
   type ClassRow,
   type DashboardInstitutionRow,
   type Institution,
+  type Kitchen,
   type MealOutcome,
   type MenuItem,
   type ProductionDemandRow,
@@ -28,6 +29,13 @@ export async function listInstitutions(): Promise<ApiResult<Institution[]>> {
   const { data, error } = await supabase.from('institutions').select('*').order('name');
   if (error) return err(error);
   return { data: data as Institution[], error: null };
+}
+
+// LunchBox Connect operational entity, not an Institution (docs/13 Decision 031).
+export async function listKitchens(): Promise<ApiResult<Kitchen[]>> {
+  const { data, error } = await supabase.from('kitchens').select('*').order('name');
+  if (error) return err(error);
+  return { data: data as Kitchen[], error: null };
 }
 
 export async function createInstitution(
@@ -354,6 +362,7 @@ export async function createAccount(input: {
   fullName: string;
   role: string;
   institutionId?: string | null;
+  kitchenId?: string | null;
   phone?: string | null;
   authenticate?: boolean;
 }): Promise<ApiResult<{ user_id: string }>> {
