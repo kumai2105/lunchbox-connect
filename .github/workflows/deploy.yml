@@ -40,11 +40,24 @@ jobs:
           VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxsbm9mcml3dm5lcm50cmJwZWhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNDUwNjAsImV4cCI6MjEwMjYyMTA2MH0.aE04Weq-Yu2ElnjxZS-JUIGDdC33tArSReeSjYhObYo
         run: pnpm build
 
+      - name: Check Cloudflare secrets are configured
+        # `secrets` cannot appear in ANY if: expression (job or step —
+        # GitHub rejects both at parse time). Read it only inside a run:
+        # script via env:, then expose a plain step output for if: to use.
+        id: cf-check
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCOUNT" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID repo secrets are not set yet — skipping deploy."
+          fi
+
       - name: Deploy to Cloudflare Workers
-        # Job-level `if:` cannot reference `secrets` (GitHub rejects it at
-        # parse time) — steps can, so the skip-until-configured check lives
-        # here instead. Everything above (build) still runs and validates.
-        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+        if: steps.cf-check.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

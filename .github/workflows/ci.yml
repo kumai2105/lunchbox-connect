@@ -54,8 +54,11 @@ jobs:
       ready: ${{ steps.check.outputs.ready }}
     steps:
       - id: check
+        env:
+          E2E_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          E2E_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          if [ -n "${{ secrets.E2E_SUPABASE_URL }}" ] && [ -n "${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}" ]; then
+          if [ -n "$E2E_URL" ] && [ -n "$E2E_KEY" ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
