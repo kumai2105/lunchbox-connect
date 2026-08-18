@@ -16,6 +16,7 @@ export type Resource =
   | 'classes'
   | 'status'
   | 'menu'
+  | 'analytics'
   | 'today'
   | 'kitchen'
   | 'kitchens'
@@ -53,6 +54,10 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
   // operational status: exact list/transitions NOT_YET_DEFINED; the single
   // approved value ACTIVE_BILLABLE_TO_NURSERY is settable by Super Admin only.
   status: { super_admin: ['view', 'set'] },
+  // Aggregated meal-performance analytics (docs/13 Decision 032). Super Admin
+  // is the only approved "management" role (Decision 007); v_meal_performance
+  // and the raw records are RLS-scoped independently of this matrix.
+  analytics: { super_admin: ['view'] },
   menu: {
     super_admin: ['view', 'create', 'update', 'delete', 'publish'],
     school_admin: ['view'],

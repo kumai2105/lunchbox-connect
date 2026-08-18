@@ -386,6 +386,44 @@ export async function mealPerformance(): Promise<ApiResult<MealPerformanceRow[]>
   return { data: (data ?? []) as MealPerformanceRow[], error: null };
 }
 
+// Raw Classroom Meal Records for analytics, joined to the Meal they were
+// recorded against and the Student's institution. Everything on the Meal
+// Analytics screen is computed from these rows, so changing any filter
+// genuinely recalculates every KPI, chart and table (blueprint Part 94)
+// rather than relabelling a fixed aggregate. RLS scopes what comes back.
+export interface ObservationRow extends ServingRecord {
+  menu: { id: string; dish_name: string; period: AppPeriod } | null;
+  student: { institution_id: string; class_id: string | null } | null;
+}
+
+export interface ObservationFilters {
+  from: string;
+  to: string;
+  institutionId?: string | null;
+  classId?: string | null;
+  period?: AppPeriod | null;
+}
+
+export async function mealObservations(
+  filters: ObservationFilters,
+): Promise<ApiResult<ObservationRow[]>> {
+  let q = supabase
+    .from('serving_records')
+    .select(
+      '*, menu:menus!menu_item_id(id,dish_name,period), student:students!inner(institution_id,class_id)',
+    )
+    .gte('serving_date', filters.from)
+    .lte('serving_date', filters.to)
+    .order('serving_date', { ascending: false })
+    .limit(5000);
+  if (filters.institutionId) q = q.eq('student.institution_id', filters.institutionId);
+  if (filters.classId) q = q.eq('class_id', filters.classId);
+  if (filters.period) q = q.eq('period', filters.period);
+  const { data, error } = await q;
+  if (error) return err(error);
+  return { data: (data ?? []) as unknown as ObservationRow[], error: null };
+}
+
 // ---------------------------------------------------------------- serving
 export async function rosterForClass(classId: string): Promise<ApiResult<Student[]>> {
   // Only operationally eligible students enter serving (docs/03 §7, AT-011).

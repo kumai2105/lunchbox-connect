@@ -14,6 +14,7 @@ import ClassesPage from './pages/ClassesPage';
 import StatusPage from './pages/StatusPage';
 import AuditPage from './pages/AuditPage';
 import MenuPage from './pages/MenuPage';
+import MealAnalyticsPage from './pages/MealAnalyticsPage';
 import TodayPage from './pages/TodayPage';
 import UsersPage from './pages/UsersPage';
 import ParentPage from './pages/ParentPage';
@@ -139,6 +140,14 @@ export default function App() {
               element={
                 <Page page="menu">
                   <MenuPage />
+                </Page>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <Page page="analytics">
+                  <MealAnalyticsPage />
                 </Page>
               }
             />

@@ -26,6 +26,7 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
     { page: 'classes', label: 'Classes', icon: 'folder', hidden: true },
     { page: 'status', label: 'Status / eligibility', icon: 'checkCircle' },
     { page: 'menu', label: 'Menus', icon: 'utensils' },
+    { page: 'analytics', label: 'Meal analytics', icon: 'barChart' },
     { page: 'today', label: 'Serving (Today)', icon: 'sun' },
     { page: 'kitchen', label: 'Kitchen production', icon: 'flame' },
     { page: 'deliveries', label: 'Deliveries', icon: 'truck', shell: true },

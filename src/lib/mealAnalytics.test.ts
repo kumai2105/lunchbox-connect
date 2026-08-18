@@ -1,11 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import {
+  aggregateObservations,
   consumptionHumanLabel,
   isLowIntake,
   isNonPreferenceReason,
   isValidPreferenceObservation,
+  type ObservationLike,
 } from './mealAnalytics';
 import { CONSUMPTION_VALUES } from './types';
+
+function obs(p: Partial<ObservationLike>): ObservationLike {
+  return {
+    served_status: 'served',
+    consumption_pct: 100,
+    behavior: 'ate_independently',
+    low_intake_reason: null,
+    concern_observed: false,
+    ...p,
+  };
+}
 
 describe('meal analytics (docs/13 Decision 032)', () => {
   it('only 0/25/50/75/100 are approved consumption values', () => {
@@ -68,5 +81,70 @@ describe('meal analytics (docs/13 Decision 032)', () => {
     expect(consumptionHumanLabel(75)).toBe('Ate most');
     expect(consumptionHumanLabel(50)).toBe('Ate about half');
     expect(consumptionHumanLabel(25)).toBe('Ate a little');
+  });
+});
+
+describe('aggregateObservations (blueprint Parts 24/27)', () => {
+  it('returns null rates rather than 0 when there is nothing to divide by', () => {
+    const a = aggregateObservations([]);
+    expect(a.total).toBe(0);
+    expect(a.valid).toBe(0);
+    expect(a.avgConsumption).toBeNull();
+    expect(a.refusalRate).toBeNull();
+    expect(a.encouragementRate).toBeNull();
+    expect(a.lowIntakeRate).toBeNull();
+  });
+
+  it('excludes absent/unwell/sleeping/not-served from the average, and reports them', () => {
+    const rows = [
+      obs({ consumption_pct: 100 }),
+      obs({ consumption_pct: 50 }),
+      // none of these may drag the average toward zero:
+      obs({ consumption_pct: 0, low_intake_reason: 'absent' }),
+      obs({ consumption_pct: 0, low_intake_reason: 'unwell' }),
+      obs({ consumption_pct: 0, low_intake_reason: 'sleeping' }),
+      obs({ served_status: 'not_served', consumption_pct: null }),
+    ];
+    const a = aggregateObservations(rows);
+    expect(a.total).toBe(6);
+    expect(a.valid).toBe(2);
+    expect(a.excluded).toBe(4);
+    expect(a.avgConsumption).toBe(75); // (100 + 50) / 2 — not /6
+  });
+
+  it('counts every low-intake reason, including the excluded ones', () => {
+    const a = aggregateObservations([
+      obs({ consumption_pct: 0, low_intake_reason: 'did_not_like_it' }),
+      obs({ consumption_pct: 0, low_intake_reason: 'did_not_like_it' }),
+      obs({ consumption_pct: 0, low_intake_reason: 'unwell' }),
+    ]);
+    expect(a.reasons.did_not_like_it).toBe(2);
+    expect(a.reasons.unwell).toBe(1);
+    // ...but the unwell child is still out of the preference population
+    expect(a.valid).toBe(2);
+  });
+
+  it('rates are percentages of the valid population only', () => {
+    const a = aggregateObservations([
+      obs({ consumption_pct: 0, behavior: 'refused' }),
+      obs({ consumption_pct: 100 }),
+      obs({ consumption_pct: 75, behavior: 'needed_encouragement' }),
+      obs({ consumption_pct: 100, low_intake_reason: 'absent' }), // excluded
+    ]);
+    expect(a.valid).toBe(3);
+    expect(a.refusalRate).toBe(33.3);
+    expect(a.encouragementRate).toBe(33.3);
+    expect(a.lowIntakeRate).toBe(33.3); // the single 0%
+  });
+
+  it('distribution buckets only the valid population', () => {
+    const a = aggregateObservations([
+      obs({ consumption_pct: 100 }),
+      obs({ consumption_pct: 100 }),
+      obs({ consumption_pct: 25 }),
+      obs({ consumption_pct: 0, low_intake_reason: 'absent' }),
+      obs({ served_status: 'not_served', consumption_pct: null }),
+    ]);
+    expect(a.distribution).toEqual({ 0: 0, 25: 1, 50: 0, 75: 0, 100: 2 });
   });
 });

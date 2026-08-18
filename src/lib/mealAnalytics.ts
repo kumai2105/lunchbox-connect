@@ -55,6 +55,87 @@ export function consumptionHumanLabel(pct: ConsumptionPct | null): string {
   return map[pct];
 }
 
+/**
+ * Aggregation over raw Classroom Meal Records (blueprint Parts 24/27).
+ *
+ * The valid-observation population is the ONLY denominator used for
+ * consumption/preference stats: a child who was absent, unwell, asleep, or
+ * simply not served did not reject the Meal, and counting them as a 0% would
+ * make the whole analytics surface lie. Those rows are still counted and
+ * reported separately as `excluded`, never silently dropped.
+ */
+export interface ObservationLike {
+  served_status: 'served' | 'not_served';
+  consumption_pct: number | null;
+  behavior: EatingBehavior | null;
+  low_intake_reason: LowIntakeReason | null;
+  concern_observed?: boolean;
+}
+
+export interface AggregateStats {
+  total: number;
+  valid: number;
+  excluded: number;
+  avgConsumption: number | null;
+  refusals: number;
+  refusalRate: number | null;
+  encouraged: number;
+  encouragementRate: number | null;
+  lowIntake: number;
+  lowIntakeRate: number | null;
+  concerns: number;
+  distribution: Record<number, number>;
+  reasons: Record<string, number>;
+}
+
+function rate(part: number, whole: number): number | null {
+  if (whole <= 0) return null;
+  return Math.round((part / whole) * 1000) / 10;
+}
+
+export function aggregateObservations(rows: ObservationLike[]): AggregateStats {
+  const valid = rows.filter((r) => isValidPreferenceObservation(r));
+  const distribution: Record<number, number> = { 0: 0, 25: 0, 50: 0, 75: 0, 100: 0 };
+  valid.forEach((r) => {
+    if (r.consumption_pct !== null && r.consumption_pct in distribution) {
+      distribution[r.consumption_pct] += 1;
+    }
+  });
+
+  // Reasons are counted across ALL rows, including the non-preference ones —
+  // "3 children were unwell" is operationally useful even though it must not
+  // touch the consumption average.
+  const reasons: Record<string, number> = {};
+  rows.forEach((r) => {
+    if (r.low_intake_reason) {
+      reasons[r.low_intake_reason] = (reasons[r.low_intake_reason] ?? 0) + 1;
+    }
+  });
+
+  const refusals = valid.filter((r) => r.behavior === 'refused').length;
+  const encouraged = valid.filter((r) => r.behavior === 'needed_encouragement').length;
+  const lowIntake = valid.filter((r) => isLowIntake((r.consumption_pct ?? null) as never)).length;
+
+  return {
+    total: rows.length,
+    valid: valid.length,
+    excluded: rows.length - valid.length,
+    avgConsumption:
+      valid.length > 0
+        ? Math.round(valid.reduce((s, r) => s + (r.consumption_pct ?? 0), 0) / valid.length)
+        : null,
+    refusals,
+    refusalRate: rate(refusals, valid.length),
+    encouraged,
+    encouragementRate: rate(encouraged, valid.length),
+    lowIntake,
+    lowIntakeRate: rate(lowIntake, valid.length),
+    concerns: rows.filter((r) => r.concern_observed).length,
+    distribution,
+    reasons,
+  };
+}
+
 // Decision-support classification for a menu item's aggregate meal-performance
 // row (docs/13 Decision 032 §42-45) — one implementation shared by the
 // Dashboard's "top/bottom dishes" panel and the full Reporting page, so the
