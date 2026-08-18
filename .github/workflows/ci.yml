@@ -44,6 +44,23 @@ jobs:
       - name: Unit tests
         run: pnpm test:unit
 
+  # ---- gate output: whether the E2E secrets exist. Job-level `if:` cannot
+  # reference `secrets` directly (GitHub rejects it at parse time), so the
+  # check has to happen inside a step and be threaded through as a job output.
+  check-e2e-secrets:
+    name: Check E2E secrets
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        run: |
+          if [ -n "${{ secrets.E2E_SUPABASE_URL }}" ] && [ -n "${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
   # -----------------------------------------------------------------------------
   # E2E — runs ONLY when the live-Supabase credentials exist as repository
   # secrets AND the PR is from the same repo (GitHub never exposes secrets to
@@ -54,11 +71,10 @@ jobs:
     name: E2E (Playwright · live Supabase)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: gate
+    needs: [gate, check-e2e-secrets]
     if: |
       github.event.pull_request.head.repo.full_name == github.repository &&
-      secrets.E2E_SUPABASE_URL != '' &&
-      secrets.E2E_SUPABASE_SERVICE_ROLE_KEY != ''
+      needs.check-e2e-secrets.outputs.ready == 'true'
     env:
       E2E_BASE_URL: http://127.0.0.1:4173
       E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}

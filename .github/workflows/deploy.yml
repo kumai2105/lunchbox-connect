@@ -14,9 +14,6 @@ jobs:
     name: Build and deploy Worker
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Skips cleanly (instead of failing) until the two Cloudflare secrets exist —
-    # see the repo Settings > Secrets and variables > Actions.
-    if: secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != ''
     steps:
       - uses: actions/checkout@v4
 
@@ -44,6 +41,10 @@ jobs:
         run: pnpm build
 
       - name: Deploy to Cloudflare Workers
+        # Job-level `if:` cannot reference `secrets` (GitHub rejects it at
+        # parse time) — steps can, so the skip-until-configured check lives
+        # here instead. Everything above (build) still runs and validates.
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
