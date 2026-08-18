@@ -68,14 +68,14 @@ export default function DashboardPage() {
         {rows.length === 0 ? (
           <EmptyState text="No institutions yet — a SUPER_ADMIN can add the first one." />
         ) : (
-          <table>
+          <table className="dash-table">
             <thead>
               <tr>
                 <th>Institution</th>
-                <th>Classrooms</th>
+                <th className="col-secondary">Classrooms</th>
                 <th>Active students</th>
                 <th>Meals today</th>
-                <th>Fill rate</th>
+                <th className="col-secondary">Fill rate</th>
                 <th>State</th>
               </tr>
             </thead>
@@ -86,10 +86,10 @@ export default function DashboardPage() {
                 return (
                   <tr key={r.institution_id}>
                     <td className="cell-name">{r.name}</td>
-                    <td className="mono">{r.classrooms}</td>
+                    <td className="mono col-secondary">{r.classrooms}</td>
                     <td className="mono">{r.active_students}</td>
                     <td className="mono">{r.meals_today}</td>
-                    <td>
+                    <td className="col-secondary">
                       <span className={r.active_students === 0 ? 'pill na' : mealsTodayPill(rate)}>
                         {r.active_students > 0 ? `${rate}%` : '—'}
                       </span>

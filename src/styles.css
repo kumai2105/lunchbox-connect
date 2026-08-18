@@ -24,14 +24,22 @@
   box-sizing: border-box;
 }
 
-html,
-body {
+html {
   /* Hard stop: no page may ever scroll sideways past the viewport, no
      matter what a child element's intrinsic content width demands. Real
      overflow sources (flex children without min-width:0, fixed-width
      boxes, nowrap text) still get fixed at the source below — this is the
      backstop so a future one can't reintroduce whole-page horizontal
-     scroll on a phone again. */
+     scroll on a phone again.
+     IMPORTANT: this goes on html ONLY, never also on body. Setting it on
+     both forces two separate nested scroll containers (a well-known CSS
+     overflow quirk: an element with overflow-x != visible and
+     overflow-y == visible has its overflow-y silently forced to auto),
+     and .sidebar's position:sticky then sticks to the wrong one — it did
+     exactly that here, rendering as a half-height sidebar with a dead
+     gap above the avatar. html alone is safe because the UA already
+     treats the root element's overflow as controlling the viewport
+     itself rather than adding an extra nested scrolling box. */
   overflow-x: hidden;
 }
 
@@ -1030,6 +1038,18 @@ tbody tr:last-child td {
   }
   .form-row {
     grid-template-columns: 1fr;
+  }
+  th,
+  td {
+    padding: 9px 10px;
+  }
+  /* Dashboard's 6-column summary table can't fit a phone width even with
+     .card's own internal scroll working (18px/side cell padding * 6
+     columns is wider than any phone regardless) — drop the two least
+     essential columns instead of relying on a horizontal swipe inside a
+     vertically-scrolling page, which is what was actually failing. */
+  .dash-table .col-secondary {
+    display: none;
   }
 }
 
