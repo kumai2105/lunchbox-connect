@@ -471,6 +471,48 @@ textarea {
   margin-top: 12px;
   cursor: pointer;
 }
+.review-body {
+  padding: 16px 18px 18px;
+}
+.review-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+  margin-bottom: 6px;
+}
+.review-body textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #dde4e1;
+  border-radius: 9px;
+  font-size: 13.5px;
+  background: #fbfcfc;
+  outline: none;
+  resize: vertical;
+}
+.review-body textarea:focus {
+  border-color: var(--brand);
+  background: #fff;
+}
+.review-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.review-actions .spacer {
+  flex: 1;
+}
+.review-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
 .period-cell {
   display: inline-flex;
   align-items: center;

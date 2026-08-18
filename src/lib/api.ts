@@ -526,6 +526,49 @@ export async function notesForServing(recordIds: string[]): Promise<ApiResult<Se
   return { data: (data ?? []) as ServingNote[], error: null };
 }
 
+// Parent-safe review queue (blueprint Parts 66-67). A staff note is internal
+// until a reviewer publishes it: `published_at is null` IS the pending state,
+// and the serving_notes RLS policy independently prevents a parent from
+// reading an unpublished body regardless of what any screen does.
+export interface PendingNote extends ServingNote {
+  record: {
+    id: string;
+    student_id: string;
+    serving_date: string;
+    period: AppPeriod;
+    class_id: string | null;
+    student: { given_name: string; family_name: string; student_no: string } | null;
+  } | null;
+}
+
+export async function pendingParentNotes(): Promise<ApiResult<PendingNote[]>> {
+  const { data, error } = await supabase
+    .from('serving_notes')
+    .select(
+      '*, record:serving_records!inner(id,student_id,serving_date,period,class_id,student:students(given_name,family_name,student_no))',
+    )
+    .is('published_at', null)
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (error) return err(error);
+  return { data: (data ?? []) as unknown as PendingNote[], error: null };
+}
+
+/** Approve a reviewed note for the child's family, optionally with redactions. */
+export async function publishParentNote(
+  noteId: string,
+  body: string,
+): Promise<ApiResult<ServingNote>> {
+  const { data, error } = await supabase
+    .from('serving_notes')
+    .update({ body, published_at: new Date().toISOString() })
+    .eq('id', noteId)
+    .select()
+    .single();
+  if (error) return err(error);
+  return { data: data as ServingNote, error: null };
+}
+
 export async function upsertServingNote(
   servingRecordId: string,
   body: string,

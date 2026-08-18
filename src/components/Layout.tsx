@@ -19,6 +19,7 @@ const PAGE_TITLES: Record<string, [string, string]> = {
   audit: ['Audit', 'LunchBox Connect /'],
   menu: ['4-week menu', 'LunchBox Connect /'],
   analytics: ['Meal analytics', 'LunchBox Connect /'],
+  review: ['Parent-safe updates', 'LunchBox Connect /'],
   today: ['Today — serving', 'LunchBox Connect /'],
   kitchen: ['Kitchen production', 'LunchBox Connect /'],
   deliveries: ['Deliveries', 'LunchBox Connect /'],

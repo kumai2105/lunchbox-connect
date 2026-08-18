@@ -17,6 +17,7 @@ export type Resource =
   | 'status'
   | 'menu'
   | 'analytics'
+  | 'review'
   | 'today'
   | 'kitchen'
   | 'kitchens'
@@ -58,6 +59,12 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
   // is the only approved "management" role (Decision 007); v_meal_performance
   // and the raw records are RLS-scoped independently of this matrix.
   analytics: { super_admin: ['view'] },
+  // Parent-safe note review (blueprint Parts 66-67). Institution-side admins
+  // review their own staff's notes; serving_notes RLS scopes the rows.
+  review: {
+    super_admin: ['view', 'publish'],
+    school_admin: ['view', 'publish'],
+  },
   menu: {
     super_admin: ['view', 'create', 'update', 'delete', 'publish'],
     school_admin: ['view'],
