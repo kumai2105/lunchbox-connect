@@ -38,6 +38,7 @@ README only. The full spec pack introduced corrections:
 | Parent portal                            | ✅               | own child, published notes, published menu w/ ingredient detail |
 | Audit                                    | ✅               | super-admin view; students/menus/users writes captured          |
 | Kitchen production demand                | ✅ (counts only) | derived eligible counts; formula BLOCKED_BY_SPEC                |
+| Kitchen entity (decoupled from Institution) | ✅            | `kitchens` table; Jazeel Restaurant seeded as current active Kitchen; Super-Admin-only provisioning enforced in SQL (0013, docs/13 Decision 031) |
 | Class-scope isolation (AT-032/081)       | ✅               | enforced in SQL                                                 |
 
 ## Honest shells — BLOCKED_BY_SPEC (never invented)
