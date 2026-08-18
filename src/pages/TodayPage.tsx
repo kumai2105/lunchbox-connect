@@ -35,6 +35,7 @@ import {
 } from '../components/ui';
 import { BEHAVIOR_LABEL, LOW_INTAKE_REASON_LABEL, isLowIntake } from '../lib/mealAnalytics';
 import { initials, todayISO } from '../lib/format';
+import { Icon, type IconName } from '../components/icons';
 
 const PERIOD_META: Array<{ period: AppPeriod; label: string; time: string }> = [
   { period: 'breakfast', label: 'Breakfast', time: '11:00–11:25' },
@@ -348,15 +349,15 @@ export default function TodayPage() {
           <div className="roster-strip">
             {roster.map((s, i) => {
               const r = byStudent[s.id];
-              const badge = !r
-                ? ''
+              const badge: IconName | null = !r
+                ? null
                 : r.served_status === 'not_served'
-                  ? '⏳'
+                  ? 'clock'
                   : r.concern_observed
-                    ? '⚠️'
+                    ? 'alertTriangle'
                     : r.behavior === 'refused'
-                      ? '🚫'
-                      : '✅';
+                      ? 'xCircle'
+                      : 'checkCircle';
               return (
                 <button
                   key={s.id}
@@ -368,7 +369,9 @@ export default function TodayPage() {
                     initials={initials(`${s.given_name} ${s.family_name}`)}
                     size="sm"
                   />
-                  <span className="status-badge">{badge || '·'}</span>
+                  <span className={`status-badge${badge ? ` sb-${badge}` : ''}`}>
+                    {badge ? <Icon name={badge} size={12} /> : '·'}
+                  </span>
                   <span className="name">{s.given_name}</span>
                 </button>
               );
@@ -405,7 +408,11 @@ export default function TodayPage() {
               {student.given_name} {student.family_name}
             </div>
             <div className="focus-sub">{student.student_no}</div>
-            {allergyNote && <div className="focus-allergy">⚠ {allergyNote}</div>}
+            {allergyNote && (
+              <div className="focus-allergy">
+                <Icon name="alertTriangle" size={13} /> {allergyNote}
+              </div>
+            )}
 
             {rec?.served_status === 'not_served' ? (
               <Banner kind="warn">
@@ -467,7 +474,13 @@ export default function TodayPage() {
                   openNoteModal();
                 }}
               >
-                {draft.concern ? '⚠ Concern flagged' : 'Flag a concern'}
+                {draft.concern ? (
+                  <>
+                    <Icon name="alertTriangle" size={13} /> Concern flagged
+                  </>
+                ) : (
+                  'Flag a concern'
+                )}
               </button>
               <button onClick={openNoteModal}>
                 {notes[rec?.id ?? '']?.body ? 'Edit note' : 'Add note'}

@@ -1,9 +1,10 @@
 import type { AppRole } from './types';
+import type { IconName } from '../components/icons';
 
 export interface NavItem {
   page: string;
   label: string;
-  icon: string;
+  icon: IconName;
   shell?: boolean; // NOT_YET_DEFINED spec area — honest shell, no invented features
   // Reachable and access-controlled the same as any other page, but not
   // listed in the sidebar — Classes always belongs to one Institution
@@ -15,46 +16,46 @@ export interface NavItem {
 // Nine approved role domains from docs/02 + docs/06 screen inventory.
 export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
   super_admin: [
-    { page: 'dashboard', label: 'Command center', icon: '⌂' },
-    { page: 'institutions', label: 'Institutions', icon: '🏛' },
-    { page: 'users', label: 'Users', icon: '👤' },
-    { page: 'students', label: 'Students', icon: '👪' },
-    { page: 'guardians', label: 'Parents / guardians', icon: '👨👩👧' },
+    { page: 'dashboard', label: 'Command center', icon: 'home' },
+    { page: 'institutions', label: 'Institutions', icon: 'building' },
+    { page: 'users', label: 'Users', icon: 'user' },
+    { page: 'students', label: 'Students', icon: 'users' },
+    { page: 'guardians', label: 'Parents / guardians', icon: 'heart' },
     // Reached from within an Institution's row (Manage classes →), not the
     // sidebar — a Class always belongs to exactly one Institution.
-    { page: 'classes', label: 'Classes', icon: '🗀', hidden: true },
-    { page: 'status', label: 'Status / eligibility', icon: '✓' },
-    { page: 'menu', label: 'Menus', icon: '🍱' },
-    { page: 'today', label: 'Serving (Today)', icon: '☀' },
-    { page: 'kitchen', label: 'Kitchen production', icon: '🍳' },
-    { page: 'deliveries', label: 'Deliveries', icon: '🚚', shell: true },
-    { page: 'reports', label: 'Reporting', icon: '📊', shell: true },
-    { page: 'audit', label: 'Audit', icon: '📋' },
+    { page: 'classes', label: 'Classes', icon: 'folder', hidden: true },
+    { page: 'status', label: 'Status / eligibility', icon: 'checkCircle' },
+    { page: 'menu', label: 'Menus', icon: 'utensils' },
+    { page: 'today', label: 'Serving (Today)', icon: 'sun' },
+    { page: 'kitchen', label: 'Kitchen production', icon: 'flame' },
+    { page: 'deliveries', label: 'Deliveries', icon: 'truck', shell: true },
+    { page: 'reports', label: 'Reporting', icon: 'barChart', shell: true },
+    { page: 'audit', label: 'Audit', icon: 'clipboardList' },
   ],
   school_admin: [
-    { page: 'dashboard', label: 'Dashboard', icon: '⌂' },
-    { page: 'students', label: 'Students', icon: '👪' },
-    { page: 'guardians', label: 'Parents / guardians', icon: '👨👩👧' },
-    { page: 'classes', label: 'Classes', icon: '🗀' },
-    { page: 'menu', label: 'Menus', icon: '🍱' },
-    { page: 'today', label: 'Today — serving', icon: '☀' },
-    { page: 'absences', label: 'Absences', icon: '∅', shell: true },
-    { page: 'deliveries', label: 'Deliveries', icon: '🚚', shell: true },
-    { page: 'reports', label: 'Reporting', icon: '📊', shell: true },
+    { page: 'dashboard', label: 'Dashboard', icon: 'home' },
+    { page: 'students', label: 'Students', icon: 'users' },
+    { page: 'guardians', label: 'Parents / guardians', icon: 'heart' },
+    { page: 'classes', label: 'Classes', icon: 'folder' },
+    { page: 'menu', label: 'Menus', icon: 'utensils' },
+    { page: 'today', label: 'Today — serving', icon: 'sun' },
+    { page: 'absences', label: 'Absences', icon: 'xCircle', shell: true },
+    { page: 'deliveries', label: 'Deliveries', icon: 'truck', shell: true },
+    { page: 'reports', label: 'Reporting', icon: 'barChart', shell: true },
   ],
-  operations_manager: [{ page: 'ops', label: 'Ops log & issues', icon: '🔧', shell: true }],
-  finance_owner: [{ page: 'reports', label: 'Reports', icon: '📊', shell: true }],
-  viewer: [{ page: 'reports', label: 'Reports (read-only)', icon: '📊', shell: true }],
-  parent: [{ page: 'parent', label: 'My child', icon: '🏠' }],
+  operations_manager: [{ page: 'ops', label: 'Ops log & issues', icon: 'wrench', shell: true }],
+  finance_owner: [{ page: 'reports', label: 'Reports', icon: 'barChart', shell: true }],
+  viewer: [{ page: 'reports', label: 'Reports (read-only)', icon: 'barChart', shell: true }],
+  parent: [{ page: 'parent', label: 'My child', icon: 'home' }],
   classroom_staff: [
-    { page: 'today', label: 'Today — serving', icon: '☀' },
-    { page: 'students', label: 'My students', icon: '👪' },
+    { page: 'today', label: 'Today — serving', icon: 'sun' },
+    { page: 'students', label: 'My students', icon: 'users' },
   ],
   kitchen: [
-    { page: 'kitchen', label: 'Production demand', icon: '🍳' },
-    { page: 'menu', label: 'Menu reference', icon: '🍱' },
+    { page: 'kitchen', label: 'Production demand', icon: 'flame' },
+    { page: 'menu', label: 'Menu reference', icon: 'utensils' },
   ],
-  driver: [{ page: 'deliveries', label: 'My deliveries', icon: '🚚', shell: true }],
+  driver: [{ page: 'deliveries', label: 'My deliveries', icon: 'truck', shell: true }],
 };
 
 export function navFor(role: AppRole): NavItem[] {
@@ -62,5 +63,5 @@ export function navFor(role: AppRole): NavItem[] {
 }
 
 export function canAccessPage(role: AppRole, page: string): boolean {
-  return navFor(role).some((n) => n.page === page);
+  return navFor(role).some((item) => item.page === page);
 }

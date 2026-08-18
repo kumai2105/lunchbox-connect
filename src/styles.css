@@ -200,7 +200,10 @@ textarea {
 }
 .nav a .nav-ico {
   width: 18px;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 .side-card {
   margin: 16px 14px;
@@ -364,6 +367,9 @@ textarea {
   border: 1px solid #eef2f0;
 }
 .stat .label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   color: var(--ink-3);
   font-weight: 700;
@@ -663,13 +669,15 @@ tbody tr:last-child td {
   border-top: 1px solid #eef2f0;
 }
 .icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: 1px solid #dde3e1;
   border-radius: 8px;
   width: 30px;
   height: 30px;
   color: var(--ink-3);
-  font-size: 14px;
 }
 .icon-btn:hover {
   color: var(--brand);
@@ -952,9 +960,11 @@ tbody tr:last-child td {
   border-left-color: var(--ink-3);
 }
 .tmc-icon {
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 26px;
-  text-align: center;
+  color: var(--ink-2);
   flex-shrink: 0;
 }
 .tmc-body {
@@ -1153,6 +1163,9 @@ tbody tr:last-child td {
   color: var(--ink-3);
 }
 .focus-allergy {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 12.5px;
   font-weight: 700;
   color: #b45309;
@@ -1286,7 +1299,23 @@ tbody tr:last-child td {
   border-color: var(--brand);
 }
 .roster-chip .status-badge {
-  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 12px;
+  color: var(--ink-3);
+}
+.roster-chip .status-badge.sb-checkCircle {
+  color: var(--green);
+}
+.roster-chip .status-badge.sb-clock {
+  color: var(--amber);
+}
+.roster-chip .status-badge.sb-xCircle {
+  color: var(--red);
+}
+.roster-chip .status-badge.sb-alertTriangle {
+  color: #b45309;
 }
 .roster-chip .name {
   font-size: 10.5px;

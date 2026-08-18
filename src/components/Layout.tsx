@@ -3,6 +3,7 @@ import { useAuth } from '../lib/auth';
 import { navFor } from '../lib/roles';
 import { initials } from '../lib/format';
 import { Btn } from './ui';
+import { Icon } from './icons';
 
 // Every route in App.tsx needs an entry here, or its topbar silently falls
 // back to showing "Dashboard" regardless of which page is actually open —
@@ -91,7 +92,9 @@ export default function Layout() {
                 to={`/${item.page}`}
                 className={page === item.page ? 'active' : ''}
               >
-                <span className="nav-ico">{item.icon}</span>
+                <span className="nav-ico">
+                  <Icon name={item.icon} size={17} />
+                </span>
                 <span>{item.label}</span>
               </Link>
             ))}

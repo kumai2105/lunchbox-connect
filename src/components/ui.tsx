@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { Icon, type IconName } from './icons';
 
 // Fast visual Student identification (docs/13 Decision 032 §5) — an optional
 // photo with an initials fallback, never a broken-image state.
@@ -50,14 +51,19 @@ export function StatCard({
   label,
   value,
   trend,
+  icon,
 }: {
   label: string;
   value: ReactNode;
   trend?: string;
+  icon?: IconName;
 }) {
   return (
     <div className="stat">
-      <div className="label">{label}</div>
+      <div className="label">
+        {icon && <Icon name={icon} size={14} />}
+        {label}
+      </div>
       <div className="value">{value}</div>
       {trend && <div className="trend">{trend}</div>}
     </div>
@@ -159,7 +165,7 @@ export function Modal({
           <h3>{title}</h3>
           <div className="spacer" />
           <button className="icon-btn" onClick={onClose} aria-label="Close">
-            ✕
+            <Icon name="x" size={15} />
           </button>
         </div>
         <div className="modal-body">{children}</div>

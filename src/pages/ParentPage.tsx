@@ -8,6 +8,7 @@ import {
 } from '../lib/api';
 import type { AppPeriod, MenuItem, ServingNote, ServingRecord, Student } from '../lib/types';
 import { Avatar, Banner, Card, EmptyState, PageHead, Spinner } from '../components/ui';
+import { Icon, type IconName } from '../components/icons';
 import { WEEKDAY_NAMES, initials, isoWeek, isoWeekday, todayISO } from '../lib/format';
 import { consumptionHumanLabel, isValidPreferenceObservation } from '../lib/mealAnalytics';
 
@@ -25,11 +26,11 @@ interface PeriodRecord {
   note?: ServingNote;
 }
 
-const PERIOD_ICON: Record<AppPeriod, string> = {
-  breakfast: '🌅',
-  snack: '🍎',
-  lunch: '🍱',
-  afternoon_snack: '🍪',
+const PERIOD_ICON: Record<AppPeriod, IconName> = {
+  breakfast: 'sunrise',
+  snack: 'apple',
+  lunch: 'utensils',
+  afternoon_snack: 'cookie',
 };
 
 function recordedTime(iso: string): string {
@@ -164,7 +165,11 @@ export default function ParentPage() {
                   <div className="kid-summary">
                     Today's meals: {completed} of {PERIOD_ORDER.length} completed
                   </div>
-                  {allergyNote && <div className="focus-allergy">⚠ {allergyNote}</div>}
+                  {allergyNote && (
+                    <div className="focus-allergy">
+                      <Icon name="alertTriangle" size={13} /> {allergyNote}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -177,7 +182,9 @@ export default function ParentPage() {
                   if (!p) {
                     return (
                       <div className="today-meal-card wait" key={period}>
-                        <span className="tmc-icon">{PERIOD_ICON[period]}</span>
+                        <span className="tmc-icon">
+                          <Icon name={PERIOD_ICON[period]} size={16} />
+                        </span>
                         <div className="tmc-body">
                           <div className="tmc-period">{PERIOD_LABEL[period]}</div>
                           <div className="tmc-meta">
@@ -206,7 +213,9 @@ export default function ParentPage() {
                         : 'danger';
                   return (
                     <div className={`today-meal-card ${tone}`} key={period}>
-                      <span className="tmc-icon">{PERIOD_ICON[period]}</span>
+                      <span className="tmc-icon">
+                        <Icon name={PERIOD_ICON[period]} size={16} />
+                      </span>
                       <div className="tmc-body">
                         <div className="tmc-period">
                           {PERIOD_LABEL[period]}{' '}

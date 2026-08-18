@@ -48,19 +48,27 @@ export default function DashboardPage() {
       {error && <Banner kind="err">{error}</Banner>}
 
       <div className="stat-grid">
-        <StatCard label="🏛 Institutions" value={rows.length} trend="across the chain" />
         <StatCard
-          label="👪 Active students"
+          icon="building"
+          label="Institutions"
+          value={rows.length}
+          trend="across the chain"
+        />
+        <StatCard
+          icon="users"
+          label="Active students"
           value={activeStudents.toLocaleString()}
           trend="enrolled"
         />
         <StatCard
-          label="✓ Operationally eligible"
+          icon="checkCircle"
+          label="Operationally eligible"
           value={eligibleStudents}
           trend="ACTIVE_BILLABLE_TO_NURSERY"
         />
         <StatCard
-          label="🍱 Meals recorded today"
+          icon="utensils"
+          label="Meals recorded today"
           value={mealsToday.toLocaleString()}
           trend="against the roster"
         />
