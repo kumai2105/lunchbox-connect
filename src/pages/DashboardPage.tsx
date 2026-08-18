@@ -1,8 +1,21 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { dashboardSummary, mealPerformance, productionDemand } from '../lib/api';
-import type { DashboardInstitutionRow, MealPerformanceRow, ProductionDemandRow } from '../lib/types';
-import { Banner, Card, EmptyState, PageHead, Pill, Spinner, StatCard, StatusDot } from '../components/ui';
+import type {
+  DashboardInstitutionRow,
+  MealPerformanceRow,
+  ProductionDemandRow,
+} from '../lib/types';
+import {
+  Banner,
+  Card,
+  EmptyState,
+  PageHead,
+  Pill,
+  Spinner,
+  StatCard,
+  StatusDot,
+} from '../components/ui';
 import { useRole } from '../lib/auth';
 import { classifyMealPerformance } from '../lib/mealAnalytics';
 
@@ -52,7 +65,8 @@ export default function DashboardPage() {
         )
       : null;
   const totalRefusals = meals.reduce((sum, m) => sum + m.refusal_count, 0);
-  const refusalRate = totalValidObs > 0 ? Math.round((totalRefusals / totalValidObs) * 1000) / 10 : null;
+  const refusalRate =
+    totalValidObs > 0 ? Math.round((totalRefusals / totalValidObs) * 1000) / 10 : null;
 
   return (
     <div>

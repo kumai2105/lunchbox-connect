@@ -184,6 +184,25 @@ export async function servingHistoryForStudent(
   return { data: (data ?? []) as ServingRecord[], error: null };
 }
 
+// All meal records for one child across a date range, in ONE query. The
+// parent view previously issued 4 periods x 7 days = 28 sequential requests
+// per child to assemble the same thing.
+export async function servingRangeForStudent(
+  studentId: string,
+  from: string,
+  to: string,
+): Promise<ApiResult<ServingRecord[]>> {
+  const { data, error } = await supabase
+    .from('serving_records')
+    .select('*')
+    .eq('student_id', studentId)
+    .gte('serving_date', from)
+    .lte('serving_date', to)
+    .order('serving_date', { ascending: false });
+  if (error) return err(error);
+  return { data: (data ?? []) as ServingRecord[], error: null };
+}
+
 // Guardian accounts linked to one Student (blueprint Part 15/45).
 export async function guardiansForStudent(studentId: string): Promise<ApiResult<AppUser[]>> {
   const { data, error } = await supabase

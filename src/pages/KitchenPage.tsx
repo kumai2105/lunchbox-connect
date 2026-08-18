@@ -68,9 +68,8 @@ export default function KitchenPage() {
         eligible for service. It is deliberately not labelled "portions": the production formula
         (per-period package sizing, wastage allowance, dietary substitutions) is{' '}
         <b>NOT_YET_DEFINED</b>, so this screen shows the inputs a human needs and stops short of
-        inventing the calculation. Packing and dispatch-readiness states are{' '}
-        <b>BLOCKED_BY_SPEC</b> for the same reason — the delivery state machine has no approved
-        values yet.
+        inventing the calculation. Packing and dispatch-readiness states are <b>BLOCKED_BY_SPEC</b>{' '}
+        for the same reason — the delivery state machine has no approved values yet.
       </Banner>
 
       {error && <Banner kind="err">{error}</Banner>}

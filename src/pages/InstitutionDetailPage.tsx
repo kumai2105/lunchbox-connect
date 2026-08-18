@@ -82,7 +82,8 @@ export default function InstitutionDetailPage() {
   );
 
   if (loading) return <Spinner />;
-  if (error && !institution) return <EmptyState text={`Could not load this institution: ${error}`} />;
+  if (error && !institution)
+    return <EmptyState text={`Could not load this institution: ${error}`} />;
   if (!institution) {
     return (
       <EmptyState text="This institution does not exist, or your account is not authorized to see it." />
@@ -104,7 +105,12 @@ export default function InstitutionDetailPage() {
       {error && <Banner kind="err">{error}</Banner>}
 
       <div className="stat-grid">
-        <StatCard icon="folder" label="Classes" value={classes.length} trend="in this institution" />
+        <StatCard
+          icon="folder"
+          label="Classes"
+          value={classes.length}
+          trend="in this institution"
+        />
         <StatCard icon="users" label="Students" value={students.length} trend="on the roster" />
         <StatCard
           icon="checkCircle"

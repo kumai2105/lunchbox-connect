@@ -284,7 +284,10 @@ export default function MealAnalyticsPage() {
           <div className="chart-grid">
             <Card title="Consumption distribution" hint="valid observations">
               <div style={{ padding: 18 }}>
-                <BarChart data={distributionData} emptyText="No valid observations to distribute." />
+                <BarChart
+                  data={distributionData}
+                  emptyText="No valid observations to distribute."
+                />
               </div>
             </Card>
             <Card title="Low-intake reasons" hint="all observations, including excluded ones">

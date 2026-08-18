@@ -221,7 +221,12 @@ export default function StudentProfilePage() {
       )}
 
       <div className="stat-grid">
-        <StatCard icon="clipboardList" label="Meals recorded" value={stats.recorded} trend="all time" />
+        <StatCard
+          icon="clipboardList"
+          label="Meals recorded"
+          value={stats.recorded}
+          trend="all time"
+        />
         <StatCard
           icon="checkCircle"
           label="Average intake"
@@ -229,7 +234,12 @@ export default function StudentProfilePage() {
           trend={`${stats.valid} valid observations`}
         />
         <StatCard icon="xCircle" label="Refusals" value={stats.refusals} trend="recorded" />
-        <StatCard icon="alertTriangle" label="Concerns flagged" value={stats.concerns} trend="recorded" />
+        <StatCard
+          icon="alertTriangle"
+          label="Concerns flagged"
+          value={stats.concerns}
+          trend="recorded"
+        />
       </div>
 
       <Card title="Placement" hint="the authoritative institution and class assignment">
@@ -380,12 +390,7 @@ export default function StudentProfilePage() {
         </Banner>
       )}
 
-      <Btn
-        variant="ghost"
-        onClick={() => void load()}
-        disabled={busy}
-        style={{ marginBottom: 24 }}
-      >
+      <Btn variant="ghost" onClick={() => void load()} disabled={busy} style={{ marginBottom: 24 }}>
         Refresh
       </Btn>
     </div>

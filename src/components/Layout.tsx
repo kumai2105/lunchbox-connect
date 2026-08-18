@@ -76,6 +76,17 @@ export default function Layout() {
   const role = profile.role;
   const nav = navFor(role);
 
+  // The Parent portal is a different product surface, not a narrow version of
+  // the admin one (blueprint Parts 4/70): no sidebar, no operational chrome,
+  // its own bottom navigation. ParentShell renders that chrome itself.
+  if (role === 'parent') {
+    return (
+      <div className="parent-root">
+        <Outlet />
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">

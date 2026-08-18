@@ -17,7 +17,11 @@ import MenuPage from './pages/MenuPage';
 import MealAnalyticsPage from './pages/MealAnalyticsPage';
 import TodayPage from './pages/TodayPage';
 import UsersPage from './pages/UsersPage';
-import ParentPage from './pages/ParentPage';
+import ParentShell from './pages/parent/ParentShell';
+import ParentHome from './pages/parent/ParentHome';
+import ParentMenu from './pages/parent/ParentMenu';
+import ParentInsights from './pages/parent/ParentInsights';
+import ParentProfile from './pages/parent/ParentProfile';
 import KitchenPage from './pages/KitchenPage';
 import DeliveriesPage from './pages/DeliveriesPage';
 import ReportsPage from './pages/ReportsPage';
@@ -203,10 +207,15 @@ export default function App() {
               path="/parent"
               element={
                 <Page page="parent">
-                  <ParentPage />
+                  <ParentShell />
                 </Page>
               }
-            />
+            >
+              <Route index element={<ParentHome />} />
+              <Route path="menu" element={<ParentMenu />} />
+              <Route path="insights" element={<ParentInsights />} />
+              <Route path="profile" element={<ParentProfile />} />
+            </Route>
           </Route>
           <Route path="*" element={<Home />} />
         </Routes>
