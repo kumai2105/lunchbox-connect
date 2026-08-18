@@ -24,6 +24,17 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  /* Hard stop: no page may ever scroll sideways past the viewport, no
+     matter what a child element's intrinsic content width demands. Real
+     overflow sources (flex children without min-width:0, fixed-width
+     boxes, nowrap text) still get fixed at the source below — this is the
+     backstop so a future one can't reintroduce whole-page horizontal
+     scroll on a phone again. */
+  overflow-x: hidden;
+}
+
 body {
   font-family:
     'Segoe UI',
@@ -253,17 +264,30 @@ textarea {
   top: 0;
   z-index: 5;
 }
+.topbar .title-block {
+  /* flex children default to min-width:auto (their full content width),
+     which is what forced the whole topbar - and with it the whole page -
+     wider than a phone screen. min-width:0 lets it actually shrink. */
+  min-width: 0;
+}
 .topbar .crumb {
   color: var(--ink-3);
   font-size: 12px;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .topbar h2 {
   font-size: 17px;
   letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .topbar .spacer {
   flex: 1;
+  min-width: 8px;
 }
 .content {
   padding: 24px 28px 48px;
@@ -997,7 +1021,9 @@ tbody tr:last-child td {
     padding: 16px 16px 40px;
   }
   .search {
-    width: 150px;
+    /* disabled/non-functional placeholder box; on a phone it's just dead
+       weight competing with the title and the date chip for room */
+    display: none;
   }
   .menu-grid {
     grid-template-columns: 1fr;

@@ -112,7 +112,7 @@ export default function Layout() {
 
       <div className="main">
         <div className="topbar">
-          <div>
+          <div className="title-block">
             <div className="crumb">{title[1]}</div>
             <h2>{title[0]}</h2>
           </div>
