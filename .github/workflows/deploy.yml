@@ -1,0 +1,50 @@
+name: Deploy to Cloudflare
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/new-session-k5dd5u]
+
+concurrency:
+  group: deploy-cloudflare
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build and deploy Worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Skips cleanly (instead of failing) until the two Cloudflare secrets exist —
+    # see the repo Settings > Secrets and variables > Actions.
+    if: secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm (from packageManager)
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the frontend
+        env:
+          # The Supabase anon key is public-by-design (RLS enforces access, not
+          # secrecy — see .env.example) and ships inside the built JS bundle
+          # regardless of how it's deployed, so it is not a GitHub secret.
+          VITE_SUPABASE_URL: https://llnofriwvnerntrbpehc.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxsbm9mcml3dm5lcm50cmJwZWhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNDUwNjAsImV4cCI6MjEwMjYyMTA2MH0.aE04Weq-Yu2ElnjxZS-JUIGDdC33tArSReeSjYhObYo
+        run: pnpm build
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
