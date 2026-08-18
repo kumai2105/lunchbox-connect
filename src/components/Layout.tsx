@@ -4,14 +4,25 @@ import { navFor } from '../lib/roles';
 import { initials } from '../lib/format';
 import { Btn } from './ui';
 
+// Every route in App.tsx needs an entry here, or its topbar silently falls
+// back to showing "Dashboard" regardless of which page is actually open —
+// that was true for half the routes (guardians/status/audit/kitchen/
+// deliveries/reports/ops/absences) until this was filled in.
 const PAGE_TITLES: Record<string, [string, string]> = {
   dashboard: ['Dashboard', 'LunchBox Connect /'],
   institutions: ['Institutions', 'LunchBox Connect /'],
   students: ['Students', 'LunchBox Connect /'],
+  guardians: ['Parents / guardians', 'LunchBox Connect /'],
   classes: ['Classes', 'LunchBox Connect /'],
-  eligibility: ['Eligibility', 'LunchBox Connect /'],
+  status: ['Status / eligibility', 'LunchBox Connect /'],
+  audit: ['Audit', 'LunchBox Connect /'],
   menu: ['4-week menu', 'LunchBox Connect /'],
   today: ['Today — serving', 'LunchBox Connect /'],
+  kitchen: ['Kitchen production', 'LunchBox Connect /'],
+  deliveries: ['Deliveries', 'LunchBox Connect /'],
+  reports: ['Reporting', 'LunchBox Connect /'],
+  ops: ['Ops log & issues', 'LunchBox Connect /'],
+  absences: ['Absences', 'LunchBox Connect /'],
   users: ['Users & roles', 'LunchBox Connect /'],
   parent: ['Parent view', 'LunchBox Connect /'],
 };

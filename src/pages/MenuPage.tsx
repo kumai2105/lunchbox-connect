@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { listMenu, publishMenuWeek, saveMenuItem } from '../lib/api';
 import type { AppPeriod, MenuItem } from '../lib/types';
 import { Btn, Banner, Card, Field, Modal, PageHead, Spinner } from '../components/ui';
-import { WEEKDAY_NAMES } from '../lib/format';
+import { WEEKDAY_NAMES, isoWeek } from '../lib/format';
 import { can } from '../lib/rbac';
 import { useRole } from '../lib/auth';
 
@@ -13,17 +13,6 @@ const PERIOD_LABEL: Record<AppPeriod, string> = {
   lunch: 'Lunch',
   afternoon_snack: 'Afternoon snack',
 };
-
-// ISO week number helper (menu "week" is the platform week, defaults to the
-// calendar ISO week for a deterministic starting grid).
-function isoWeek(d: Date): number {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayNum = (date.getUTCDay() + 6) % 7;
-  date.setUTCDate(date.getUTCDate() - dayNum + 3);
-  const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
-  const diff = (+date - +firstThursday) / (7 * 24 * 3600 * 1000);
-  return 1 + Math.round((diff + 1) / 7);
-}
 
 interface MenuUploadRow {
   week_number: number;

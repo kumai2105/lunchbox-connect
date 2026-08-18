@@ -3,6 +3,7 @@ import ShellPage from './ShellPage';
 import { mealPerformance } from '../lib/api';
 import type { MealPerformanceRow } from '../lib/types';
 import { Banner, Card, EmptyState, PageHead, Pill, Spinner } from '../components/ui';
+import { useRole } from '../lib/auth';
 
 /**
  * Reporting (docs/02 §16/18, docs/09 AT-100): Finance / Owner sees REPORTS
@@ -11,12 +12,13 @@ import { Banner, Card, EmptyState, PageHead, Pill, Spinner } from '../components
  * Decision 032) are now defined and shown to Super Admin — the only
  * "management" role that exists, per Decision 007 — derived from the same
  * Classroom Meal Records Staff record once, never entered twice.
+ *
+ * Reads the actual signed-in role via useRole() — this page is reachable by
+ * four different roles (docs/02 §49) and must render each one's own scope,
+ * not whichever role happened to be hardcoded at the call site.
  */
-export default function ReportsPage({
-  role,
-}: {
-  role: 'school_admin' | 'finance_owner' | 'viewer' | 'super_admin';
-}) {
+export default function ReportsPage() {
+  const role = useRole();
   if (role === 'super_admin') return <MealPerformance />;
 
   const scope =

@@ -93,6 +93,24 @@ export async function createClass(input: {
   return { data: data as ClassRow, error: null };
 }
 
+// classes.teacher_id is what actually drives a classroom_staff user's RLS
+// scope (app_can_see_class / app_can_record_in_class, migrations 0010/0011)
+// — without a way to set it, the Classroom Staff role can never see a
+// roster. Pass null to unassign.
+export async function assignClassStaff(
+  classId: string,
+  teacherId: string | null,
+): Promise<ApiResult<ClassRow>> {
+  const { data, error } = await supabase
+    .from('classes')
+    .update({ teacher_id: teacherId })
+    .eq('id', classId)
+    .select()
+    .single();
+  if (error) return err(error);
+  return { data: data as ClassRow, error: null };
+}
+
 // ---------------------------------------------------------------- students
 export interface StudentFilters {
   institutionId?: string | null;
@@ -199,12 +217,27 @@ export async function setOperationalStatus(
 }
 
 export async function listGuardians(): Promise<ApiResult<StudentParentLink[]>> {
+  // student_parents (0002) has no created_at column — it's a plain link
+  // table (user_id, student_id) with no independent ordering column, so this
+  // query errored on every load. Caller sorts by the embedded student name.
   const { data, error } = await supabase
     .from('student_parents')
-    .select('*, student:students(given_name, family_name, student_no)')
-    .order('created_at', { ascending: false });
+    .select('*, student:students(given_name, family_name, student_no)');
   if (error) return err(error);
   return { data: (data ?? []) as unknown as StudentParentLink[], error: null };
+}
+
+// Links an existing Parent-role user to a Student (docs/04 §9 confirms the
+// Guardian<->Student relationship; one-to-many/primary-guardian/removal
+// nuances are explicitly NOT_YET_DEFINED, so this is the plain link only —
+// creation, not those undefined refinements). Gated by the same
+// app_can_manage_student RLS check as everything else about a Student.
+export async function linkGuardian(studentId: string, userId: string): Promise<ApiResult<null>> {
+  const { error } = await supabase
+    .from('student_parents')
+    .insert({ student_id: studentId, user_id: userId });
+  if (error) return err(error);
+  return { data: null, error: null };
 }
 
 export async function listAudit(): Promise<ApiResult<AuditLogRow[]>> {

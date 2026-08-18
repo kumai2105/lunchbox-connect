@@ -144,7 +144,7 @@ export default function App() {
               path="/deliveries"
               element={
                 <Page page="deliveries">
-                  <DeliveriesPage role="super_admin" />
+                  <DeliveriesPage />
                 </Page>
               }
             />
@@ -152,7 +152,7 @@ export default function App() {
               path="/reports"
               element={
                 <Page page="reports">
-                  <ReportsPage role="super_admin" />
+                  <ReportsPage />
                 </Page>
               }
             />
