@@ -50,8 +50,8 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route index element={<Home />} />
           <Route element={<Layout />}>
-            <Route index element={<Home />} />
             <Route
               path="/dashboard"
               element={
@@ -180,8 +180,8 @@ export default function App() {
                 </Page>
               }
             />
-            <Route path="*" element={<Home />} />
           </Route>
+          <Route path="*" element={<Home />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
