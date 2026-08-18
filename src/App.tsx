@@ -6,7 +6,9 @@ import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import InstitutionsPage from './pages/InstitutionsPage';
+import InstitutionDetailPage from './pages/InstitutionDetailPage';
 import StudentsPage from './pages/StudentsPage';
+import StudentProfilePage from './pages/StudentProfilePage';
 import GuardiansPage from './pages/GuardiansPage';
 import ClassesPage from './pages/ClassesPage';
 import StatusPage from './pages/StatusPage';
@@ -69,6 +71,14 @@ export default function App() {
               }
             />
             <Route
+              path="/institutions/:id"
+              element={
+                <Page page="institutions">
+                  <InstitutionDetailPage />
+                </Page>
+              }
+            />
+            <Route
               path="/users"
               element={
                 <Page page="users">
@@ -81,6 +91,14 @@ export default function App() {
               element={
                 <Page page="students">
                   <StudentsPage />
+                </Page>
+              }
+            />
+            <Route
+              path="/students/:id"
+              element={
+                <Page page="students">
+                  <StudentProfilePage />
                 </Page>
               }
             />

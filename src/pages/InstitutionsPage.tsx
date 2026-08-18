@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { createInstitution, listInstitutions } from '../lib/api';
 import type { Institution } from '../lib/types';
 import { Banner, Btn, Card, EmptyState, Field, Modal, PageHead, Spinner } from '../components/ui';
@@ -78,15 +79,17 @@ export default function InstitutionsPage() {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id}>
-                  <td className="cell-name">{r.name}</td>
+                  <td className="cell-name">
+                    <Link to={`/institutions/${r.id}`}>{r.name}</Link>
+                  </td>
                   <td>
                     <span className="pill slate">{r.kind}</span>
                   </td>
                   <td className="cell-sub">{new Date(r.created_at).toLocaleDateString()}</td>
                   <td>
-                    <a className="btn ghost sm" href={`/classes?institution=${r.id}`}>
-                      Manage classes →
-                    </a>
+                    <Link className="btn ghost sm" to={`/institutions/${r.id}`}>
+                      View details
+                    </Link>
                   </td>
                 </tr>
               ))}

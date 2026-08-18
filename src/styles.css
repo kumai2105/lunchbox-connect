@@ -331,6 +331,66 @@ textarea {
   color: var(--brand-dark);
 }
 
+/* ---------- tabs (Institution / Students & Classes detail views) ---------- */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
+  overflow-x: auto;
+}
+.tab-bar .tab {
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink-3);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.tab-bar .tab:hover {
+  color: var(--ink-2);
+}
+.tab-bar .tab.active {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+}
+
+/* ---------- entity profile header ---------- */
+.profile-head {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  margin-bottom: 18px;
+}
+.profile-identity {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.profile-name {
+  font-size: 19px;
+  letter-spacing: -0.02em;
+}
+.profile-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.profile-photo-btn {
+  margin-top: 12px;
+  cursor: pointer;
+}
+.concern-flag {
+  color: #b45309;
+  display: inline-flex;
+}
+
 /* ---------- page pieces ---------- */
 .page-head {
   display: flex;

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   createStudent,
   listClasses,
@@ -32,8 +33,19 @@ export default function StudentsPage() {
   const [photoUrls, setPhotoUrls] = useState<Record<string, string | null>>({});
   const [error, setError] = useState<string | null>(null);
 
+  // Drill-downs land here pre-filtered (Institution Detail -> Students). The
+  // URL stays the source of truth for the institution filter so the link is
+  // shareable and Back returns to the same filtered view.
+  const [params, setParams] = useSearchParams();
+  const institutionFilter = params.get('institution') ?? '';
+  const setInstitutionFilter = (value: string) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set('institution', value);
+    else next.delete('institution');
+    setParams(next, { replace: true });
+  };
+
   const [term, setTerm] = useState('');
-  const [institutionFilter, setInstitutionFilter] = useState('');
   const [classFilter, setClassFilter] = useState('');
 
   const [showCreate, setShowCreate] = useState(false);
@@ -231,7 +243,9 @@ export default function StudentsPage() {
                       </label>
                     </td>
                     <td className="cell-name">
-                      {s.given_name} {s.family_name}
+                      <Link to={`/students/${s.id}`}>
+                        {s.given_name} {s.family_name}
+                      </Link>
                     </td>
                     <td className="mono cell-sub">{s.student_no}</td>
                     <td>{institutions.find((i) => i.id === s.institution_id)?.name ?? '—'}</td>

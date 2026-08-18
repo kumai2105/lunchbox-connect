@@ -41,7 +41,10 @@ function todayChip(): string {
 export default function Layout() {
   const { profile, session, signOut } = useAuth();
   const location = useLocation();
-  const page = location.pathname.replace('/', '') || 'dashboard';
+  // First path segment only — nested detail routes (/students/:id,
+  // /institutions/:id) must still resolve to their section's title and keep
+  // that section highlighted in the sidebar.
+  const page = location.pathname.split('/').filter(Boolean)[0] ?? 'dashboard';
   const title = PAGE_TITLES[page] ?? ['Dashboard', 'LunchBox Connect /'];
 
   if (!session) return null;

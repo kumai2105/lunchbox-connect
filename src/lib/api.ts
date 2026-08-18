@@ -62,6 +62,31 @@ export async function dashboardSummary(): Promise<ApiResult<DashboardInstitution
   return { data: data as DashboardInstitutionRow[], error: null };
 }
 
+// Single authoritative Institution record — the same row the list renders,
+// fetched by id for the detail view (docs/13 blueprint Part 12). RLS decides
+// whether the caller may see it; a denied row comes back as null, not an error.
+export async function getInstitution(id: string): Promise<ApiResult<Institution | null>> {
+  const { data, error } = await supabase
+    .from('institutions')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) return err(error);
+  return { data: (data as Institution | null) ?? null, error: null };
+}
+
+// Institution-side users (staff). Kitchen/driver users are LunchBox-side and
+// scope to a kitchen, not an institution, so they correctly never appear here.
+export async function staffForInstitution(institutionId: string): Promise<ApiResult<AppUser[]>> {
+  const { data, error } = await supabase
+    .from('app_users')
+    .select('*')
+    .eq('institution_id', institutionId)
+    .order('full_name');
+  if (error) return err(error);
+  return { data: (data ?? []) as AppUser[], error: null };
+}
+
 // ---------------------------------------------------------------- classes
 export interface ClassWithMeta extends ClassRow {
   student_count?: number;
@@ -131,6 +156,43 @@ export async function listStudents(filters: StudentFilters = {}): Promise<ApiRes
   const { data, error } = await q;
   if (error) return err(error);
   return { data: data as Student[], error: null };
+}
+
+// One authoritative Student record, fetched by id for the Student Profile
+// (blueprint Part 15). Every portal that shows this child shows THIS row —
+// there is no per-portal copy.
+export async function getStudent(id: string): Promise<ApiResult<Student | null>> {
+  const { data, error } = await supabase.from('students').select('*').eq('id', id).maybeSingle();
+  if (error) return err(error);
+  return { data: (data as Student | null) ?? null, error: null };
+}
+
+// Meal history for one child, newest first — the same Classroom Meal Records
+// that drive Parent view and Meal analytics (blueprint Part 82/89).
+export async function servingHistoryForStudent(
+  studentId: string,
+  limit = 60,
+): Promise<ApiResult<ServingRecord[]>> {
+  const { data, error } = await supabase
+    .from('serving_records')
+    .select('*')
+    .eq('student_id', studentId)
+    .order('serving_date', { ascending: false })
+    .order('period')
+    .limit(limit);
+  if (error) return err(error);
+  return { data: (data ?? []) as ServingRecord[], error: null };
+}
+
+// Guardian accounts linked to one Student (blueprint Part 15/45).
+export async function guardiansForStudent(studentId: string): Promise<ApiResult<AppUser[]>> {
+  const { data, error } = await supabase
+    .from('student_parents')
+    .select('user:app_users(*)')
+    .eq('student_id', studentId);
+  if (error) return err(error);
+  const rows = (data ?? []) as unknown as Array<{ user: AppUser | null }>;
+  return { data: rows.map((r) => r.user).filter((u): u is AppUser => u !== null), error: null };
 }
 
 export async function createStudent(input: {
