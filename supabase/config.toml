@@ -1,0 +1,17 @@
+# Supabase project configuration (A1-A3 stack decisions).
+# Only signups through the app are blocked before a project is linked.
+
+project_id = "lunchbox-connect"
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = []
+# Accounts are created by admins (Edge Function), never public self-signup.
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+
+[functions.admin-create-user]
+verify_jwt = true
