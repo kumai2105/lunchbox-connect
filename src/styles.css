@@ -938,6 +938,62 @@ tbody tr:last-child td {
   justify-content: center;
 }
 
+.today-meal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 14px;
+}
+.today-meal-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--line);
+  background: #fff;
+}
+.today-meal-card.ok {
+  border-left-color: var(--green);
+}
+.today-meal-card.warn {
+  border-left-color: #f59e0b;
+}
+.today-meal-card.danger {
+  border-left-color: var(--red);
+}
+.today-meal-card.wait {
+  border-left-color: var(--ink-3);
+}
+.tmc-icon {
+  font-size: 18px;
+  width: 26px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.tmc-body {
+  flex: 1;
+  min-width: 0;
+}
+.tmc-period {
+  font-weight: 700;
+  font-size: 13px;
+}
+.tmc-time {
+  font-weight: 500;
+  color: var(--ink-3);
+  font-size: 11.5px;
+}
+.tmc-meta {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .spinner {
   width: 28px;
   height: 28px;

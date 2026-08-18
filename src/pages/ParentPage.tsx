@@ -8,7 +8,7 @@ import {
 } from '../lib/api';
 import type { AppPeriod, MenuItem, ServingNote, ServingRecord, Student } from '../lib/types';
 import { Avatar, Banner, Card, EmptyState, PageHead, Spinner } from '../components/ui';
-import { WEEKDAY_NAMES, initials, isoWeek, todayISO } from '../lib/format';
+import { WEEKDAY_NAMES, initials, isoWeek, isoWeekday, todayISO } from '../lib/format';
 import { consumptionHumanLabel, isValidPreferenceObservation } from '../lib/mealAnalytics';
 
 // Four approved meal periods (docs/02 §26, docs/09 AT-082)
@@ -23,6 +23,17 @@ const PERIOD_LABEL: Record<AppPeriod, string> = {
 interface PeriodRecord {
   record: ServingRecord;
   note?: ServingNote;
+}
+
+const PERIOD_ICON: Record<AppPeriod, string> = {
+  breakfast: '🌅',
+  snack: '🍎',
+  lunch: '🍱',
+  afternoon_snack: '🍪',
+};
+
+function recordedTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
 function last7Dates(): string[] {
@@ -121,6 +132,8 @@ export default function ParentPage() {
           const childDay = today[child.id] ?? {};
           const week = weekRecords[child.id] ?? [];
           const completed = PERIOD_ORDER.filter((p) => childDay[p]).length;
+          const todayWeekday = isoWeekday(new Date());
+          const allergyNote = child.medical_notes?.map((m) => m.text).join(' · ');
 
           const validWeek = week.filter((r) => isValidPreferenceObservation(r));
           const avgPct =
@@ -130,56 +143,116 @@ export default function ParentPage() {
                     validWeek.length,
                 )
               : null;
+          const ateWell = validWeek.filter((r) => (r.consumption_pct ?? 0) >= 75).length;
+          const lowIntake = validWeek.filter((r) => (r.consumption_pct ?? 0) <= 25).length;
           const refusals = week.filter((r) => r.behavior === 'refused').length;
           const encouraged = week.filter((r) => r.behavior === 'needed_encouragement').length;
 
           return (
-            <div className="kid-card" key={child.id}>
-              <Avatar
-                photoUrl={photoUrls[child.id]}
-                initials={initials(child.given_name)}
-                size="md"
-              />
-              <div className="kid-info">
-                <h4>
-                  {child.given_name} {child.family_name}
-                </h4>
-                <div className="kid-meta">{child.student_no}</div>
-                <div className="kid-summary">
-                  Today's meals: {completed} of {PERIOD_ORDER.length} completed
-                </div>
-                <div className="meal-row">
-                  {PERIOD_ORDER.map((period) => {
-                    const p = childDay[period];
-                    if (!p) {
-                      return (
-                        <span key={period} className="meal-line wait">
-                          {PERIOD_LABEL[period]} — upcoming
-                        </span>
-                      );
-                    }
-                    const r = p.record;
-                    const ok = r.served_status === 'served' && (r.consumption_pct ?? 0) >= 50;
-                    const label =
-                      r.served_status === 'not_served'
-                        ? 'not served'
-                        : consumptionHumanLabel(r.consumption_pct);
-                    return (
-                      <span key={period} className={`meal-line ${ok ? 'ok' : 'wait'}`}>
-                        {PERIOD_LABEL[period]} — {label}
-                        {p.note ? ` · note: "${p.note.body}"` : ''}
-                      </span>
-                    );
-                  })}
-                </div>
-                {week.length > 0 && (
+            <div className="kid-card" key={child.id} style={{ flexDirection: 'column' }}>
+              <div style={{ display: 'flex', gap: 16, width: '100%' }}>
+                <Avatar
+                  photoUrl={photoUrls[child.id]}
+                  initials={initials(child.given_name)}
+                  size="md"
+                />
+                <div className="kid-info">
+                  <h4>
+                    {child.given_name} {child.family_name}
+                  </h4>
+                  <div className="kid-meta">{child.student_no}</div>
                   <div className="kid-summary">
-                    This week: {avgPct !== null ? `avg ${avgPct}% eaten` : 'not enough data yet'}
-                    {refusals > 0 ? ` · ${refusals} refusal${refusals === 1 ? '' : 's'}` : ''}
-                    {encouraged > 0 ? ` · ${encouraged} needed encouragement` : ''}
+                    Today's meals: {completed} of {PERIOD_ORDER.length} completed
                   </div>
-                )}
+                  {allergyNote && <div className="focus-allergy">⚠ {allergyNote}</div>}
+                </div>
               </div>
+
+              <div className="today-meal-list">
+                {PERIOD_ORDER.map((period) => {
+                  const p = childDay[period];
+                  const item = weekMenu.find(
+                    (m) => m.weekday === todayWeekday && m.period === period,
+                  );
+                  if (!p) {
+                    return (
+                      <div className="today-meal-card wait" key={period}>
+                        <span className="tmc-icon">{PERIOD_ICON[period]}</span>
+                        <div className="tmc-body">
+                          <div className="tmc-period">{PERIOD_LABEL[period]}</div>
+                          <div className="tmc-meta">
+                            {item?.dish_name ?? 'Upcoming'}
+                            {item?.allergens?.length ? (
+                              <span style={{ color: '#b45309' }}>
+                                {' '}
+                                · allergens: {item.allergens.map(String).join(', ')}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                        <span className="pill slate">Upcoming</span>
+                      </div>
+                    );
+                  }
+                  const r = p.record;
+                  const notServed = r.served_status === 'not_served';
+                  const pct = r.consumption_pct;
+                  const tone = notServed
+                    ? 'wait'
+                    : (pct ?? 0) >= 50
+                      ? 'ok'
+                      : (pct ?? 0) > 0
+                        ? 'warn'
+                        : 'danger';
+                  return (
+                    <div className={`today-meal-card ${tone}`} key={period}>
+                      <span className="tmc-icon">{PERIOD_ICON[period]}</span>
+                      <div className="tmc-body">
+                        <div className="tmc-period">
+                          {PERIOD_LABEL[period]}{' '}
+                          <span className="tmc-time">{recordedTime(r.created_at)}</span>
+                        </div>
+                        <div className="tmc-meta">
+                          {item?.dish_name ?? '—'}
+                          {p.note ? ` · "${p.note.body}"` : ''}
+                        </div>
+                      </div>
+                      <span
+                        className={`pill ${notServed ? 'slate' : tone === 'ok' ? 'brand' : tone === 'warn' ? 'reduced' : 'red'}`}
+                      >
+                        {notServed ? 'Not served' : consumptionHumanLabel(pct)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {week.length > 0 && (
+                <div className="stat-grid" style={{ width: '100%', marginTop: 14, marginBottom: 0 }}>
+                  <div className="stat">
+                    <div className="label">Average intake</div>
+                    <div className="value">{avgPct !== null ? `${avgPct}%` : '—'}</div>
+                  </div>
+                  <div className="stat">
+                    <div className="label">Ate 75–100%</div>
+                    <div className="value">{ateWell}</div>
+                  </div>
+                  <div className="stat">
+                    <div className="label">Low intake 0–25%</div>
+                    <div className="value">{lowIntake}</div>
+                  </div>
+                  <div className="stat">
+                    <div className="label">Needed encouragement</div>
+                    <div className="value">{encouraged}</div>
+                  </div>
+                  {refusals > 0 && (
+                    <div className="stat">
+                      <div className="label">Refusals</div>
+                      <div className="value">{refusals}</div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })

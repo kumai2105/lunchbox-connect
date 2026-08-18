@@ -3,7 +3,7 @@
 // without a live database — same pattern as rbac.ts mirroring RLS.
 
 import { NON_PREFERENCE_LOW_INTAKE_REASONS } from './types';
-import type { ConsumptionPct, EatingBehavior, LowIntakeReason } from './types';
+import type { ConsumptionPct, EatingBehavior, LowIntakeReason, MealPerformanceRow } from './types';
 
 export const BEHAVIOR_LABEL: Record<EatingBehavior, string> = {
   ate_independently: 'Ate independently',
@@ -53,4 +53,21 @@ export function consumptionHumanLabel(pct: ConsumptionPct | null): string {
     0: 'Did not eat',
   };
   return map[pct];
+}
+
+// Decision-support classification for a menu item's aggregate meal-performance
+// row (docs/13 Decision 032 §42-45) — one implementation shared by the
+// Dashboard's "top/bottom dishes" panel and the full Reporting page, so the
+// label a Super Admin sees never disagrees with itself between screens.
+export function classifyMealPerformance(row: MealPerformanceRow): {
+  label: string;
+  variant: string;
+} {
+  if (row.valid_observations < 3) return { label: 'Not enough data', variant: 'slate' };
+  const pct = row.avg_consumption_pct ?? 0;
+  const refusalShare = row.refusal_count / row.valid_observations;
+  if (pct >= 70 && refusalShare < 0.1) return { label: 'KEEP', variant: 'brand' };
+  if (pct < 40 || refusalShare >= 0.3) return { label: 'CANDIDATE_FOR_REMOVAL', variant: 'na' };
+  if (pct < 55 || refusalShare >= 0.15) return { label: 'REVIEW_IMPROVE', variant: 'reduced' };
+  return { label: 'MONITOR', variant: 'free' };
 }

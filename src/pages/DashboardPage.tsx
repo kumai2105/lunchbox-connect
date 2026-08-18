@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { dashboardSummary, productionDemand } from '../lib/api';
-import type { DashboardInstitutionRow, ProductionDemandRow } from '../lib/types';
-import { Banner, Card, EmptyState, PageHead, Spinner, StatCard, StatusDot } from '../components/ui';
+import { dashboardSummary, mealPerformance, productionDemand } from '../lib/api';
+import type { DashboardInstitutionRow, MealPerformanceRow, ProductionDemandRow } from '../lib/types';
+import { Banner, Card, EmptyState, PageHead, Pill, Spinner, StatCard, StatusDot } from '../components/ui';
+import { useRole } from '../lib/auth';
+import { classifyMealPerformance } from '../lib/mealAnalytics';
 
 export default function DashboardPage() {
+  const role = useRole();
   const [rows, setRows] = useState<DashboardInstitutionRow[] | null>(null);
   const [demand, setDemand] = useState<ProductionDemandRow[]>([]);
+  const [meals, setMeals] = useState<MealPerformanceRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -17,11 +21,17 @@ export default function DashboardPage() {
       if (d.error || p.error) setError(d.error ?? p.error);
       setRows(d.data ?? []);
       setDemand(p.data ?? []);
+      // v_meal_performance is Super Admin only at the RLS layer — fetching it
+      // as any other role would just come back empty, so skip the request.
+      if (role === 'super_admin') {
+        const m = await mealPerformance();
+        if (active && m.data) setMeals(m.data);
+      }
     })();
     return () => {
       active = false;
     };
-  }, []);
+  }, [role]);
 
   if (error && !rows) return <EmptyState text={`Could not load the dashboard: ${error}`} />;
   if (!rows) return <Spinner />;
@@ -114,6 +124,48 @@ export default function DashboardPage() {
           </table>
         )}
       </Card>
+
+      {role === 'super_admin' && meals.length > 0 && (
+        <Card
+          title="Meals needing attention"
+          hint="lowest average consumption first — derived from Classroom Meal Records"
+          actions={
+            <Link to="/reports" className="btn ghost">
+              Full report →
+            </Link>
+          }
+        >
+          <table className="dash-table">
+            <thead>
+              <tr>
+                <th>Meal</th>
+                <th className="col-secondary">Period</th>
+                <th>Avg. consumption</th>
+                <th className="col-secondary">Refusals</th>
+                <th>Signal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {meals.slice(0, 8).map((m) => {
+                const c = classifyMealPerformance(m);
+                return (
+                  <tr key={m.menu_item_id}>
+                    <td className="cell-name">{m.dish_name}</td>
+                    <td className="cell-sub col-secondary">{m.period}</td>
+                    <td className="mono">
+                      {m.avg_consumption_pct !== null ? `${m.avg_consumption_pct}%` : '—'}
+                    </td>
+                    <td className="mono col-secondary">{m.refusal_count}</td>
+                    <td>
+                      <Pill variant={c.variant}>{c.label}</Pill>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Card>
+      )}
 
       <Card title="Today's attention" hint="derived — nothing invented">
         <div style={{ padding: '4px 18px' }}>

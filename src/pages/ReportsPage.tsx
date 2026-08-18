@@ -4,6 +4,7 @@ import { mealPerformance } from '../lib/api';
 import type { MealPerformanceRow } from '../lib/types';
 import { Banner, Card, EmptyState, PageHead, Pill, Spinner } from '../components/ui';
 import { useRole } from '../lib/auth';
+import { classifyMealPerformance } from '../lib/mealAnalytics';
 
 /**
  * Reporting (docs/02 §16/18, docs/09 AT-100): Finance / Owner sees REPORTS
@@ -28,16 +29,6 @@ export default function ReportsPage() {
         ? 'Read-only viewer. Exact readable scope is BLOCKED_BY_SPEC (docs/09 AT-036) — no writes are possible from here.'
         : 'Reporting must derive from authoritative operational records (docs/03 §5, AT-100). Exact report and KPI definitions are NOT_YET_DEFINED.';
   return <ShellPage title="Reporting" scope={scope} />;
-}
-
-function classify(row: MealPerformanceRow): { label: string; variant: string } {
-  if (row.valid_observations < 3) return { label: 'Not enough data', variant: 'slate' };
-  const pct = row.avg_consumption_pct ?? 0;
-  const refusalShare = row.refusal_count / row.valid_observations;
-  if (pct >= 70 && refusalShare < 0.1) return { label: 'KEEP', variant: 'brand' };
-  if (pct < 40 || refusalShare >= 0.3) return { label: 'CANDIDATE_FOR_REMOVAL', variant: 'na' };
-  if (pct < 55 || refusalShare >= 0.15) return { label: 'REVIEW_IMPROVE', variant: 'reduced' };
-  return { label: 'MONITOR', variant: 'free' };
 }
 
 function MealPerformance() {
@@ -97,7 +88,7 @@ function MealPerformance() {
             </thead>
             <tbody>
               {rows.map((r) => {
-                const c = classify(r);
+                const c = classifyMealPerformance(r);
                 return (
                   <tr key={r.menu_item_id}>
                     <td className="cell-name">{r.dish_name}</td>
