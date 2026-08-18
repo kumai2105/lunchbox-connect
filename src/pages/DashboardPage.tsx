@@ -41,6 +41,19 @@ export default function DashboardPage() {
   const eligibleStudents = demand.reduce((sum, r) => sum + r.eligible_students, 0);
   const silentInstitutions = rows.filter((r) => r.active_students > 0 && r.meals_today === 0);
 
+  // Weighted across every recorded meal so one low-volume dish can't skew the
+  // headline number the way a plain average of averages would.
+  const totalValidObs = meals.reduce((sum, m) => sum + m.valid_observations, 0);
+  const avgConsumption =
+    totalValidObs > 0
+      ? Math.round(
+          meals.reduce((sum, m) => sum + (m.avg_consumption_pct ?? 0) * m.valid_observations, 0) /
+            totalValidObs,
+        )
+      : null;
+  const totalRefusals = meals.reduce((sum, m) => sum + m.refusal_count, 0);
+  const refusalRate = totalValidObs > 0 ? Math.round((totalRefusals / totalValidObs) * 1000) / 10 : null;
+
   return (
     <div>
       <PageHead title="Dashboard" hint="live boundary summary" />
@@ -72,6 +85,22 @@ export default function DashboardPage() {
           value={mealsToday.toLocaleString()}
           trend="against the roster"
         />
+        {role === 'super_admin' && avgConsumption !== null && (
+          <StatCard
+            icon="checkCircle"
+            label="Average consumption"
+            value={`${avgConsumption}%`}
+            trend="across all recorded meals"
+          />
+        )}
+        {role === 'super_admin' && refusalRate !== null && (
+          <StatCard
+            icon="xCircle"
+            label="Refusal rate"
+            value={`${refusalRate}%`}
+            trend="of valid observations"
+          />
+        )}
       </div>
 
       <Card
