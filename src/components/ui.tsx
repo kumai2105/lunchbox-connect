@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { Icon, type IconName } from './icons';
 
 // Fast visual Student identification (docs/13 Decision 032 §5) — an optional
@@ -52,22 +53,36 @@ export function StatCard({
   value,
   trend,
   icon,
+  to,
 }: {
   label: string;
   value: ReactNode;
   trend?: string;
   icon?: IconName;
+  /** When set, the whole card becomes a real drill-down link (blueprint Part 8). */
+  to?: string;
 }) {
-  return (
-    <div className="stat">
+  const body = (
+    <>
       <div className="label">
         {icon && <Icon name={icon} size={14} />}
         {label}
       </div>
       <div className="value">{value}</div>
       {trend && <div className="trend">{trend}</div>}
-    </div>
+    </>
   );
+  if (to) {
+    return (
+      <Link className="stat stat-link" to={to}>
+        {body}
+        <span className="stat-go">
+          <Icon name="arrowRight" size={14} />
+        </span>
+      </Link>
+    );
+  }
+  return <div className="stat">{body}</div>;
 }
 
 export function PageHead({

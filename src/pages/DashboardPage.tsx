@@ -66,24 +66,28 @@ export default function DashboardPage() {
           label="Institutions"
           value={rows.length}
           trend="across the chain"
+          to="/institutions"
         />
         <StatCard
           icon="users"
           label="Active students"
           value={activeStudents.toLocaleString()}
           trend="enrolled"
+          to="/students"
         />
         <StatCard
           icon="checkCircle"
           label="Operationally eligible"
           value={eligibleStudents}
           trend="ACTIVE_BILLABLE_TO_NURSERY"
+          to="/status"
         />
         <StatCard
           icon="utensils"
           label="Meals recorded today"
           value={mealsToday.toLocaleString()}
           trend="against the roster"
+          to={role === 'super_admin' ? '/analytics?days=7' : undefined}
         />
         {role === 'super_admin' && avgConsumption !== null && (
           <StatCard
@@ -91,6 +95,7 @@ export default function DashboardPage() {
             label="Average consumption"
             value={`${avgConsumption}%`}
             trend="across all recorded meals"
+            to="/analytics"
           />
         )}
         {role === 'super_admin' && refusalRate !== null && (
@@ -99,6 +104,7 @@ export default function DashboardPage() {
             label="Refusal rate"
             value={`${refusalRate}%`}
             trend="of valid observations"
+            to="/analytics"
           />
         )}
       </div>
@@ -167,8 +173,8 @@ export default function DashboardPage() {
           title="Meals needing attention"
           hint="lowest average consumption first — derived from Classroom Meal Records"
           actions={
-            <Link to="/reports" className="btn ghost">
-              Full report →
+            <Link to="/analytics" className="btn ghost">
+              Full analytics →
             </Link>
           }
         >
