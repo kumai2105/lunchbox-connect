@@ -105,6 +105,7 @@ export default function ClassesPage() {
             <Btn
               variant="brand"
               onClick={() => {
+                setError(null);
                 setInstitutionId(institutionFilter);
                 setShowCreate(true);
               }}
@@ -114,6 +115,8 @@ export default function ClassesPage() {
           </>
         }
       />
+
+      {error && <Banner kind="err">{error}</Banner>}
 
       {!scopedInstitution && !institutionFilter && (
         <Banner kind="info">
@@ -197,6 +200,7 @@ export default function ClassesPage() {
           }
         >
           <form onSubmit={(e) => void onCreate(e)}>
+            {error && <Banner kind="err">{error}</Banner>}
             <div className="form-row">
               <Field label="Class name">
                 <input

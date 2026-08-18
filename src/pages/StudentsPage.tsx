@@ -11,6 +11,7 @@ import {
 import type { ClassRow, Institution, Student } from '../lib/types';
 import {
   Avatar,
+  Banner,
   Btn,
   Card,
   EmptyState,
@@ -147,11 +148,19 @@ export default function StudentsPage() {
         title="Students"
         hint="roster — RLS-scoped to your institution"
         actions={
-          <Btn variant="brand" onClick={() => setShowCreate(true)}>
+          <Btn
+            variant="brand"
+            onClick={() => {
+              setError(null);
+              setShowCreate(true);
+            }}
+          >
             + Add student
           </Btn>
         }
       />
+
+      {error && <Banner kind="err">{error}</Banner>}
 
       <Card bodyClassName="filters">
         <div className="search-box">
@@ -298,6 +307,7 @@ export default function StudentsPage() {
           }
         >
           <form onSubmit={(e) => void onSubmit(e)}>
+            {error && <Banner kind="err">{error}</Banner>}
             <div className="form-row">
               <Field label="Given name">
                 <input

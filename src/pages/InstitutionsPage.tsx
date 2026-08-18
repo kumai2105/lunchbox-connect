@@ -45,7 +45,13 @@ export default function InstitutionsPage() {
         title="Institutions"
         hint="only SUPER_ADMIN manages these"
         actions={
-          <Btn variant="brand" onClick={() => setShowCreate(true)}>
+          <Btn
+            variant="brand"
+            onClick={() => {
+              setError(null);
+              setShowCreate(true);
+            }}
+          >
             + Add institution
           </Btn>
         }
@@ -109,6 +115,7 @@ export default function InstitutionsPage() {
           }
         >
           <form onSubmit={(e) => void onCreate(e)}>
+            {error && <Banner kind="err">{error}</Banner>}
             <Field label="Name">
               <input
                 value={name}

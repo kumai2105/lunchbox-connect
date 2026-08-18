@@ -11,7 +11,6 @@ import {
   PageHead,
   Pill,
   Spinner,
-  StatusDot,
 } from '../components/ui';
 
 const ROLES: AppRole[] = [
@@ -103,7 +102,13 @@ export default function UsersPage() {
         title="Users & roles"
         hint="accounts are created here; the Edge Function provisions auth + profile atomically"
         actions={
-          <Btn variant="brand" onClick={() => setShowCreate(true)}>
+          <Btn
+            variant="brand"
+            onClick={() => {
+              setError(null);
+              setShowCreate(true);
+            }}
+          >
             + Create account
           </Btn>
         }
@@ -125,7 +130,6 @@ export default function UsersPage() {
                 <th>User</th>
                 <th>Role</th>
                 <th>Scope</th>
-                <th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -146,9 +150,6 @@ export default function UsersPage() {
                       : u.kitchen_id
                         ? (kitchens.find((k) => k.id === u.kitchen_id)?.name ?? '—') + ' (Kitchen)'
                         : 'All / none'}
-                  </td>
-                  <td>
-                    <StatusDot color="green" /> Active
                   </td>
                 </tr>
               ))}
@@ -184,6 +185,7 @@ export default function UsersPage() {
           }
         >
           <form onSubmit={(e) => void onSubmit(e)}>
+            {error && <Banner kind="err">{error}</Banner>}
             <div className="form-row">
               <Field label="Full name">
                 <input
