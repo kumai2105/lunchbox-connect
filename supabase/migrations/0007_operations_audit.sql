@@ -5,7 +5,7 @@
 grant select, insert, update, delete on students, classes, eligibility, serving_records,
       serving_notes, menus, messages, student_parents to authenticated;
 grant select on institutions, app_users to authenticated;
-grant usage on sequence serving_records_id_seq to authenticated;
+-- No sequence grant: serving_records.id is uuid/gen_random_uuid(), not serial.
 
 -- RLS audit view: a live checklist of which tables enforce RLS and how.
 create or replace view v_rls_audit
@@ -14,7 +14,7 @@ select
   c.relname as table_name,
   c.relrowsecurity as rls_enabled,
   c.relforcerowsecurity as rls_forced,
-  count(p.policyname)::int as policy_count
+  count(p.polname)::int as policy_count
 from pg_class c
 left join pg_policy p on p.polrelid = c.oid
 where c.relkind = 'r' and c.relnamespace = 'public'::regnamespace
