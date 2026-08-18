@@ -300,25 +300,6 @@ textarea {
 .content {
   padding: 24px 28px 48px;
 }
-.search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--slate-soft);
-  padding: 8px 12px;
-  border-radius: 9px;
-  width: 230px;
-  color: var(--ink-3);
-  font-size: 13px;
-}
-.search input {
-  border: none;
-  background: none;
-  outline: none;
-  font-size: 13px;
-  flex: 1;
-  color: var(--ink);
-}
 .chip {
   display: inline-flex;
   align-items: center;
@@ -1083,11 +1064,6 @@ tbody tr:last-child td {
   }
   .content {
     padding: 16px 16px 40px;
-  }
-  .search {
-    /* disabled/non-functional placeholder box; on a phone it's just dead
-       weight competing with the title and the date chip for room */
-    display: none;
   }
   .menu-grid {
     grid-template-columns: 1fr;

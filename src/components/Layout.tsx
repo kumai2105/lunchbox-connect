@@ -117,10 +117,6 @@ export default function Layout() {
             <h2>{title[0]}</h2>
           </div>
           <div className="spacer" />
-          <div className="search">
-            <span>⌕</span>
-            <input placeholder="Search..." disabled />
-          </div>
           <span className="chip amber">{todayChip()}</span>
         </div>
         <div className="content">
