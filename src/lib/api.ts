@@ -153,7 +153,10 @@ export async function updateStudent(
 // they're authorized to see/manage — the same boundary the students table uses.
 const STUDENT_PHOTOS_BUCKET = 'student-photos';
 
-export async function uploadStudentPhoto(studentId: string, file: File): Promise<ApiResult<string>> {
+export async function uploadStudentPhoto(
+  studentId: string,
+  file: File,
+): Promise<ApiResult<string>> {
   const ext = file.name.split('.').pop() ?? 'jpg';
   const path = `${studentId}/photo.${ext}`;
   const { error: uploadError } = await supabase.storage

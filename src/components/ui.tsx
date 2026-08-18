@@ -11,11 +11,11 @@ export function Avatar({
   initials: string;
   size?: 'sm' | 'md' | 'lg';
 }) {
-  const cls = `avatar avatar-${size}`;
+  const cls = `photo-avatar photo-avatar-${size}`;
   if (photoUrl) {
     return <img className={cls} src={photoUrl} alt="" />;
   }
-  return <div className={`${cls} avatar-fallback`}>{initials}</div>;
+  return <div className={`${cls} photo-avatar-fallback`}>{initials}</div>;
 }
 
 export function Card({

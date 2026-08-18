@@ -56,12 +56,15 @@ function MealPerformance() {
 
   return (
     <div>
-      <PageHead title="Meal performance" hint="derived from Classroom Meal Records — decision support only" />
+      <PageHead
+        title="Meal performance"
+        hint="derived from Classroom Meal Records — decision support only"
+      />
       <Banner kind="info">
         Every metric here is mathematically derived from the same records Classroom Staff record
         once for Parents (docs/13 Decision 032). Absent, unwell, sleeping and not-served
-        observations are excluded from consumption stats — they are not evidence a child disliked
-        a Meal.
+        observations are excluded from consumption stats — they are not evidence a child disliked a
+        Meal.
       </Banner>
       <Banner kind="warn">
         Classification labels are decision-support evidence for a human reviewer. Nothing here

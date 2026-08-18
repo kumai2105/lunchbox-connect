@@ -72,16 +72,18 @@ export default function Layout() {
         </div>
         <nav className="nav">
           <div className="nav-group">Menu</div>
-          {nav.map((item) => (
-            <Link
-              key={item.page}
-              to={`/${item.page}`}
-              className={page === item.page ? 'active' : ''}
-            >
-              <span className="nav-ico">{item.icon}</span>
-              <span>{item.label}</span>
-            </Link>
-          ))}
+          {nav
+            .filter((item) => !item.hidden)
+            .map((item) => (
+              <Link
+                key={item.page}
+                to={`/${item.page}`}
+                className={page === item.page ? 'active' : ''}
+              >
+                <span className="nav-ico">{item.icon}</span>
+                <span>{item.label}</span>
+              </Link>
+            ))}
         </nav>
         <div className="side-card">
           <b>Spec-driven</b>

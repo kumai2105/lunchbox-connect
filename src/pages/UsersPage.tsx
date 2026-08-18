@@ -239,9 +239,7 @@ export default function UsersPage() {
               ) : (
                 <Field
                   label={
-                    needsInstitution
-                      ? 'Institution (required for staff)'
-                      : 'Institution (optional)'
+                    needsInstitution ? 'Institution (required for staff)' : 'Institution (optional)'
                   }
                 >
                   <select

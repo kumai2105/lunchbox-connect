@@ -371,6 +371,9 @@ textarea {
   box-shadow: var(--shadow);
   border: 1px solid #eef2f0;
   margin-bottom: 18px;
+  /* keeps a wide table scrolling inside its own box on a narrow phone
+     instead of forcing the whole page wider than the viewport */
+  overflow-x: auto;
 }
 .card .head {
   display: flex;
@@ -1004,13 +1007,16 @@ tbody tr:last-child td {
   }
 }
 
-/* ---------- avatar (docs/13 Decision 032 §5) ---------- */
-.avatar {
+/* ---------- Student photo avatar (docs/13 Decision 032 §5) ----------
+   Named photo-avatar, NOT .avatar — .avatar already means the round
+   initials chip in the sidebar user footer (line ~205); reusing that name
+   here silently stripped its size/circle/gradient. */
+.photo-avatar {
   border-radius: 14px;
   object-fit: cover;
   flex-shrink: 0;
 }
-.avatar-fallback {
+.photo-avatar-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1018,17 +1024,17 @@ tbody tr:last-child td {
   color: #fff;
   background: linear-gradient(135deg, var(--brand), var(--brand-dark));
 }
-.avatar-sm {
+.photo-avatar-sm {
   width: 36px;
   height: 36px;
   font-size: 13px;
 }
-.avatar-md {
+.photo-avatar-md {
   width: 52px;
   height: 52px;
   font-size: 20px;
 }
-.avatar-lg {
+.photo-avatar-lg {
   width: 96px;
   height: 96px;
   font-size: 34px;
@@ -1192,10 +1198,10 @@ tbody tr:last-child td {
 .roster-chip.active {
   opacity: 1;
 }
-.roster-chip .avatar {
+.roster-chip .photo-avatar {
   border: 2px solid transparent;
 }
-.roster-chip.active .avatar {
+.roster-chip.active .photo-avatar {
   border-color: var(--brand);
 }
 .roster-chip .status-badge {

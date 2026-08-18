@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { listMenu, myChildren, notesForServing, servingForStudent, studentPhotoUrl } from '../lib/api';
+import {
+  listMenu,
+  myChildren,
+  notesForServing,
+  servingForStudent,
+  studentPhotoUrl,
+} from '../lib/api';
 import type { AppPeriod, MenuItem, ServingNote, ServingRecord, Student } from '../lib/types';
 import { Avatar, Banner, Card, EmptyState, PageHead, Spinner } from '../components/ui';
 import { WEEKDAY_NAMES, initials, isoWeek, todayISO } from '../lib/format';
@@ -120,7 +126,8 @@ export default function ParentPage() {
           const avgPct =
             validWeek.length > 0
               ? Math.round(
-                  validWeek.reduce((sum, r) => sum + (r.consumption_pct ?? 0), 0) / validWeek.length,
+                  validWeek.reduce((sum, r) => sum + (r.consumption_pct ?? 0), 0) /
+                    validWeek.length,
                 )
               : null;
           const refusals = week.filter((r) => r.behavior === 'refused').length;

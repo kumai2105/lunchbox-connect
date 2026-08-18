@@ -94,7 +94,8 @@ Deno.serve(async (req) => {
   if (!ALLOWED_ROLES.has(payload.role)) return bad(`role not allowed: ${payload.role}`);
   if (STAFF_ROLES.has(payload.role) && !payload.institutionId)
     return bad('staff roles require institutionId');
-  if (payload.role === 'kitchen' && !payload.kitchenId) return bad('kitchen role requires kitchenId');
+  if (payload.role === 'kitchen' && !payload.kitchenId)
+    return bad('kitchen role requires kitchenId');
   if (!payload.password || payload.password.length < 8)
     return bad('password must be at least 8 characters');
 

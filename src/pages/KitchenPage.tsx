@@ -40,9 +40,9 @@ export default function KitchenPage() {
         counts, and never see student identity (AT-034).
       </Banner>
       <Banner kind="info">
-        Responsible Kitchen: <b>{kitchenName ?? '—'}</b>. Kitchen is a LunchBox Connect
-        operational entity, not owned by any institution — this is the current active Kitchen
-        (MVP), not permanently hard-coded (docs/13 Decision 031).
+        Responsible Kitchen: <b>{kitchenName ?? '—'}</b>. Kitchen is a LunchBox Connect operational
+        entity, not owned by any institution — this is the current active Kitchen (MVP), not
+        permanently hard-coded (docs/13 Decision 031).
       </Banner>
       <Banner kind="warn">
         Meal-package assignment and the exact production formula are <b>NOT_YET_DEFINED</b> — this

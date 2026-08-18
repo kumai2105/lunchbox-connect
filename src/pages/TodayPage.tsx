@@ -22,7 +22,17 @@ import type {
   Student,
 } from '../lib/types';
 import { CONSUMPTION_VALUES } from '../lib/types';
-import { Avatar, Btn, Banner, Card, EmptyState, Field, Modal, PageHead, Spinner } from '../components/ui';
+import {
+  Avatar,
+  Btn,
+  Banner,
+  Card,
+  EmptyState,
+  Field,
+  Modal,
+  PageHead,
+  Spinner,
+} from '../components/ui';
 import { BEHAVIOR_LABEL, LOW_INTAKE_REASON_LABEL, isLowIntake } from '../lib/mealAnalytics';
 import { initials, todayISO } from '../lib/format';
 
@@ -348,8 +358,16 @@ export default function TodayPage() {
                       ? '🚫'
                       : '✅';
               return (
-                <button key={s.id} className={`roster-chip${i === index ? ' active' : ''}`} onClick={() => setIndex(i)}>
-                  <Avatar photoUrl={photoUrls[s.id]} initials={initials(`${s.given_name} ${s.family_name}`)} size="sm" />
+                <button
+                  key={s.id}
+                  className={`roster-chip${i === index ? ' active' : ''}`}
+                  onClick={() => setIndex(i)}
+                >
+                  <Avatar
+                    photoUrl={photoUrls[s.id]}
+                    initials={initials(`${s.given_name} ${s.family_name}`)}
+                    size="sm"
+                  />
                   <span className="status-badge">{badge || '·'}</span>
                   <span className="name">{s.given_name}</span>
                 </button>
@@ -358,7 +376,11 @@ export default function TodayPage() {
           </div>
 
           <div className="focus-nav">
-            <button className="focus-nav-btn" disabled={index === 0} onClick={() => setIndex((i) => i - 1)}>
+            <button
+              className="focus-nav-btn"
+              disabled={index === 0}
+              onClick={() => setIndex((i) => i - 1)}
+            >
               ←
             </button>
             <Btn variant="ghost" size="sm" onClick={() => goToNextUnrecorded(-1)}>
@@ -386,7 +408,9 @@ export default function TodayPage() {
             {allergyNote && <div className="focus-allergy">⚠ {allergyNote}</div>}
 
             {rec?.served_status === 'not_served' ? (
-              <Banner kind="warn">Marked not served. Tap a portion below to record it instead.</Banner>
+              <Banner kind="warn">
+                Marked not served. Tap a portion below to record it instead.
+              </Banner>
             ) : null}
 
             <div className="plate">
@@ -445,8 +469,14 @@ export default function TodayPage() {
               >
                 {draft.concern ? '⚠ Concern flagged' : 'Flag a concern'}
               </button>
-              <button onClick={openNoteModal}>{notes[rec?.id ?? '']?.body ? 'Edit note' : 'Add note'}</button>
-              <button className="not-served-btn" onClick={() => void markNotServed()} disabled={saving}>
+              <button onClick={openNoteModal}>
+                {notes[rec?.id ?? '']?.body ? 'Edit note' : 'Add note'}
+              </button>
+              <button
+                className="not-served-btn"
+                onClick={() => void markNotServed()}
+                disabled={saving}
+              >
                 Meal not served
               </button>
             </div>

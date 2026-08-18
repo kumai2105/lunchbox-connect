@@ -24,22 +24,22 @@ README only. The full spec pack introduced corrections:
 
 ## Implemented and connected
 
-| Surface                                  | Status           | Notes                                                           |
-| ---------------------------------------- | ---------------- | --------------------------------------------------------------- |
-| Super Admin command center               | ✅               | Real dashboard; summary from authoritative views                |
-| Institutions CRUD                        | ✅               | Super Admin only                                                |
-| Users & nine roles                       | ✅               | account creation gates all nine domains                         |
-| Students + operational status            | ✅               | status column, one approved value (0009)                        |
-| Parents / guardians                      | ✅               | guardian list via student_parents                               |
-| Classes + classroom staff assignment     | ✅               | assignment drives the scope gate (AT-032)                       |
-| Operational status (eligibility) manager | ✅               | Super Admin; audit-logged                                       |
-| Menu management + publish                | ✅               | meal detail: portion, ingredients, allergens, nutrition (0010)  |
-| Serving (Today) — 4 periods              | ✅               | eligible students only; assigned class only                     |
-| Parent portal                            | ✅               | own child, published notes, published menu w/ ingredient detail |
-| Audit                                    | ✅               | super-admin view; students/menus/users writes captured          |
-| Kitchen production demand                | ✅ (counts only) | derived eligible counts; formula BLOCKED_BY_SPEC                |
-| Kitchen entity (decoupled from Institution) | ✅            | `kitchens` table; Jazeel Restaurant seeded as current active Kitchen; Super-Admin-only provisioning enforced in SQL (0013, docs/13 Decision 031) |
-| Class-scope isolation (AT-032/081)       | ✅               | enforced in SQL                                                 |
+| Surface                                     | Status           | Notes                                                                                                                                            |
+| ------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Super Admin command center                  | ✅               | Real dashboard; summary from authoritative views                                                                                                 |
+| Institutions CRUD                           | ✅               | Super Admin only                                                                                                                                 |
+| Users & nine roles                          | ✅               | account creation gates all nine domains                                                                                                          |
+| Students + operational status               | ✅               | status column, one approved value (0009)                                                                                                         |
+| Parents / guardians                         | ✅               | guardian list via student_parents                                                                                                                |
+| Classes + classroom staff assignment        | ✅               | assignment drives the scope gate (AT-032)                                                                                                        |
+| Operational status (eligibility) manager    | ✅               | Super Admin; audit-logged                                                                                                                        |
+| Menu management + publish                   | ✅               | meal detail: portion, ingredients, allergens, nutrition (0010)                                                                                   |
+| Serving (Today) — 4 periods                 | ✅               | eligible students only; assigned class only                                                                                                      |
+| Parent portal                               | ✅               | own child, published notes, published menu w/ ingredient detail                                                                                  |
+| Audit                                       | ✅               | super-admin view; students/menus/users writes captured                                                                                           |
+| Kitchen production demand                   | ✅ (counts only) | derived eligible counts; formula BLOCKED_BY_SPEC                                                                                                 |
+| Kitchen entity (decoupled from Institution) | ✅               | `kitchens` table; Jazeel Restaurant seeded as current active Kitchen; Super-Admin-only provisioning enforced in SQL (0013, docs/13 Decision 031) |
+| Class-scope isolation (AT-032/081)          | ✅               | enforced in SQL                                                                                                                                  |
 
 ## Honest shells — BLOCKED_BY_SPEC (never invented)
 

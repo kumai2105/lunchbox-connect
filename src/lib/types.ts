@@ -22,17 +22,15 @@ export type ServedStatus = 'served' | 'not_served';
 export type ConsumptionPct = 0 | 25 | 50 | 75 | 100;
 export type EatingBehavior = 'ate_independently' | 'needed_encouragement' | 'refused';
 export type LowIntakeReason =
-  | 'not_hungry'
-  | 'did_not_like_it'
-  | 'distracted'
-  | 'sleeping'
-  | 'absent'
-  | 'unwell'
-  | 'other';
+  'not_hungry' | 'did_not_like_it' | 'distracted' | 'sleeping' | 'absent' | 'unwell' | 'other';
 
 export const CONSUMPTION_VALUES: ConsumptionPct[] = [0, 25, 50, 75, 100];
 // Reasons that must never count as evidence of Meal dislike (docs/13 Decision 032 §17/§42).
-export const NON_PREFERENCE_LOW_INTAKE_REASONS: LowIntakeReason[] = ['absent', 'unwell', 'sleeping'];
+export const NON_PREFERENCE_LOW_INTAKE_REASONS: LowIntakeReason[] = [
+  'absent',
+  'unwell',
+  'sleeping',
+];
 
 export const OPERATIONAL_STATUS_ELIGIBLE = 'ACTIVE_BILLABLE_TO_NURSERY' as const;
 

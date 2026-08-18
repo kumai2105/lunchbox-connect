@@ -204,7 +204,10 @@ export default function StudentsPage() {
                 return (
                   <tr key={s.id}>
                     <td>
-                      <label style={{ cursor: 'pointer', display: 'inline-block' }} title="Upload photo">
+                      <label
+                        style={{ cursor: 'pointer', display: 'inline-block' }}
+                        title="Upload photo"
+                      >
                         <Avatar
                           photoUrl={photoUrls[s.id]}
                           initials={initials(`${s.given_name} ${s.family_name}`)}

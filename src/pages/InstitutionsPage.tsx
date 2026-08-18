@@ -66,6 +66,7 @@ export default function InstitutionsPage() {
                 <th>Institution</th>
                 <th>Type</th>
                 <th>Added</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -76,6 +77,11 @@ export default function InstitutionsPage() {
                     <span className="pill slate">{r.kind}</span>
                   </td>
                   <td className="cell-sub">{new Date(r.created_at).toLocaleDateString()}</td>
+                  <td>
+                    <a className="btn ghost sm" href={`/classes?institution=${r.id}`}>
+                      Manage classes →
+                    </a>
+                  </td>
                 </tr>
               ))}
             </tbody>
