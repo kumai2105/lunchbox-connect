@@ -1,17 +1,9 @@
 import { useEffect, useState } from 'react';
-import { listMenu, myChildren, notesForServing, servingForStudent } from '../lib/api';
-import type { AppPeriod, MenuItem, ServingNote, Student } from '../lib/types';
-import { Banner, Card, EmptyState, PageHead, Spinner } from '../components/ui';
-import { WEEKDAY_NAMES, initials, todayISO } from '../lib/format';
-
-function isoWeek(d: Date): number {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayNum = (date.getUTCDay() + 6) % 7;
-  date.setUTCDate(date.getUTCDate() - dayNum + 3);
-  const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
-  const diff = (+date - +firstThursday) / (7 * 24 * 3600 * 1000);
-  return 1 + Math.round((diff + 1) / 7);
-}
+import { listMenu, myChildren, notesForServing, servingForStudent, studentPhotoUrl } from '../lib/api';
+import type { AppPeriod, MenuItem, ServingNote, ServingRecord, Student } from '../lib/types';
+import { Avatar, Banner, Card, EmptyState, PageHead, Spinner } from '../components/ui';
+import { WEEKDAY_NAMES, initials, isoWeek, todayISO } from '../lib/format';
+import { consumptionHumanLabel, isValidPreferenceObservation } from '../lib/mealAnalytics';
 
 // Four approved meal periods (docs/02 §26, docs/09 AT-082)
 const PERIOD_ORDER: AppPeriod[] = ['breakfast', 'snack', 'lunch', 'afternoon_snack'];
@@ -22,16 +14,26 @@ const PERIOD_LABEL: Record<AppPeriod, string> = {
   afternoon_snack: 'Afternoon snack',
 };
 
-interface PeriodOutcome {
-  outcome: string;
+interface PeriodRecord {
+  record: ServingRecord;
   note?: ServingNote;
+}
+
+function last7Dates(): string[] {
+  const out: string[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
 }
 
 export default function ParentPage() {
   const [children, setChildren] = useState<Student[] | null>(null);
-  const [outcomes, setOutcomes] = useState<
-    Record<string, Partial<Record<AppPeriod, PeriodOutcome>>>
-  >({});
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string | null>>({});
+  const [today, setToday] = useState<Record<string, Partial<Record<AppPeriod, PeriodRecord>>>>({});
+  const [weekRecords, setWeekRecords] = useState<Record<string, ServingRecord[]>>({});
   const [weekMenu, setWeekMenu] = useState<MenuItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,26 +49,40 @@ export default function ParentPage() {
       const kidsList = kids.data ?? [];
       setChildren(kidsList);
 
-      const today = todayISO();
-      const perChild: Record<string, Partial<Record<AppPeriod, PeriodOutcome>>> = {};
+      const todayDate = todayISO();
+      const perChildToday: Record<string, Partial<Record<AppPeriod, PeriodRecord>>> = {};
+      const perChildWeek: Record<string, ServingRecord[]> = {};
+
       for (const child of kidsList) {
-        for (const period of PERIOD_ORDER) {
-          const rec = await servingForStudent(child.id, today, period);
-          if (rec.error) {
-            setError(rec.error);
-            continue;
-          }
-          if (rec.data) {
-            const noteRes = await notesForServing([rec.data.id]);
-            const note = (noteRes.data ?? []).find((n) => n.published_at);
-            perChild[child.id] = {
-              ...(perChild[child.id] ?? {}),
-              [period]: { outcome: rec.data.outcome, note },
-            };
+        const week: ServingRecord[] = [];
+        for (const date of last7Dates()) {
+          for (const period of PERIOD_ORDER) {
+            const rec = await servingForStudent(child.id, date, period);
+            if (rec.error) continue;
+            if (!rec.data) continue;
+            week.push(rec.data);
+            if (date === todayDate) {
+              const noteRes = await notesForServing([rec.data.id]);
+              const note = (noteRes.data ?? []).find((n) => n.published_at);
+              perChildToday[child.id] = {
+                ...(perChildToday[child.id] ?? {}),
+                [period]: { record: rec.data, note },
+              };
+            }
           }
         }
+        perChildWeek[child.id] = week;
       }
-      setOutcomes(perChild);
+      setToday(perChildToday);
+      setWeekRecords(perChildWeek);
+
+      const urls: Record<string, string | null> = {};
+      await Promise.all(
+        kidsList.map(async (c) => {
+          urls[c.id] = await studentPhotoUrl(c.photo_path);
+        }),
+      );
+      if (active) setPhotoUrls(urls);
 
       const menu = await listMenu([isoWeek(new Date())]);
       if (menu.error) {
@@ -80,17 +96,11 @@ export default function ParentPage() {
     };
   }, []);
 
-  const AVATAR_COLORS = [
-    'linear-gradient(135deg,#f59e0b,#ea580c)',
-    'linear-gradient(135deg,#0d9488,#0f766e)',
-    'linear-gradient(135deg,#7c3aed,#6d28d9)',
-  ];
-
   return (
     <div>
       <PageHead title="Parent view" hint="my children only — RLS enforces the boundary" />
       <Banner kind="info">
-        Today's meal outcomes, published notes and the active-week menu. Notes reach you only after
+        Today's meal results, published notes and the active-week menu. Notes reach you only after
         review (AT-043); nothing is auto-published.
       </Banner>
 
@@ -101,34 +111,67 @@ export default function ParentPage() {
       ) : children.length === 0 ? (
         <EmptyState text="No children linked to this account yet — ask the school to link your child." />
       ) : (
-        children.map((child, idx) => {
-          const childDay = outcomes[child.id] ?? {};
-          const avatarColor = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+        children.map((child) => {
+          const childDay = today[child.id] ?? {};
+          const week = weekRecords[child.id] ?? [];
+          const completed = PERIOD_ORDER.filter((p) => childDay[p]).length;
+
+          const validWeek = week.filter((r) => isValidPreferenceObservation(r));
+          const avgPct =
+            validWeek.length > 0
+              ? Math.round(
+                  validWeek.reduce((sum, r) => sum + (r.consumption_pct ?? 0), 0) / validWeek.length,
+                )
+              : null;
+          const refusals = week.filter((r) => r.behavior === 'refused').length;
+          const encouraged = week.filter((r) => r.behavior === 'needed_encouragement').length;
+
           return (
             <div className="kid-card" key={child.id}>
-              <div className="kid-avatar" style={{ background: avatarColor }}>
-                {initials(child.given_name)}
-              </div>
+              <Avatar
+                photoUrl={photoUrls[child.id]}
+                initials={initials(child.given_name)}
+                size="md"
+              />
               <div className="kid-info">
                 <h4>
                   {child.given_name} {child.family_name}
                 </h4>
                 <div className="kid-meta">{child.student_no}</div>
+                <div className="kid-summary">
+                  Today's meals: {completed} of {PERIOD_ORDER.length} completed
+                </div>
                 <div className="meal-row">
                   {PERIOD_ORDER.map((period) => {
-                    const o = childDay[period];
+                    const p = childDay[period];
+                    if (!p) {
+                      return (
+                        <span key={period} className="meal-line wait">
+                          {PERIOD_LABEL[period]} — upcoming
+                        </span>
+                      );
+                    }
+                    const r = p.record;
+                    const ok = r.served_status === 'served' && (r.consumption_pct ?? 0) >= 50;
+                    const label =
+                      r.served_status === 'not_served'
+                        ? 'not served'
+                        : consumptionHumanLabel(r.consumption_pct);
                     return (
-                      <span
-                        key={period}
-                        className={`meal-line ${o ? (o.outcome === 'full' || o.outcome === 'partial' ? 'ok' : 'wait') : 'wait'}`}
-                      >
-                        {o
-                          ? `${PERIOD_LABEL[period]} — ${o.outcome}${o.note ? ` · note: "${o.note.body}"` : ''}`
-                          : `${PERIOD_LABEL[period]} — not yet recorded`}
+                      <span key={period} className={`meal-line ${ok ? 'ok' : 'wait'}`}>
+                        {PERIOD_LABEL[period]} — {label}
+                        {p.note ? ` · note: "${p.note.body}"` : ''}
                       </span>
                     );
                   })}
                 </div>
+                {week.length > 0 && (
+                  <div className="kid-summary">
+                    This week: {avgPct !== null ? `avg ${avgPct}% eaten` : 'not enough data yet'}
+                    {refusals > 0 ? ` · ${refusals} refusal${refusals === 1 ? '' : 's'}` : ''}
+                    {encouraged > 0 ? ` · ${encouraged} needed encouragement` : ''}
+                  </div>
+                )}
               </div>
             </div>
           );

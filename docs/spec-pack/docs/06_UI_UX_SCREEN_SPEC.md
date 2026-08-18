@@ -726,9 +726,7 @@ Confirmed purpose:
 
 - show the classroom user's current assigned operational meal work.
 
-Exact layout is:
-
-`NOT_YET_DEFINED`
+Confirmed layout (docs/13 Decision 032): a tablet-optimized workflow — select the Meal period once, then move through the Class roster without re-selecting Institution, Class, date, period, or Meal per Student. Fast Previous/Next Student navigation and a "next unrecorded Student" shortcut are required. A visible `X / Y completed` progress indicator for the selected period is required.
 
 ---
 
@@ -738,11 +736,15 @@ The classroom interface must show Students within the user's assigned class scop
 
 Confirmed related information includes:
 
+- an optional Student photo, falling back to initials when no photo exists (docs/13 Decision 032 §5-6);
 - student meal status;
 - allergy awareness;
-- current meal-tracking needs.
+- current meal-tracking needs;
+- per-Student completion / exception state (recorded, low intake, refusal, concern, absence, not-served), so Staff never have to open every record to see who needs attention.
 
-Exact list columns / cards are:
+Confirmed exclusions: billing, contracts, Parent finances, database IDs, Production quantities, unrelated administration, and long Nutrition tables do not belong on this screen.
+
+Exact list columns / cards beyond the above are:
 
 `NOT_YET_DEFINED`
 
@@ -786,9 +788,7 @@ Exact tracking behavior is:
 
 The classroom interface must support recording approved meal serving status.
 
-Exact control type and serving states are:
-
-`NOT_YET_DEFINED`
+Confirmed serving states (docs/13 Decision 032): `SERVED` / `NOT_SERVED`. `NOT_SERVED` must not be visually or functionally equated with 0% consumed.
 
 ---
 
@@ -796,9 +796,9 @@ Exact control type and serving states are:
 
 The classroom interface must support meal outcome / consumption recording.
 
-Exact options are:
+Confirmed control (docs/13 Decision 032): a large four-quarter visual Meal/plate control (empty / ¼ / ½ / ¾ / full, tap-only, no typed percentage), paired with a single-tap eating-behavior selection (`ATE_INDEPENDENTLY` / `NEEDED_ENCOURAGEMENT` / `REFUSED`). A functionally equivalent accessible control may be supplied alongside the visual where needed.
 
-`NOT_YET_DEFINED`
+Confirmed exception-first rule: a low-intake reason selector and the concern-note field appear only when triggered (low consumption, or `CONCERN_OBSERVED`) — not shown for every Student by default.
 
 ---
 

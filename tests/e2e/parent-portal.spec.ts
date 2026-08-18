@@ -12,17 +12,18 @@ test.describe('parent portal', () => {
     await login(page, s.parentEmail);
     await expect(page).toHaveURL(/\/parent/);
 
-    // child card + today's outcomes
+    // child card + today's meal results (docs/13 Decision 032 — human-readable
+    // consumption labels, e.g. 100% -> "Ate all", 0% -> "Did not eat")
     await expect(page.locator('.kid-card', { hasText: 'Portal Kid' })).toBeVisible();
     await expect(page.locator('.kid-card', { hasText: 'Portal Kid' })).toContainText(
-      'Breakfast — full',
+      'Breakfast — Ate all',
     );
 
     // the published note is visible; the draft note is NOT (AT-043)
     await expect(page.locator('.kid-card')).toContainText('E2E published note');
     await expect(page.locator('.kid-card')).not.toContainText('E2E draft');
 
-    await expect(page.locator('.kid-card')).toContainText('Lunch — refused');
+    await expect(page.locator('.kid-card')).toContainText('Lunch — Did not eat');
 
     // menu: published dishes only, with portion/ingredient/allergen detail
     await expect(page.getByText('E2E overnight oats')).toBeVisible();

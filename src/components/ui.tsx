@@ -1,5 +1,23 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
+// Fast visual Student identification (docs/13 Decision 032 §5) — an optional
+// photo with an initials fallback, never a broken-image state.
+export function Avatar({
+  photoUrl,
+  initials,
+  size = 'md',
+}: {
+  photoUrl?: string | null;
+  initials: string;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const cls = `avatar avatar-${size}`;
+  if (photoUrl) {
+    return <img className={cls} src={photoUrl} alt="" />;
+  }
+  return <div className={`${cls} avatar-fallback`}>{initials}</div>;
+}
+
 export function Card({
   title,
   hint,

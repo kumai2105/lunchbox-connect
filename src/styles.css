@@ -1003,3 +1003,210 @@ tbody tr:last-child td {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- avatar (docs/13 Decision 032 §5) ---------- */
+.avatar {
+  border-radius: 14px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+}
+.avatar-sm {
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+}
+.avatar-md {
+  width: 52px;
+  height: 52px;
+  font-size: 20px;
+}
+.avatar-lg {
+  width: 96px;
+  height: 96px;
+  font-size: 34px;
+  border-radius: 22px;
+}
+
+/* ---------- fast classroom "Today" workflow (docs/13 Decision 032) ---------- */
+.today-progress {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-2);
+  background: #f0f4f3;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+.focus-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 28px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.focus-name {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.focus-sub {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.focus-allergy {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+.focus-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+  margin: 10px 0;
+}
+.focus-nav-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.focus-nav-btn:disabled {
+  opacity: 0.35;
+}
+
+.plate {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  width: 100%;
+  max-width: 460px;
+}
+.plate-quarter {
+  aspect-ratio: 1;
+  border-radius: 999px;
+  border: 3px solid var(--brand);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--brand-dark);
+  position: relative;
+  overflow: hidden;
+}
+.plate-quarter .fill {
+  position: absolute;
+  inset: 0;
+  background: var(--brand);
+  transform-origin: bottom;
+}
+.plate-quarter span {
+  position: relative;
+  z-index: 1;
+}
+.plate-quarter.selected {
+  color: #fff;
+}
+.plate-quarter.selected span {
+  color: #fff;
+}
+
+.chip-choice {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.chip-choice button {
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.chip-choice button.selected {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.chip-choice button.warn.selected {
+  background: #b45309;
+  border-color: #b45309;
+}
+.chip-choice button.danger.selected {
+  background: var(--red);
+  border-color: var(--red);
+}
+
+.not-served-btn {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-3);
+  background: none;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+
+.roster-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 10px;
+}
+.roster-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  width: 64px;
+  opacity: 0.6;
+  background: none;
+  border: none;
+}
+.roster-chip.active {
+  opacity: 1;
+}
+.roster-chip .avatar {
+  border: 2px solid transparent;
+}
+.roster-chip.active .avatar {
+  border-color: var(--brand);
+}
+.roster-chip .status-badge {
+  font-size: 10px;
+}
+.roster-chip .name {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 64px;
+}

@@ -35,7 +35,5 @@ export async function login(page: Page, email: string): Promise<void> {
 export const SEL = {
   email: 'input[autocomplete="email"]',
   password: 'input[autocomplete="current-password"]',
-  outcome: '.outcome',
-  saveState: '.save-state',
   roleChip: '.side-foot .u-role',
 };

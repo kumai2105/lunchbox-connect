@@ -14,8 +14,25 @@ export type AppRole =
   | 'driver';
 
 export type AppPeriod = 'breakfast' | 'snack' | 'lunch' | 'afternoon_snack';
-export type MealOutcome = 'full' | 'partial' | 'refused' | 'absent'; // provisional demo values — exact set NOT_YET_DEFINED (docs/05 §31)
 export type EnrollmentStatus = 'enrolled' | 'pending' | 'withdrawn';
+
+// Structured Classroom Meal Record fields (docs/13 Decision 032) — supersedes
+// the earlier provisional full/partial/refused/absent outcome set.
+export type ServedStatus = 'served' | 'not_served';
+export type ConsumptionPct = 0 | 25 | 50 | 75 | 100;
+export type EatingBehavior = 'ate_independently' | 'needed_encouragement' | 'refused';
+export type LowIntakeReason =
+  | 'not_hungry'
+  | 'did_not_like_it'
+  | 'distracted'
+  | 'sleeping'
+  | 'absent'
+  | 'unwell'
+  | 'other';
+
+export const CONSUMPTION_VALUES: ConsumptionPct[] = [0, 25, 50, 75, 100];
+// Reasons that must never count as evidence of Meal dislike (docs/13 Decision 032 §17/§42).
+export const NON_PREFERENCE_LOW_INTAKE_REASONS: LowIntakeReason[] = ['absent', 'unwell', 'sleeping'];
 
 export const OPERATIONAL_STATUS_ELIGIBLE = 'ACTIVE_BILLABLE_TO_NURSERY' as const;
 
@@ -68,6 +85,8 @@ export interface Student {
   /** Exact spec value: ACTIVE_BILLABLE_TO_NURSERY, or NULL when not eligible. */
   operational_status: string | null;
   medical_notes: MedicalNote[];
+  /** Object path in the private student-photos bucket, never a public URL (docs/13 Decision 032 §6). */
+  photo_path: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -102,7 +121,12 @@ export interface ServingRecord {
   class_id: string | null;
   student_id: string;
   period: AppPeriod;
-  outcome: MealOutcome;
+  served_status: ServedStatus;
+  consumption_pct: ConsumptionPct | null;
+  behavior: EatingBehavior | null;
+  low_intake_reason: LowIntakeReason | null;
+  concern_observed: boolean;
+  menu_item_id: string | null;
   note: string | null;
   recorded_by: string;
   created_at: string;
@@ -147,9 +171,18 @@ export interface ProductionDemandRow {
   allergy_flagged: number;
 }
 
-// Combined roster row used by the classroom "Today" screen.
-export interface RosterWithOutcome extends Student {
-  outcome?: MealOutcome | null;
-  note?: string | null;
-  serving_record_id?: string | null;
+// Meal-performance analytics row (docs/13 Decision 032, Super Admin only) —
+// derived-only, excludes the non-preference population from consumption stats.
+export interface MealPerformanceRow {
+  menu_item_id: string;
+  dish_name: string;
+  week_number: number;
+  weekday: number;
+  period: AppPeriod;
+  total_observations: number;
+  valid_observations: number;
+  avg_consumption_pct: number | null;
+  refusal_count: number;
+  encouragement_count: number;
+  did_not_like_count: number;
 }

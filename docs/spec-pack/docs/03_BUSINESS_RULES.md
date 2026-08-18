@@ -464,13 +464,56 @@ They must not automatically gain access to unrelated classes.
 
 Classroom-side users may record approved meal outcome / consumption information.
 
-The exact outcome values are:
+Confirmed structured values (docs/13 Decision 032, supersedes the earlier provisional outcome set):
+
+- served status: `SERVED` / `NOT_SERVED` — `NOT_SERVED` is never automatically 0% consumed;
+- consumption (only when served): `0` / `25` / `50` / `75` / `100` percent, structured only, no free-text substitute;
+- eating behavior: `ATE_INDEPENDENTLY` / `NEEDED_ENCOURAGEMENT` / `REFUSED`;
+- low-intake reason (relevant at 0%/25%): `NOT_HUNGRY` / `DID_NOT_LIKE_IT` / `DISTRACTED` / `SLEEPING` / `ABSENT` / `UNWELL` / `OTHER`;
+- concern flag: `NO_CONCERN` / `CONCERN_OBSERVED`.
+
+The exact edit window beyond an immediate same-session correction is:
 
 `NOT_YET_DEFINED`
 
-The exact edit window is:
+---
 
-`NOT_YET_DEFINED`
+## 31A. Absence and Exception States Are Not Meal Rejection (docs/13 Decision 032)
+
+Mandatory rule:
+
+`ABSENT`, `UNWELL`, `SLEEPING`, and `NOT_SERVED` must never be counted as evidence that a child disliked or rejected a Meal, in any Parent-facing summary or any LunchBox Connect analytics calculation.
+
+Meal-preference metrics (average consumption, refusal rate, dislike rate, etc.) must be computed over the valid observation population only — served meals, excluding the exception reasons above.
+
+---
+
+## 31B. One Record, Multiple Authorized Outcomes
+
+The Classroom Meal Record is entered once by the Nurse/Teacher.
+
+That single record simultaneously and automatically feeds:
+
+- the authorized Parent view (today's meals, daily summary, historical insights);
+- aggregated LunchBox Connect Meal-performance analytics.
+
+Staff must never be asked to enter the same Meal result twice for these two purposes.
+
+---
+
+## 31C. Meal Analytics Do Not Auto-Decide
+
+Meal-performance analytics (consumption rates, refusal rates, classification labels such as `KEEP` / `MONITOR` / `REVIEW_IMPROVE` / `CANDIDATE_FOR_REMOVAL`) are decision-support evidence only.
+
+The software must never automatically delete a Meal, remove it from rotation, change a recipe, substitute a Meal, alter Nutrition data, or make a clinical conclusion from this data. Final Menu decisions remain a human management decision.
+
+---
+
+## 31D. Staff Usability Is a Product Requirement
+
+Classroom Meal recording must be evaluated on real staff workload — taps required per Student, amount of typing, number of screens, and ease of finding who is still unrecorded — not merely on whether it technically stores the correct data.
+
+A workflow that is technically correct but meaningfully increases Nursery Staff's daily workload does not meet this requirement. Exception-only fields (low-intake reason, concern note) must appear only when triggered, not for every Student by default.
 
 ---
 

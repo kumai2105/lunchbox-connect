@@ -4,10 +4,13 @@ import {
   listClasses,
   listInstitutions,
   listStudents,
+  studentPhotoUrl,
   updateStudent,
+  uploadStudentPhoto,
 } from '../lib/api';
 import type { ClassRow, Institution, Student } from '../lib/types';
 import {
+  Avatar,
   Btn,
   Card,
   EmptyState,
@@ -19,11 +22,13 @@ import {
   StatusDot,
 } from '../components/ui';
 import { statusLabel, statusPillClass } from '../lib/status';
+import { initials } from '../lib/format';
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[] | null>(null);
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [classes, setClasses] = useState<ClassRow[]>([]);
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string | null>>({});
   const [error, setError] = useState<string | null>(null);
 
   const [term, setTerm] = useState('');
@@ -51,11 +56,33 @@ export default function StudentsPage() {
       setStudents(s.data ?? []);
       setInstitutions(i.data ?? []);
       setClasses(c.data ?? []);
+
+      const urls: Record<string, string | null> = {};
+      await Promise.all(
+        (s.data ?? []).map(async (st) => {
+          urls[st.id] = await studentPhotoUrl(st.photo_path);
+        }),
+      );
+      if (active) setPhotoUrls(urls);
     })();
     return () => {
       active = false;
     };
   }, []);
+
+  async function onPhotoChange(student: Student, file: File | undefined) {
+    if (!file) return;
+    const res = await uploadStudentPhoto(student.id, file);
+    if (res.error) {
+      setError(res.error);
+      return;
+    }
+    setStudents((prev) =>
+      (prev ?? []).map((s) => (s.id === student.id ? { ...s, photo_path: res.data } : s)),
+    );
+    const url = await studentPhotoUrl(res.data);
+    setPhotoUrls((prev) => ({ ...prev, [student.id]: url }));
+  }
 
   const filtered = useMemo(() => {
     if (!students) return [];
@@ -162,6 +189,7 @@ export default function StudentsPage() {
           <table>
             <thead>
               <tr>
+                <th>Photo</th>
                 <th>Student</th>
                 <th>ID</th>
                 <th>Institution</th>
@@ -175,6 +203,21 @@ export default function StudentsPage() {
               {filtered.map((s) => {
                 return (
                   <tr key={s.id}>
+                    <td>
+                      <label style={{ cursor: 'pointer', display: 'inline-block' }} title="Upload photo">
+                        <Avatar
+                          photoUrl={photoUrls[s.id]}
+                          initials={initials(`${s.given_name} ${s.family_name}`)}
+                          size="sm"
+                        />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={(e) => void onPhotoChange(s, e.target.files?.[0])}
+                        />
+                      </label>
+                    </td>
                     <td className="cell-name">
                       {s.given_name} {s.family_name}
                     </td>

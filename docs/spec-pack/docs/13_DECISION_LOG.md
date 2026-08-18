@@ -416,6 +416,40 @@ For the MVP:
 
 ---
 
+## Decision 032 — Classroom Meal Tracking, Parent Visibility, Meal Analytics & Staff Usability
+
+**Date:** `2026-08-18`
+
+**Decision:** Finalizes the previously-provisional classroom meal-recording data model and defines the fast tablet workflow, Parent-visible derived views, LunchBox Connect Meal-performance analytics, and Student photo support, all sourced from one authoritative Classroom Meal Record.
+
+**Supersedes:** The provisional demo `meal_outcome` value set (`full`/`partial`/`refused`/`absent`), which `docs/BUILD_STATUS.md` already flagged as provisional and never finalized. Replaced by the structured fields below.
+
+Confirmed structured fields on the Classroom Meal Record (one row per Student × Meal period × service date):
+
+- **served_status**: `SERVED` / `NOT_SERVED`. `NOT_SERVED` never implies 0% consumed — they are different facts.
+- **consumption_pct** (only when served): one of `0 / 25 / 50 / 75 / 100`. No free-text substitute is authoritative.
+- **behavior**: `ATE_INDEPENDENTLY` / `NEEDED_ENCOURAGEMENT` / `REFUSED`.
+- **low_intake_reason** (shown when intake is low, i.e. 0% or 25%): `NOT_HUNGRY` / `DID_NOT_LIKE_IT` / `DISTRACTED` / `SLEEPING` / `ABSENT` / `UNWELL` / `OTHER`. Whether it is mandatory at 0%/25% is left to implementation; the data model and UI must support it either way.
+- **concern_observed**: boolean (`NO_CONCERN` / `CONCERN_OBSERVED`). Only surfaces a note field when true.
+- **note**: existing internal free-text field (`serving_notes`) — unrestricted text still never auto-publishes to Parents (Decision 018 unchanged).
+- **menu_item_id**: the specific Menu row this observation was recorded against, resolved via the same week/weekday/period lookup the Parent menu view already uses. Gives Production→Meal traceability without inventing a Menu-versioning system.
+
+**Absence/exception handling is mandatory, not decorative:** `ABSENT`, `UNWELL`, `SLEEPING`, and `NOT_SERVED` must never count as evidence of Meal dislike in any analytics or Parent-facing summary. Meal-preference metrics are computed over the valid observation population only (served, and not one of those exception reasons).
+
+**Same record, three authorized outcomes:** the Nurse/Teacher records once. That one Classroom Meal Record simultaneously feeds (a) the authorized Parent view (today's meals, human-readable consumption, weekly insights), and (b) aggregated LunchBox Connect Meal-performance analytics (Super Admin — no separate "management" role exists yet, so this uses the existing Decision 007 Super Admin reporting domain, not a new role). No duplicate entry, no duplicate source of truth (Decision 006).
+
+**Meal-performance classifications** (`KEEP` / `MONITOR` / `REVIEW_IMPROVE` / `CANDIDATE_FOR_REMOVAL`) are internal decision-support labels a human reads from the analytics. The software must never auto-remove, auto-substitute, or auto-modify a Meal from analytics alone.
+
+**Student photo:** optional, operational-identification purpose only (recognizing a child quickly in a roster of 15-30). Not mandatory at Student creation. Never a public/unrestricted URL — governed by the same `app_can_see_student` boundary as the rest of the Student record (Decision 006/010). Kitchen and Driver do not receive Student photos merely by preparing or delivering a Meal (Decision 011/012 unchanged).
+
+**Staff usability is an explicit product requirement, not a nice-to-have:** the classroom workflow is evaluated on taps-per-student, typing avoided, and exception-first design (extra fields appear only when triggered), not merely on "does it technically work."
+
+**Not approved yet** (remain `NOT_YET_DEFINED`, do not implement by assumption): AI Meal recommendations, automatic clinical interpretation, automatic Meal removal, mood/psychology scoring, social comparison between children, exact-grams consumption, Meal/Menu versioning beyond the existing week/weekday/period model, edit-window/locking rules beyond an immediate same-session correction.
+
+**Status:** ACTIVE
+
+---
+
 ## Superseded Rule Register
 
 ### S-001 — Direct Parent-Payment Enrolment

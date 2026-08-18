@@ -4,15 +4,27 @@ import {
   listClasses,
   notesForServing,
   recordServing,
+  resolveMenuItemId,
   rosterForClass,
   servingForDay,
+  studentPhotoUrl,
   upsertServingNote,
   type ClassWithMeta,
+  type MealObservationInput,
 } from '../lib/api';
-import type { AppPeriod, MealOutcome, ServingNote, ServingRecord, Student } from '../lib/types';
-import { Btn, Banner, Card, EmptyState, Field, Modal, PageHead, Spinner } from '../components/ui';
-import { MEAL_OUTCOMES } from '../lib/rbac';
-import { todayISO } from '../lib/format';
+import type {
+  AppPeriod,
+  ConsumptionPct,
+  EatingBehavior,
+  LowIntakeReason,
+  ServingNote,
+  ServingRecord,
+  Student,
+} from '../lib/types';
+import { CONSUMPTION_VALUES } from '../lib/types';
+import { Avatar, Btn, Banner, Card, EmptyState, Field, Modal, PageHead, Spinner } from '../components/ui';
+import { BEHAVIOR_LABEL, LOW_INTAKE_REASON_LABEL, isLowIntake } from '../lib/mealAnalytics';
+import { initials, todayISO } from '../lib/format';
 
 const PERIOD_META: Array<{ period: AppPeriod; label: string; time: string }> = [
   { period: 'breakfast', label: 'Breakfast', time: '11:00–11:25' },
@@ -21,13 +33,23 @@ const PERIOD_META: Array<{ period: AppPeriod; label: string; time: string }> = [
   { period: 'afternoon_snack', label: 'Afternoon snack', time: '14:30–14:50' },
 ];
 
-type SaveState = 'ok' | 'pending' | 'err';
+interface Draft {
+  pct: ConsumptionPct | null;
+  behavior: EatingBehavior | null;
+  reason: LowIntakeReason | null;
+  concern: boolean;
+}
 
-interface NoteDraft {
-  studentId: string;
-  recordId: string | null;
-  body: string;
-  published: boolean;
+const BLANK_DRAFT: Draft = { pct: null, behavior: null, reason: null, concern: false };
+
+function draftFromRecord(rec: ServingRecord | undefined): Draft {
+  if (!rec) return BLANK_DRAFT;
+  return {
+    pct: rec.consumption_pct,
+    behavior: rec.behavior,
+    reason: rec.low_intake_reason,
+    concern: rec.concern_observed,
+  };
 }
 
 export default function TodayPage() {
@@ -37,13 +59,19 @@ export default function TodayPage() {
   const [classes, setClasses] = useState<ClassWithMeta[]>([]);
   const [roster, setRoster] = useState<Student[] | null>(null);
   const [records, setRecords] = useState<ServingRecord[]>([]);
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string | null>>({});
   const [notes, setNotes] = useState<Record<string, ServingNote>>({});
-  const [saveState, setSaveState] = useState<Record<string, SaveState>>({});
+  const [menuItemId, setMenuItemId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const [period, setPeriod] = useState<AppPeriod>('breakfast');
-  const [draft, setDraft] = useState<NoteDraft | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [index, setIndex] = useState(0);
+  const [draft, setDraft] = useState<Draft>(BLANK_DRAFT);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [noteBody, setNoteBody] = useState('');
+  const [notePublish, setNotePublish] = useState(false);
+  const [noteBusy, setNoteBusy] = useState(false);
 
   useEffect(() => {
     void listClasses().then((res) => {
@@ -57,19 +85,25 @@ export default function TodayPage() {
     let active = true;
     void (async () => {
       const today = todayISO();
-      const [r, s] = await Promise.all([
+      const [r, s, m] = await Promise.all([
         rosterForClass(classId),
         servingForDay(classId, today, period),
+        resolveMenuItemId(today, period),
       ]);
       if (!active) return;
       if (r.error || s.error) setError(r.error ?? s.error);
       setRoster(r.data ?? []);
       setRecords(s.data ?? []);
-      const ids = (s.data ?? []).map((x) => x.id);
-      const n = await notesForServing(ids);
-      const map: Record<string, ServingNote> = {};
-      (n.data ?? []).forEach((note) => (map[note.serving_record_id] = note));
-      setNotes(map);
+      setMenuItemId(m);
+      setIndex(0);
+
+      const urls: Record<string, string | null> = {};
+      await Promise.all(
+        (r.data ?? []).map(async (st) => {
+          urls[st.id] = await studentPhotoUrl(st.photo_path);
+        }),
+      );
+      if (active) setPhotoUrls(urls);
     })();
     return () => {
       active = false;
@@ -84,6 +118,11 @@ export default function TodayPage() {
 
   const classLabel = classes.find((c) => c.id === classId)?.name ?? classId;
   const recordedCount = roster?.filter((s) => byStudent[s.id]).length ?? 0;
+  const student = roster?.[index] ?? null;
+
+  useEffect(() => {
+    setDraft(draftFromRecord(student ? byStudent[student.id] : undefined));
+  }, [student, byStudent]);
 
   async function refreshRecords() {
     const fresh = await servingForDay(classId, todayISO(), period);
@@ -94,62 +133,141 @@ export default function TodayPage() {
     setNotes(map);
   }
 
-  async function setOutcome(studentId: string, outcome: MealOutcome) {
-    setSaveState((s) => ({ ...s, [studentId]: 'pending' }));
+  async function save(input: Partial<MealObservationInput>) {
+    if (!student) return;
+    setSaving(true);
     const res = await recordServing(
       classId,
-      [{ student_id: studentId, period, outcome }],
+      [
+        {
+          student_id: student.id,
+          period,
+          served_status: 'served',
+          menu_item_id: menuItemId,
+          ...input,
+        },
+      ],
       todayISO(),
     );
+    setSaving(false);
     if (res.error) {
-      setSaveState((s) => ({ ...s, [studentId]: 'err' }));
       setError(res.error);
-      return;
+      return false;
     }
     await refreshRecords();
-    setSaveState((s) => ({ ...s, [studentId]: 'ok' }));
+    return true;
+  }
+
+  function goToNextUnrecorded(fromIndex: number) {
+    if (!roster) return;
+    for (let i = fromIndex + 1; i < roster.length; i++) {
+      if (!byStudent[roster[i].id]) {
+        setIndex(i);
+        return;
+      }
+    }
+    for (let i = 0; i < roster.length; i++) {
+      if (!byStudent[roster[i].id]) {
+        setIndex(i);
+        return;
+      }
+    }
+    // everyone recorded — just move forward if possible
+    if (fromIndex + 1 < roster.length) setIndex(fromIndex + 1);
+  }
+
+  async function selectPct(pct: ConsumptionPct) {
+    setDraft((d) => ({ ...d, pct, reason: isLowIntake(pct) ? d.reason : null }));
+  }
+
+  async function selectBehavior(behavior: EatingBehavior) {
+    const nextDraft = { ...draft, behavior };
+    setDraft(nextDraft);
+    // Fast path: normal/adequate intake saves immediately on behavior tap
+    // (docs/13 Decision 032 §20 — "tap % → tap behaviour → done").
+    if (!isLowIntake(nextDraft.pct)) {
+      const ok = await save({
+        consumption_pct: nextDraft.pct,
+        behavior,
+        low_intake_reason: null,
+        concern_observed: nextDraft.concern,
+      });
+      if (ok) goToNextUnrecorded(index);
+    }
+  }
+
+  async function selectReason(reason: LowIntakeReason) {
+    const nextDraft = { ...draft, reason };
+    setDraft(nextDraft);
+    const ok = await save({
+      consumption_pct: nextDraft.pct,
+      behavior: nextDraft.behavior,
+      low_intake_reason: reason,
+      concern_observed: nextDraft.concern,
+    });
+    if (ok) goToNextUnrecorded(index);
+  }
+
+  async function markNotServed() {
+    const ok = await save({
+      served_status: 'not_served',
+      consumption_pct: null,
+      behavior: null,
+      low_intake_reason: null,
+      concern_observed: draft.concern,
+    });
+    if (ok) goToNextUnrecorded(index);
+  }
+
+  async function saveExceptionNow() {
+    const ok = await save({
+      consumption_pct: draft.pct,
+      behavior: draft.behavior,
+      low_intake_reason: draft.reason,
+      concern_observed: draft.concern,
+    });
+    if (ok) goToNextUnrecorded(index);
+  }
+
+  function openNoteModal() {
+    if (!student) return;
+    const rec = byStudent[student.id];
+    const note = rec ? notes[rec.id] : undefined;
+    setNoteBody(note?.body ?? '');
+    setNotePublish(Boolean(note?.published_at));
+    setNoteOpen(true);
   }
 
   async function saveNote() {
-    if (!draft) return;
-    setBusy(true);
-    let recordId = draft.recordId;
-    if (!recordId) {
-      const existing = byStudent[draft.studentId];
-      if (!existing) {
-        const res = await recordServing(
-          classId,
-          [{ student_id: draft.studentId, period, outcome: 'full' }],
-          todayISO(),
-        );
-        if (res.error) {
-          setError(res.error);
-          setBusy(false);
-          return;
-        }
-        await refreshRecords();
+    if (!student) return;
+    setNoteBusy(true);
+    let rec: ServingRecord | undefined = byStudent[student.id];
+    if (!rec) {
+      const ok = await save({
+        consumption_pct: draft.pct,
+        behavior: draft.behavior,
+        low_intake_reason: draft.reason,
+        concern_observed: true,
+      });
+      if (!ok) {
+        setNoteBusy(false);
+        return;
       }
-      const fresh = byStudent[draft.studentId];
-      recordId = fresh?.id ?? null;
-      if (!recordId) {
-        // after refreshRecords the state has not re-rendered; look it up directly
-        const q = await servingForDay(classId, todayISO(), period);
-        recordId = q.data?.find((r) => r.student_id === draft.studentId)?.id ?? null;
-      }
+      const fresh = await servingForDay(classId, todayISO(), period);
+      rec = fresh.data?.find((r) => r.student_id === student.id);
     }
-    if (!recordId) {
-      setError('Outcome must be saved before a note can be attached.');
-      setBusy(false);
+    if (!rec) {
+      setNoteBusy(false);
       return;
     }
-    const res = await upsertServingNote(recordId, draft.body, draft.published);
-    setBusy(false);
+    const res = await upsertServingNote(rec.id, noteBody, notePublish);
+    setNoteBusy(false);
     if (res.error) {
       setError(res.error);
       return;
     }
-    setNotes((n) => ({ ...n, [recordId as string]: res.data! }));
-    setDraft(null);
+    setNotes((n) => ({ ...n, [rec!.id]: res.data! }));
+    setNoteOpen(false);
   }
 
   if (!classId) {
@@ -176,154 +294,213 @@ export default function TodayPage() {
     );
   }
 
+  const rec = student ? byStudent[student.id] : undefined;
+  const allergyNote = student?.medical_notes?.map((m) => m.text).join(' · ');
+
   return (
     <div>
       <PageHead
         title="Today — serving"
         hint={`${classLabel} · ${todayISO()}`}
         actions={
-          <span className="chip brand">
-            {recordedCount} of {roster?.length ?? 0} recorded
-          </span>
+          <>
+            <span className="today-progress">
+              {PERIOD_META.find((p) => p.period === period)?.label} — {recordedCount} /{' '}
+              {roster?.length ?? 0} completed
+            </span>
+            <Btn variant="ghost" size="sm" onClick={() => setParams({})}>
+              Switch class
+            </Btn>
+          </>
         }
       />
 
       {error && <Banner kind="err">{error}</Banner>}
 
-      <Card
-        title="Serving register"
-        hint="outcome per student per period + optional note"
-        actions={
-          <>
-            <div className="period-bar" style={{ margin: 0 }}>
-              {PERIOD_META.map((p) => (
+      <div className="period-bar">
+        {PERIOD_META.map((p) => (
+          <button
+            key={p.period}
+            className={`period-btn${period === p.period ? ' active' : ''}`}
+            onClick={() => setPeriod(p.period)}
+          >
+            {p.label} <small>{p.time}</small>
+          </button>
+        ))}
+      </div>
+
+      {!roster ? (
+        <Spinner />
+      ) : roster.length === 0 ? (
+        <EmptyState text="No eligible students in this class right now." />
+      ) : !student ? null : (
+        <>
+          <div className="roster-strip">
+            {roster.map((s, i) => {
+              const r = byStudent[s.id];
+              const badge = !r
+                ? ''
+                : r.served_status === 'not_served'
+                  ? '⏳'
+                  : r.concern_observed
+                    ? '⚠️'
+                    : r.behavior === 'refused'
+                      ? '🚫'
+                      : '✅';
+              return (
+                <button key={s.id} className={`roster-chip${i === index ? ' active' : ''}`} onClick={() => setIndex(i)}>
+                  <Avatar photoUrl={photoUrls[s.id]} initials={initials(`${s.given_name} ${s.family_name}`)} size="sm" />
+                  <span className="status-badge">{badge || '·'}</span>
+                  <span className="name">{s.given_name}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="focus-nav">
+            <button className="focus-nav-btn" disabled={index === 0} onClick={() => setIndex((i) => i - 1)}>
+              ←
+            </button>
+            <Btn variant="ghost" size="sm" onClick={() => goToNextUnrecorded(-1)}>
+              Next unrecorded
+            </Btn>
+            <button
+              className="focus-nav-btn"
+              disabled={index === roster.length - 1}
+              onClick={() => setIndex((i) => i + 1)}
+            >
+              →
+            </button>
+          </div>
+
+          <div className="focus-card">
+            <Avatar
+              photoUrl={photoUrls[student.id]}
+              initials={initials(`${student.given_name} ${student.family_name}`)}
+              size="lg"
+            />
+            <div className="focus-name">
+              {student.given_name} {student.family_name}
+            </div>
+            <div className="focus-sub">{student.student_no}</div>
+            {allergyNote && <div className="focus-allergy">⚠ {allergyNote}</div>}
+
+            {rec?.served_status === 'not_served' ? (
+              <Banner kind="warn">Marked not served. Tap a portion below to record it instead.</Banner>
+            ) : null}
+
+            <div className="plate">
+              {CONSUMPTION_VALUES.map((v) => (
                 <button
-                  key={p.period}
-                  className={`period-btn${period === p.period ? ' active' : ''}`}
-                  onClick={() => setPeriod(p.period)}
+                  key={v}
+                  className={`plate-quarter${draft.pct === v ? ' selected' : ''}`}
+                  onClick={() => void selectPct(v)}
+                  aria-label={`${v}% eaten`}
                 >
-                  {p.label} <small>{p.time}</small>
+                  {draft.pct === v && (
+                    <span className="fill" style={{ transform: `scaleY(${v / 100})` }} />
+                  )}
+                  <span>{v}%</span>
                 </button>
               ))}
             </div>
-            <Btn variant="ghost" onClick={() => setParams({})}>
-              Switch class
-            </Btn>
-          </>
-        }
-      >
-        {!roster ? (
-          <Spinner />
-        ) : roster.length === 0 ? (
-          <EmptyState text="No enrolled students in this class." />
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Outcome</th>
-                <th>Note</th>
-                <th>Saved</th>
-              </tr>
-            </thead>
-            <tbody>
-              {roster.map((s) => {
-                const rec = byStudent[s.id];
-                const note = rec ? notes[rec.id] : undefined;
-                return (
-                  <tr key={s.id}>
-                    <td className="cell-name">
-                      {s.given_name} {s.family_name}{' '}
-                      <span className="cell-sub">{s.student_no}</span>
-                    </td>
-                    <td>
-                      <select
-                        className={`outcome ${rec?.outcome ?? ''}`}
-                        value={rec?.outcome ?? ''}
-                        onChange={(e) => void setOutcome(s.id, e.target.value as MealOutcome)}
-                      >
-                        <option value="" disabled>
-                          — record —
-                        </option>
-                        {MEAL_OUTCOMES.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <button
-                        className="icon-btn"
-                        title="add / edit note"
-                        onClick={() =>
-                          setDraft({
-                            studentId: s.id,
-                            recordId: rec?.id ?? null,
-                            body: note?.body ?? '',
-                            published: Boolean(note?.published_at),
-                          })
-                        }
-                      >
-                        ✎
-                      </button>
-                    </td>
-                    <td className={`save-state ${saveState[s.id] ?? (rec ? 'ok' : '')}`}>
-                      {saveState[s.id] === 'pending'
-                        ? '… saving'
-                        : saveState[s.id] === 'err'
-                          ? 'failed'
-                          : rec
-                            ? '✓ saved'
-                            : '—'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </Card>
 
-      {draft && (
+            {draft.pct !== null && (
+              <div className="chip-choice">
+                {(['ate_independently', 'needed_encouragement', 'refused'] as EatingBehavior[]).map(
+                  (b) => (
+                    <button
+                      key={b}
+                      className={`${b === 'refused' ? 'danger' : b === 'needed_encouragement' ? 'warn' : ''} ${draft.behavior === b ? 'selected' : ''}`}
+                      onClick={() => void selectBehavior(b)}
+                    >
+                      {BEHAVIOR_LABEL[b]}
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
+
+            {isLowIntake(draft.pct) && draft.behavior && (
+              <div className="chip-choice">
+                {(Object.keys(LOW_INTAKE_REASON_LABEL) as LowIntakeReason[]).map((r) => (
+                  <button
+                    key={r}
+                    className={draft.reason === r ? 'selected' : ''}
+                    onClick={() => void (r === 'other' ? openNoteModal() : selectReason(r))}
+                  >
+                    {LOW_INTAKE_REASON_LABEL[r]}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="chip-choice">
+              <button
+                className={draft.concern ? 'warn selected' : ''}
+                onClick={() => {
+                  setDraft((d) => ({ ...d, concern: !d.concern }));
+                  openNoteModal();
+                }}
+              >
+                {draft.concern ? '⚠ Concern flagged' : 'Flag a concern'}
+              </button>
+              <button onClick={openNoteModal}>{notes[rec?.id ?? '']?.body ? 'Edit note' : 'Add note'}</button>
+              <button className="not-served-btn" onClick={() => void markNotServed()} disabled={saving}>
+                Meal not served
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {noteOpen && (
         <Modal
           title="Note"
-          onClose={() => setDraft(null)}
+          onClose={() => setNoteOpen(false)}
           footer={
             <>
-              <Btn variant="ghost" onClick={() => setDraft(null)}>
+              <Btn variant="ghost" onClick={() => setNoteOpen(false)}>
                 Cancel
               </Btn>
-              <Btn
-                variant="brand"
-                onClick={() => void saveNote()}
-                disabled={busy || !draft.body.trim()}
-              >
-                {busy ? 'Saving…' : 'Save note'}
+              <Btn variant="brand" onClick={() => void saveNote()} disabled={noteBusy}>
+                {noteBusy ? 'Saving…' : 'Save'}
               </Btn>
             </>
           }
         >
           <Field label="Note text">
             <textarea
-              value={draft.body}
-              onChange={(e) => setDraft({ ...draft, body: e.target.value })}
+              value={noteBody}
+              onChange={(e) => setNoteBody(e.target.value)}
               rows={3}
               autoFocus
-              placeholder="e.g. refused vegetables; not hungry"
+              placeholder="what did you observe?"
             />
           </Field>
           <div className="field" style={{ marginTop: 12 }}>
             <label>
               <input
                 type="checkbox"
-                checked={draft.published}
-                onChange={(e) => setDraft({ ...draft, published: e.target.checked })}
+                checked={notePublish}
+                onChange={(e) => setNotePublish(e.target.checked)}
                 style={{ marginRight: 6 }}
               />
               Publish to the child's family
             </label>
           </div>
+          {draft.pct !== null && (
+            <Btn
+              variant="ghost"
+              style={{ marginTop: 12 }}
+              onClick={() => {
+                setNoteOpen(false);
+                void saveExceptionNow();
+              }}
+            >
+              Save meal result too
+            </Btn>
+          )}
         </Modal>
       )}
     </div>

@@ -1,16 +1,21 @@
 import { supabase } from './supabase';
+import { isoWeek, isoWeekday } from './format';
 import {
   OPERATIONAL_STATUS_ELIGIBLE,
   type AppPeriod,
   type AppUser,
   type AuditLogRow,
   type ClassRow,
+  type ConsumptionPct,
   type DashboardInstitutionRow,
+  type EatingBehavior,
   type Institution,
   type Kitchen,
-  type MealOutcome,
+  type LowIntakeReason,
+  type MealPerformanceRow,
   type MenuItem,
   type ProductionDemandRow,
+  type ServedStatus,
   type ServingNote,
   type ServingRecord,
   type Student,
@@ -127,7 +132,10 @@ export async function createStudent(input: {
 export async function updateStudent(
   id: string,
   patch: Partial<
-    Pick<Student, 'class_id' | 'given_name' | 'family_name' | 'grade' | 'enrollment_status'>
+    Pick<
+      Student,
+      'class_id' | 'given_name' | 'family_name' | 'grade' | 'enrollment_status' | 'photo_path'
+    >
   >,
 ): Promise<ApiResult<Student>> {
   const { data, error } = await supabase
@@ -138,6 +146,32 @@ export async function updateStudent(
     .single();
   if (error) return err(error);
   return { data: data as Student, error: null };
+}
+
+// Student photo (docs/13 Decision 032 §5-6): private bucket, path-scoped RLS
+// (migration 0014), never a public URL. Callers must already hold a Student
+// they're authorized to see/manage — the same boundary the students table uses.
+const STUDENT_PHOTOS_BUCKET = 'student-photos';
+
+export async function uploadStudentPhoto(studentId: string, file: File): Promise<ApiResult<string>> {
+  const ext = file.name.split('.').pop() ?? 'jpg';
+  const path = `${studentId}/photo.${ext}`;
+  const { error: uploadError } = await supabase.storage
+    .from(STUDENT_PHOTOS_BUCKET)
+    .upload(path, file, { upsert: true });
+  if (uploadError) return err(uploadError);
+  const res = await updateStudent(studentId, { photo_path: path });
+  if (res.error) return err(res.error);
+  return { data: path, error: null };
+}
+
+export async function studentPhotoUrl(photoPath: string | null): Promise<string | null> {
+  if (!photoPath) return null;
+  const { data, error } = await supabase.storage
+    .from(STUDENT_PHOTOS_BUCKET)
+    .createSignedUrl(photoPath, 60 * 30); // 30 min — re-requested per page load
+  if (error || !data) return null;
+  return data.signedUrl;
 }
 
 // ---------------------------------------------------------------- eligibility gate (operational status)
@@ -224,6 +258,36 @@ export async function publishMenuWeek(week: number): Promise<ApiResult<null>> {
   return { data: null, error: null };
 }
 
+// Resolves which Menu row a serving_date/period corresponds to, via the same
+// week/weekday/period lookup already used for the Parent menu view — gives
+// Production→Meal traceability without inventing a versioning system
+// (docs/13 Decision 032).
+export async function resolveMenuItemId(
+  serving_date: string,
+  period: AppPeriod,
+): Promise<string | null> {
+  const d = new Date(`${serving_date}T00:00:00`);
+  const { data } = await supabase
+    .from('menus')
+    .select('id')
+    .eq('week_number', isoWeek(d))
+    .eq('weekday', isoWeekday(d))
+    .eq('period', period)
+    .maybeSingle();
+  return (data as { id: string } | null)?.id ?? null;
+}
+
+// Meal-performance analytics (docs/13 Decision 032, Super Admin only via RLS
+// on v_meal_performance — returns empty for any other role).
+export async function mealPerformance(): Promise<ApiResult<MealPerformanceRow[]>> {
+  const { data, error } = await supabase
+    .from('v_meal_performance')
+    .select('*')
+    .order('avg_consumption_pct', { ascending: true, nullsFirst: false });
+  if (error) return err(error);
+  return { data: (data ?? []) as MealPerformanceRow[], error: null };
+}
+
 // ---------------------------------------------------------------- serving
 export async function rosterForClass(classId: string): Promise<ApiResult<Student[]>> {
   // Only operationally eligible students enter serving (docs/03 §7, AT-011).
@@ -254,14 +318,21 @@ export async function servingForDay(
   return { data: (data ?? []) as ServingRecord[], error: null };
 }
 
+export interface MealObservationInput {
+  student_id: string;
+  period: AppPeriod;
+  served_status: ServedStatus;
+  consumption_pct?: ConsumptionPct | null;
+  behavior?: EatingBehavior | null;
+  low_intake_reason?: LowIntakeReason | null;
+  concern_observed?: boolean;
+  menu_item_id?: string | null;
+  note?: string | null;
+}
+
 export async function recordServing(
   classId: string,
-  rows: Array<{
-    student_id: string;
-    period: AppPeriod;
-    outcome: MealOutcome;
-    note?: string | null;
-  }>,
+  rows: MealObservationInput[],
   date: string,
 ): Promise<ApiResult<null>> {
   const { error } = await supabase.rpc('record_serving_batch', {

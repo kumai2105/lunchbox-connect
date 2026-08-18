@@ -950,28 +950,36 @@ Delivery confirmation belongs to a Delivery.
 
 `ClassroomMealRecord`
 
-Represents the operational record of a Student's meal in the classroom-side workflow.
+Represents the operational record of a Student's meal in the classroom-side workflow. One authoritative row per Student × Meal period × service date (docs/13 Decision 032).
 
 ### Confirmed relationships
 
 A Classroom Meal Record must relate to:
 
 - the correct Student;
-- the relevant Meal;
+- the relevant Meal (`menu_item_id`, resolved via the existing week/weekday/period Menu lookup — no separate Menu-versioning system);
 - the relevant Institution / Class context;
-- the applicable service date / context.
+- the applicable service date / context;
+- the recording User.
 
 ### Confirmed information concepts
 
-It may include:
+It includes:
 
-- meal serving status;
-- meal outcome / consumption;
-- incident or note where permitted.
+- meal serving status (§35);
+- structured consumption (§36);
+- eating behavior;
+- low-intake reason where applicable;
+- a concern flag;
+- an optional internal note (subject to the existing Parent-visible-notes review rule, docs/13 Decision 018).
+
+### Confirmed single-source rule
+
+The same Classroom Meal Record feeds both the authorized Parent view and LunchBox Connect Meal-performance analytics. It is never entered twice for the two purposes (docs/13 Decision 032, Decision 006).
 
 ### Exact fields
 
-`NOT_YET_DEFINED`
+Confirmed field set — see docs/13 Decision 032 for the complete definition. Any field not listed there remains `NOT_YET_DEFINED`.
 
 ---
 
@@ -981,11 +989,16 @@ It may include:
 
 `MealServingStatus`
 
-Represents whether / how the relevant meal was served.
+Represents whether the relevant meal was actually served.
 
-### Exact allowed values
+### Confirmed allowed values (docs/13 Decision 032)
 
-`NOT_YET_DEFINED`
+- `SERVED`
+- `NOT_SERVED`
+
+### Confirmed rule
+
+`NOT_SERVED` must never be treated as, or automatically converted into, 0% consumed. They are different facts and must remain distinguishable in every downstream view and analytic.
 
 ---
 
@@ -993,17 +1006,68 @@ Represents whether / how the relevant meal was served.
 
 ### Entity / concept
 
-`MealOutcome`
+Consumption and eating behavior recorded by authorized classroom users. Supersedes the earlier provisional `MealOutcome` value set (docs/13 Decision 032).
 
-Represents approved consumption / outcome information recorded by authorized classroom users.
+### Confirmed allowed values
 
-### Exact allowed values
+- **Consumption** (only meaningful when `served_status = SERVED`): `0` / `25` / `50` / `75` / `100` (percent). No other value, and no free-text substitute, is authoritative.
+- **Eating behavior**: `ATE_INDEPENDENTLY` / `NEEDED_ENCOURAGEMENT` / `REFUSED`.
+- **Low-intake reason** (relevant at 0%/25%): `NOT_HUNGRY` / `DID_NOT_LIKE_IT` / `DISTRACTED` / `SLEEPING` / `ABSENT` / `UNWELL` / `OTHER`.
+- **Concern flag**: `NO_CONCERN` / `CONCERN_OBSERVED`.
+
+### Confirmed analytics-exclusion rule
+
+`ABSENT`, `UNWELL`, `SLEEPING`, and `NOT_SERVED` must never count as Meal-preference rejection in Meal-performance analytics or Parent-facing summaries. Every consumption/preference metric is computed over the valid observation population only (docs/13 Decision 032 §42).
+
+### Exact scoring system beyond the above
 
 `NOT_YET_DEFINED`
 
-### Exact scoring system
+---
 
-`NOT_YET_DEFINED`
+## 36A. Student Photo
+
+### Entity / concept
+
+`StudentPhoto`
+
+Optional operational-identification image on the Student profile (docs/13 Decision 032).
+
+### Confirmed purpose
+
+Fast visual identification of a child in a classroom roster. Not a general-purpose media/document store.
+
+### Confirmed rules
+
+- Optional — never required to create a Student.
+- Governed by the same `app_can_see_student` visibility boundary as the rest of the Student record — never a public/unrestricted URL.
+- Kitchen and Driver/Logistics do not receive Student photos merely because they perform Production or Delivery work (docs/13 Decision 011/012, unchanged).
+
+### Exact fields / storage model
+
+Stored as a private object reference (path), not inline binary data in the row. Exact retention/replacement rules beyond "optional, one current photo per Student" remain `NOT_YET_DEFINED`.
+
+---
+
+## 36B. Meal Performance Metrics
+
+### Entity / concept
+
+`MealPerformanceMetrics`
+
+Aggregated, derived-only metrics per Meal (`menu_item_id`), computed from Classroom Meal Records — never a separately entered or independently editable data set (docs/13 Decision 032 Part on Meal Analytics).
+
+### Confirmed relationships
+
+Derives from Classroom Meal Records joined to the Meal (Menu row) they were recorded against. Excludes the non-preference population defined in §36's analytics-exclusion rule.
+
+### Confirmed restriction
+
+Metrics are decision-support evidence only. They must never automatically remove, substitute, or modify a Meal. Any classification (`KEEP` / `MONITOR` / `REVIEW_IMPROVE` / `CANDIDATE_FOR_REMOVAL`) is read by an authorized human, not applied by the software.
+
+### Exact fields
+
+`NOT_YET_DEFINED` beyond the metrics named in docs/13 Decision 032 (average consumption, per-bucket consumption share, refusal rate, encouragement rate, dislike rate).
 
 ---
 
@@ -1636,7 +1700,9 @@ The confirmed core entities / concepts are:
 - Delivery Confirmation
 - Classroom Meal Record
 - Meal Serving Status
-- Meal Outcome
+- Meal Outcome / Consumption
+- Student Photo (docs/13 Decision 032)
+- Meal Performance Metrics (docs/13 Decision 032)
 - Classroom Incident / Note
 - Institutional Billing Record
 - Commercial Configuration where defined

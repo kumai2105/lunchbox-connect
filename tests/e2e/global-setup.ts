@@ -191,10 +191,25 @@ export default async function globalSetup(): Promise<void> {
     await db.from('menus').upsert(dish, { onConflict: 'week_number,weekday,period' });
   }
 
-  // ---- today's outcomes for the portal child -------------------------------------
+  // ---- today's meal results for the portal child (docs/13 Decision 032) ---------
   for (const row of [
-    { student_id: portalKid!.id, period: 'breakfast', outcome: 'full', serving_date: today },
-    { student_id: portalKid!.id, period: 'lunch', outcome: 'refused', serving_date: today },
+    {
+      student_id: portalKid!.id,
+      period: 'breakfast',
+      served_status: 'served',
+      consumption_pct: 100,
+      behavior: 'ate_independently',
+      serving_date: today,
+    },
+    {
+      student_id: portalKid!.id,
+      period: 'lunch',
+      served_status: 'served',
+      consumption_pct: 0,
+      behavior: 'refused',
+      low_intake_reason: 'did_not_like_it',
+      serving_date: today,
+    },
   ]) {
     await db.from('serving_records').upsert(row, { onConflict: 'student_id,serving_date,period' });
   }

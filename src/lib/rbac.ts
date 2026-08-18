@@ -1,4 +1,4 @@
-import type { AppRole, MealOutcome } from './types';
+import type { AppRole } from './types';
 
 /**
  * Pure authorization matrix — frontend mirror of the RLS policies
@@ -89,16 +89,4 @@ export function can(role: AppRole | null | undefined, resource: Resource, action
 
 export function viewableResources(role: AppRole): Resource[] {
   return (Object.keys(MATRIX) as Resource[]).filter((r) => can(role, r, 'view'));
-}
-
-export const MEAL_OUTCOMES: { value: MealOutcome; label: string }[] = [
-  // Provisional demo values — exact outcome set is NOT_YET_DEFINED (docs/05 §31)
-  { value: 'full', label: 'Full' },
-  { value: 'partial', label: 'Partial' },
-  { value: 'refused', label: 'Refused' },
-  { value: 'absent', label: 'Absent' },
-];
-
-export function outcomeLabel(outcome: MealOutcome): string {
-  return MEAL_OUTCOMES.find((o) => o.value === outcome)?.label ?? outcome;
 }

@@ -451,6 +451,21 @@ A classroom user must not gain access to every student in the institution merely
 
 ---
 
+## 27A. Student Photo Access (docs/13 Decision 032)
+
+Student photos follow the same boundary as the rest of the Student record — no separate, looser rule:
+
+- Teacher / Nurse / Classroom Staff see photos only for Students in their assigned Class(es).
+- Nursery / School Admin see photos only for Students in their own Institution.
+- Parent / Guardian see only their own authorized child's photo.
+- Kitchen does not receive Student photos merely because it prepares Meals (Decision 011 unchanged).
+- Driver / Logistics does not receive Student photos merely because it performs a Delivery (Decision 012 unchanged).
+- Unrelated Institutions never receive them.
+
+A Student photo must never be served through a public, unrestricted URL.
+
+---
+
 ## 28. Classroom Allergy Visibility
 
 Teachers / nurses must have the allergy awareness required for students within their authorized class scope.
