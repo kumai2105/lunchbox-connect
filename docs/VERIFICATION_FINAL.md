@@ -2,14 +2,14 @@
 
 **Date:** 2026-08-19
 **Branch:** `claude/new-session-k5dd5u`
-**Verified at:** `f6406eb` (*Stage 9 — remove vestigial architecture*). This
-document is committed on top of that commit; every result below was produced
-against that tree.
+**Verified at:** `c6e1476` (*Correction order — 11 contradictions resolved*).
+This document is committed on top of that tree; every result below was produced
+against it.
 **Method:** every result is **executed**, not inspected. Database checks ran
 against a real PostgreSQL 16 built from nothing with
-`supabase/migrations/0001`–`0028` applied verbatim through the Supabase shim;
+`supabase/migrations/0001`–`0029` applied verbatim through the Supabase shim;
 frontend logic ran in the Vitest unit suite; the production bundle was built
-and type-checked. No result here rests on "should work."
+and type-checked.
 
 Reproduce: `./tests/sql/run_verification.sh` then
 `pnpm typecheck && pnpm lint && pnpm test:unit && pnpm build`.
@@ -26,116 +26,100 @@ cannot execute here · `NOT_RUN` not attempted.
 
 ## 1. Decision
 
-**Codebase (this branch): APPROVED.** The repository, migrations, UI, backend
-and tests now describe **one** architecture: reusable Meals + Menus on a
-data-sized rotation, per-institution service configuration and calendar
-exceptions set through the Admin UI, multi-staff-per-class authorization, and
-a single meal-identity source of truth for Kitchen, Parent and management
-analytics. The legacy per-weekday `menus`/publish path is retired, not merely
-unused.
+**Codebase (this branch): the eleven contradictions found in independent
+inspection of `b5bdfd7` are resolved, each with a regression test, and the
+full executable suite passes.** The repository, migrations, UI, backend and
+tests describe one architecture: reusable Meals + Menus on a data-sized
+rotation; per-institution service configuration and calendar exceptions set
+through the Admin UI; multi-staff-per-class authorization keyed on
+`class_staff`; a served classroom observation that must reference a published
+Meal Service; and a single meal-identity source of truth for Kitchen, Parent
+and management analytics.
 
 **Live production database: NOT modified in this pass.** The only production
-change made in this session was the **revert you approved** — it removed the
-unapproved service-plans, rotation assignments and mass-published services
-and confirmed the resolver leak was closed. The corrected planning migrations
-**`0021`–`0028` are NOT applied to production**; that application is
-deliberately deferred to you, per your standing "no production changes yet"
-instruction. See §6.
+change made in this session remains the revert you approved earlier. The
+corrected planning + integrity migrations **`0021`–`0029` are NOT applied to
+production**; that is deferred to you. See §5.
 
 ---
 
 ## 2. What was executed and passed
 
-### Database — 9 suites, all PASS, mutation-tested non-vacuous
+### Database — 10 suites, all PASS, mutation-tested non-vacuous
 
 | Suite | Scope | Checks |
 | ----- | ----- | ------ |
-| `verify_fresh_deploy` | A migrations-only database with no legacy `menus` builds cleanly and auto-creates no rotation/plan/publish | 6/6 PASS |
+| `verify_fresh_deploy` | A migrations-only database (no legacy `menus`) builds cleanly and auto-creates no rotation/plan/publish | 6/6 PASS |
 | `verify_golden_path` | Institution→Student→Eligibility→Meal→Rotation→Calendar→Service Plan→Meal Service→Demand→Classroom→Parent→Analytics | 15/15 PASS |
 | `verify_rls_cross_portal` | Every portal re-reads the same record under its own RLS; parent/teacher/kitchen/driver/school-admin isolation | 16/16 PASS |
 | `verify_menu_cutover` | Legacy menu → rotation engine; the seven-week-freeze regression; idempotent backfill | 10/10 PASS |
-| `verify_downstream_wiring` | Kitchen/Parent read dated published services; Classroom write persists the Meal Service link; **§31 one-truth: a service-based observation reaches `v_meal_performance`** | 9/9 PASS |
+| `verify_downstream_wiring` | Kitchen/Parent read dated published services; Classroom write persists the Meal Service link; §31 analytics one-truth | 9/9 PASS |
 | `verify_authorization_matrix` | Roles × every write-sensitive table, append-only rows-affected, resolver-RPC lockdown | **146/146 PASS** |
 | `verify_special_period` | Multi-week special-period rotation resolves its week from period alignment (§37) | 1/1 PASS |
-| `verify_class_staff` | Multi-staff-per-class scope (§16): both assigned staff see the child; unassigned sees zero; recording follows membership | 3/3 PASS |
-| `verify_kitchen_demand` | Per-meal production quantities (§34); service days come from publication, not a weekend rule (§35) | 2/2 PASS |
+| `verify_class_staff` | Multi-staff-per-class scope (§16) | 3/3 PASS |
+| `verify_kitchen_demand` | Per-meal production quantities (§34); service days from publication (§35) | 2/2 PASS |
+| `verify_correction_order` | **Items 1/6/7:** served-needs-published-service (RPC + constraint), nursery/school-only kind, optional student_no | 7/7 PASS |
 
-Every suite is proven capable of failing: deliberate mutations (open an INSERT
-policy, add an UPDATE policy to append-only `meal_revisions`, stub a resolver
-to `true`, drop the write-path link, size the rotation wrong, join analytics
-on the retired column) each produce the expected FAIL and were reverted.
+### Frontend logic — unit suite, 57/57 PASS (6 files)
 
-### Frontend logic — unit suite, 55/55 PASS (6 files)
-
-`calendar` (14), `mealAnalytics` (13, incl. §30/§31 group-by-meal preference),
-`rbac` (11), `authorization.consistency` (8), `format` (6, incl. the isoWeek
-weekly-advance regression), `status` (3).
+`calendar` (14), `mealAnalytics` (15, incl. the new §9 meal-id grouping cases),
+`rbac` (11), `authorization.consistency` (8), `format` (6), `status` (3).
 
 ### Build gates — all PASS
 
-`pnpm typecheck` PASS · `pnpm lint` PASS (0 warnings) · `pnpm build` PASS
-(118 modules, clean bundle).
+`pnpm typecheck` PASS · `pnpm lint` PASS (0 warnings) · `pnpm build` PASS.
 
 ---
 
-## 3. Correction-order coverage (this session)
+## 3. The eleven contradictions — resolution + evidence
 
-| Area | Change | Evidence |
-| ---- | ------ | -------- |
-| §16/§17 Multi-staff per class | `class_staff` join + RLS; 5 auth helpers rewired to membership; Admin invite + assignment UI; `teacher_id` no longer read by the app | `verify_class_staff`, `verify_authorization_matrix`, typecheck |
-| §1/§52 Configure through the app | Meal Library, Menu Builder, per-institution Service and Calendar tabs; rotation/plan/publish set via UI RPCs, not migrations | build, `verify_fresh_deploy` (migrations infer nothing) |
-| Calendar exceptions | closure/override/special_period add/list/delete; special-period multi-week resolution | `verify_special_period`, `verify_golden_path` |
-| Legacy menu retirement | `MenuPage`/`publishMenuWeek`/`publish_menu_week` removed; `menus` marked historical; dead `MenuItem` type deleted | grep-clean, build |
-| §33/§34/§35 Kitchen | per-meal demand RPC; date picker; no weekend hardcode | `verify_kitchen_demand`, `verify_downstream_wiring` |
-| §26/§28/§29 Parent | applicable-period denominator; tap-to-detail meal modal; recent-days history | unit (`mealAnalytics`), build |
-| §23/§39/§41 Nursery scoping / UI-permission match | eligibility gate on `operational_status`; `Institution.kind` nursery/school; create buttons gated on `can()` | `verify_golden_path`, `rbac`, build |
-| §31 Analytics one truth | `v_meal_performance` aggregates by Meal via `meal_service_id`; retired week/weekday columns dropped | `verify_downstream_wiring` §31 assertion |
-| §24/§25 Classroom | internal notes (no forced family publish); OTHER reason without forced concern | build |
-| Closure requirement | obsolete architecture removed, not left unused; this report + `scripts/PRODUCTION_APPLY.md` regenerated from the final tree | this document |
+| # | Contradiction | Resolution | Evidence |
+| - | ------------- | ---------- | -------- |
+| 1 | Classroom could record a served meal with `meal_service_id = NULL` | `record_serving_batch` resolves the published service and refuses consumption when nothing is published; `serving_records_served_needs_service` (NOT VALID) backstops it; Today shows a "No published Meal" state and only publishes recordable periods | `verify_correction_order` (4 checks); TodayPage |
+| 2 | Classroom periods were a fixed four | Today derives periods from the institution's **published services** for the date; a 3-meal nursery shows no Afternoon Snack | TodayPage; the role de-stale lets `classroom_staff` read their published services |
+| 3 | Parent Today hid the structured result | Parent Today shows consumption + behaviour + parent-safe reason from the same record (controlled fields, shown directly; only free-text notes need review) | ParentHome |
+| 4 | Staff invite lived in a route Nursery Admin can't reach | New institution-scoped **Staff** screen (`/staff`, rbac `staff` resource, nav) for school_admin/super_admin; Edge Function + RLS still restrict to classroom_staff of the caller's institution | StaffPage; rbac; roles |
+| 5 | Classroom staff saw mutation controls | Create Class / Manage staff / Add student / photo-edit / class-assign are gated on `can()`; RLS unchanged | ClassesPage, StudentsPage |
+| 6 | `OTHER` institution type | Canonical model is nursery/school; a NOT VALID check forbids new `other` and grandfathers historical rows; the UI offers only the two | migration 0029; `verify_correction_order`; InstitutionsPage |
+| 7 | Student model forced legacy fields | `student_no` is optional (canonical minimum = names + institution); `medical_notes` documented as interim, not the §42 allergy model (BLOCKED_BY_SPEC) | migration 0029; `verify_correction_order` |
+| 8 | E2E seeded the retired architecture | Fixtures/specs rebuilt on Meal → Menu → published Meal Service → `class_staff` → Classroom record → Parent result; no legacy `menus`/`teacher_id`/`kind='other'`; selectors updated | `tests/e2e/*` |
+| 9 | Parent preference grouped by dish text | Grouping keys on stable `meal_id`; `DayMeal` carries `meal_id` while preserving the served revision's name | mealAnalytics + 3 new unit tests; ParentInsights |
+| 10 | Menu Builder locked to Mon–Fri | All 7 service days available via a toggle (engine already stores weekday 0..6); Mon–Fri stays the default | MenuBuilderPage |
+| 11 | Temp-password creation labelled "invite" | Provisioning is labelled honestly (temporary password, no email sent); email-delivered self-activation marked BLOCKED_BY_SPEC | StaffPage, InstitutionDetailPage, UsersPage |
+
+**Bonus fix surfaced during item 2:** the `0008b` role merge (nurse/teacher →
+classroom_staff) had left several SECURITY DEFINER helpers naming the retired
+roles, silently excluding classroom_staff from institution-scoped reads.
+Migration 0029 restores the intended behaviour; the 146-check matrix confirms
+no authorization regression.
 
 ---
 
-## 4. BLOCKED_BY_ENVIRONMENT (cannot execute in this session)
+## 4. BLOCKED_BY_ENVIRONMENT
 
-- **Authenticated / networked in-browser flows.** The app authenticates
-  against GoTrue on `*.supabase.co`, which the sandbox egress policy blocks
-  (TLS CONNECT refused). The production bundle builds and serves (HTTP 200
-  locally), but any screen that loads or writes data cannot complete its
-  round-trip here, so DOM-level interaction is **NOT_RUN**. The data layer
-  those screens call is proven at the database layer above.
-- **All 5 Playwright E2E specs** (`login.roles`, `parent-portal`, `rls`,
-  `serving`, `status`) — same egress blocker; runnable where the sandbox can
-  reach Supabase.
-- **Re-reading live production this pass** — the Supabase MCP connector needs
-  an OAuth step that is non-interactive in this session.
+- **Authenticated / networked in-browser flows** and **all Playwright E2E
+  specs** — the sandbox blocks egress to `*.supabase.co`, so DOM round-trips
+  cannot complete here. The bundle builds and serves; the data layer is proven
+  at the database layer above; the E2E suite is written to the current
+  architecture and will run where the sandbox can reach Supabase.
 
 ## 5. BLOCKED_BY_SPEC (not invented)
 
-- **StudentAllergy / StudentDietaryRestriction taxonomy (§42):** the entities
-  exist in the spec but fields, severity scale, and approval workflow are
-  `NOT_YET_DEFINED`. Clinical data is not invented; the app surfaces the
-  authoritative record and directs allergy changes to the nursery.
-- **Packing / Dispatch / Delivery state machine**, expected-vs-actual quantity
-  stages, **multi-kitchen routing** (no institution→kitchen mapping in spec),
-  production lock/cutoff, retention/deletion policy. Deliveries / Ops /
-  Absences remain declared placeholders that state this on screen.
+- **StudentAllergy / StudentDietaryRestriction taxonomy (§42):** entities exist
+  in the spec but fields, severity, and approval are `NOT_YET_DEFINED`;
+  `medical_notes` is an interim free-text holder, not the clinical record.
+- **Email-delivered account self-activation:** the sending mechanism is a
+  Founder/ops decision; provisioning with a temporary password is the working
+  path and is labelled as such.
+- Packing / Dispatch / Delivery state machine, expected-vs-actual quantities,
+  multi-kitchen routing, retention/deletion.
 
-## 6. Production — status and the one coupling to sequence
+## 6. Production — unchanged this pass
 
-**Applied to production this session (with your approval):** the revert. It
-removed the unapproved service plans, rotation assignments, and
-mass-published services, and left the resolver leak closed. No business data
-was invented or published.
-
-**NOT applied to production:** migrations `0021`–`0028` (planning-RLS
-tightening, special-period fix, dashboard KPI, meal-library RPCs, class_staff,
-legacy-publish retirement, per-meal demand, analytics one-truth). Applying
-them is your decision and has not been done from here.
-
-**Deploy coupling to be aware of before go-live:** `.github/workflows/deploy.yml`
-builds and deploys the **frontend** to Cloudflare on every push to this branch
-(when the `CLOUDFLARE_*` repo secrets are set). The corrected frontend expects
-the `0021`–`0028` schema. **Sequence the database migration before — or
-together with — the frontend deploy**, or the live app will call RPCs/tables
-that production does not yet have. Nothing here has been pushed to trigger a
-deploy without that sequencing being your call.
+The approved revert stands (unapproved plans/assignments/publishes removed,
+resolver leak closed). Migrations `0021`–`0029` are **not** applied to
+production; applying them, and sequencing the frontend deploy after the
+migration, is your decision (`.github/workflows/deploy.yml` deploys the
+frontend on push to this branch when the `CLOUDFLARE_*` secrets are set, and
+the corrected frontend expects the `0021`–`0029` schema). See
+`scripts/PRODUCTION_APPLY.md`.

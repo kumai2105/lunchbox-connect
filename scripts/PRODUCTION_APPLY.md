@@ -53,10 +53,11 @@ show:
 
 1. **Confirm ground truth** — run `remediation/00_diagnose.sql` (read-only).
 2. **Apply the pending schema migrations** in numeric order. Migrations
-   `0017`–`0028` carry the corrected architecture (rotation engine, resolver
+   `0017`–`0029` carry the corrected architecture (rotation engine, resolver
    lockdown, meal-service link, planning-RLS tightening, special-period fix,
    dashboard KPI, meal-library RPCs, `class_staff`, legacy-publish retirement,
-   per-meal demand, analytics one-truth). They are idempotent where they touch
+   per-meal demand, analytics one-truth, and the served-meal integrity rule +
+   role de-stale). They are idempotent where they touch
    data and **publish/assign nothing**. Prefer the Supabase CLI
    (`supabase db push`) or apply each file in order; verify the ledger against
    `supabase/migrations/`.
@@ -71,7 +72,7 @@ show:
 
 `.github/workflows/deploy.yml` builds and deploys the frontend to Cloudflare
 on every push to `claude/new-session-k5dd5u` (when the `CLOUDFLARE_*` repo
-secrets are set). The corrected frontend expects the `0021`–`0028` schema, so
+secrets are set). The corrected frontend expects the `0021`–`0029` schema, so
 **apply the migrations before — or together with — the frontend deploy**, or
 the live app will call tables/RPCs (`class_staff`, `meal_production_demand`,
 `save_meal`, the rebuilt `v_meal_performance`) that production does not yet
