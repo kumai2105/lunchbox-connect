@@ -32,6 +32,18 @@ language plpgsql security definer set search_path = public as $fn$
 declare
   v_weeks int;
 begin
+  -- Defence in depth. EXECUTE is revoked from anon and authenticated below,
+  -- but this function is SECURITY DEFINER and rewrites rotations, service
+  -- plans and institution assignments for EVERY institution. If a future
+  -- migration re-grants EXECUTE (Supabase's default privileges on this schema
+  -- grant it automatically at creation time, which is exactly how it was
+  -- exposed in the first place), a Parent or Driver must still be refused
+  -- here rather than silently handed the ability to rewrite every schedule.
+  -- auth.uid() is null in the migration and service contexts that legitimately
+  -- run this.
+  if auth.uid() is not null and not app_is_super_admin() then
+    raise exception 'backfill_legacy_menus() is a migration routine, not a callable API';
+  end if;
   -- The legacy menu becomes ONE shared rotation. Every institution was
   -- already reading the same global menu, so a single shared rotation
   -- preserves exactly the behaviour that existed - only advancing weekly
@@ -127,6 +139,12 @@ begin
   institutions_mapped := (select count(*)::int from institution_rotation_assignments);
   return next;
 end $fn$;
+
+-- Supabase's `alter default privileges ... grant all on functions` fires at
+-- CREATE time, so this function was executable by anon and authenticated the
+-- moment it existed. Revoke explicitly; the guard above is the second layer.
+revoke all on function backfill_legacy_menus() from public;
+revoke all on function backfill_legacy_menus() from anon, authenticated;
 
 comment on function backfill_legacy_menus() is
   'Moves legacy `menus` rows onto the Decision 033 chain. Idempotent. Called '

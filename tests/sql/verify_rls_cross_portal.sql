@@ -298,6 +298,58 @@ begin
 end $$;
 reset role;
 
+-- =====================================================================
+-- RESOLVER RPC LEAK (migration 0018)
+--
+-- meal_services enforces cross-institution isolation correctly. The
+-- SECURITY DEFINER resolvers took an institution id and did NOT check
+-- app_can_see_institution(), so a Parent could read a foreign
+-- institution's meal — and, by probing dates that returned nothing, its
+-- closure calendar — straight through the RPC while the table returned 0.
+-- =====================================================================
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"cc000000-0000-0000-0000-000000000004","role":"authenticated"}';
+
+do $$
+declare leaked text;
+begin
+  begin
+    select mm.name into leaked
+      from resolve_meal('bb000000-0000-0000-0000-000000000002', current_date, 'lunch') r
+      join meals mm on mm.id = r.meal_id;
+    raise exception 'FAIL a Parent executed resolve_meal() against a foreign institution (got %)',
+      coalesce(leaked, '<no row, but EXECUTE was permitted>');
+  exception
+    when insufficient_privilege then
+      raise notice 'PASS  resolve_meal() is not executable by a Parent (cross-institution leak closed)';
+  end;
+end $$;
+reset role;
+
+-- The grant, not just the behaviour. PostgreSQL gives EXECUTE to PUBLIC on
+-- every new function, so a later `create or replace` silently restores the
+-- privilege even though 0018 revoked it. Assert on the privilege directly so
+-- that regression cannot pass unnoticed.
+do $$
+declare f text; bad text := '';
+begin
+  foreach f in array array[
+    'resolve_meal(uuid,date,app_period)',
+    'resolve_rotation_week(uuid,date)',
+    'service_plan_includes(uuid,date,app_period)',
+    'backfill_legacy_menus()'
+  ] loop
+    if has_function_privilege('authenticated', f, 'EXECUTE')
+       or has_function_privilege('anon', f, 'EXECUTE') then
+      bad := bad || f || ' ';
+    end if;
+  end loop;
+  if bad <> '' then
+    raise exception 'FAIL these SECURITY DEFINER routines are executable by anon/authenticated: %', bad;
+  end if;
+  raise notice 'PASS  all 4 unguarded SECURITY DEFINER routines are revoked from anon and authenticated';
+end $$;
+
 do $$ begin
   raise notice '---------------------------------------------------------';
   raise notice 'ALL CROSS-PORTAL CHECKS PASSED — rolling back, no data retained.';
