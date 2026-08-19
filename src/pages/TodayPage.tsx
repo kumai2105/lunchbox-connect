@@ -83,7 +83,6 @@ export default function TodayPage() {
   const [draft, setDraft] = useState<Draft>(BLANK_DRAFT);
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteBody, setNoteBody] = useState('');
-  const [notePublish, setNotePublish] = useState(false);
   const [noteBusy, setNoteBusy] = useState(false);
 
   useEffect(() => {
@@ -263,7 +262,6 @@ export default function TodayPage() {
     const rec = byStudent[student.id];
     const note = rec ? notes[rec.id] : undefined;
     setNoteBody(note?.body ?? '');
-    setNotePublish(Boolean(note?.published_at));
     setNoteOpen(true);
   }
 
@@ -276,7 +274,7 @@ export default function TodayPage() {
         consumption_pct: draft.pct,
         behavior: draft.behavior,
         low_intake_reason: draft.reason,
-        concern_observed: true,
+        concern_observed: draft.concern, // §25: a note never implies a concern
       });
       if (!ok) {
         setNoteBusy(false);
@@ -289,7 +287,9 @@ export default function TodayPage() {
       setNoteBusy(false);
       return;
     }
-    const res = await upsertServingNote(rec.id, noteBody, notePublish);
+    // §24: classroom free text is INTERNAL. It reaches a family only after a
+    // reviewer publishes it from the Parent-safe updates queue — never directly.
+    const res = await upsertServingNote(rec.id, noteBody, false);
     setNoteBusy(false);
     if (res.error) {
       setError(res.error);
@@ -476,7 +476,7 @@ export default function TodayPage() {
                   <button
                     key={r}
                     className={draft.reason === r ? 'selected' : ''}
-                    onClick={() => void (r === 'other' ? openNoteModal() : selectReason(r))}
+                    onClick={() => void selectReason(r)}
                   >
                     {LOW_INTAKE_REASON_LABEL[r]}
                   </button>
@@ -539,17 +539,10 @@ export default function TodayPage() {
               placeholder="what did you observe?"
             />
           </Field>
-          <div className="field" style={{ marginTop: 12 }}>
-            <label>
-              <input
-                type="checkbox"
-                checked={notePublish}
-                onChange={(e) => setNotePublish(e.target.checked)}
-                style={{ marginRight: 6 }}
-              />
-              Publish to the child's family
-            </label>
-          </div>
+          <p className="tmc-meta">
+            This note is internal. It reaches the family only if a reviewer publishes it from
+            Parent-safe updates.
+          </p>
           {draft.pct !== null && (
             <Btn
               variant="ghost"

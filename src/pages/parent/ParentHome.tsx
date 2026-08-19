@@ -25,11 +25,21 @@ export default function ParentHome() {
   const byPeriod = recordsForDate(records, today);
   const todayMeals = mealsForDate(meals, today);
 
-  const completed = PERIOD_ORDER.filter((p) => byPeriod[p]).length;
+  // §26: the denominator is the institution's APPLICABLE periods for today
+  // (those with a published meal), never a fixed 4.
+  const applicable = PERIOD_ORDER.filter((p) => todayMeals[p]);
+  const denom = applicable.length;
+  const completed = applicable.filter((p) => byPeriod[p]).length;
+
+  // §29: previous days with any record or published meal, newest first.
+  const pastDays = [...new Set([...records.map((r) => r.serving_date), ...meals.map((m) => m.service_date)])]
+    .filter((d) => d < today)
+    .sort((a, b) => (a < b ? 1 : -1))
+    .slice(0, 14);
 
   // Overall intake counts only valid, served observations — an upcoming meal
   // or an absence must never be averaged in as a zero (Part 73).
-  const valid = PERIOD_ORDER.map((p) => byPeriod[p]).filter(
+  const valid = applicable.map((p) => byPeriod[p]).filter(
     (r): r is NonNullable<typeof r> => !!r && isValidPreferenceObservation(r),
   );
   const overall =
@@ -66,7 +76,7 @@ export default function ParentHome() {
           <div>
             <div className="cell-sub">Meals completed today</div>
             <div className="parent-progress-value">
-              {completed} <span>of {PERIOD_ORDER.length}</span>
+              {completed} <span>of {denom || '—'}</span>
             </div>
           </div>
           <div className="parent-ring">
@@ -79,14 +89,14 @@ export default function ParentHome() {
         <div className="parent-bar">
           <div
             className="parent-bar-fill"
-            style={{ width: `${(completed / PERIOD_ORDER.length) * 100}%` }}
+            style={{ width: `${denom ? (completed / denom) * 100 : 0}%` }}
           />
         </div>
       </Card>
 
       <h3 className="parent-section">Today's meals</h3>
       <div className="today-meal-list">
-        {PERIOD_ORDER.map((period) => {
+        {(applicable.length ? applicable : PERIOD_ORDER.filter((p) => byPeriod[p])).map((period) => {
           const rec = byPeriod[period];
           const item = todayMeals[period];
           const tone = toneFor(rec);
@@ -127,6 +137,46 @@ export default function ParentHome() {
           );
         })}
       </div>
+
+      {pastDays.length > 0 && (
+        <>
+          <h3 className="parent-section">Recent days</h3>
+          <div className="history-list">
+            {pastDays.map((day) => {
+              const dayRecs = recordsForDate(records, day);
+              const dayMeals = mealsForDate(meals, day);
+              const periods = PERIOD_ORDER.filter((p) => dayMeals[p] || dayRecs[p]);
+              return (
+                <Card key={day}>
+                  <div className="history-day">
+                    {new Date(`${day}T00:00:00`).toLocaleDateString(undefined, {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                    })}
+                  </div>
+                  {periods.map((p) => {
+                    const rec = dayRecs[p];
+                    return (
+                      <div className="history-row" key={p}>
+                        <span className="tmc-meta">{PERIOD_LABEL[p]}</span>
+                        <span>{dayMeals[p]?.dish_name ?? '—'}</span>
+                        <Pill variant={toneFor(rec) === 'ok' ? 'free' : rec ? 'reduced' : 'slate'}>
+                          {rec
+                            ? rec.served_status === 'not_served'
+                              ? 'Not served'
+                              : consumptionHumanLabel(rec.consumption_pct)
+                            : '—'}
+                        </Pill>
+                      </div>
+                    );
+                  })}
+                </Card>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <h3 className="parent-section">Quick links</h3>
       <div className="quick-links">

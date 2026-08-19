@@ -767,6 +767,8 @@ export interface DayMeal {
   allergens: string[];
   ingredients: string[];
   portion: string | null;
+  nutrition: Record<string, unknown>;
+  image_path: string | null;
 }
 
 interface RawService {
@@ -779,6 +781,8 @@ interface RawService {
     allergens: unknown;
     ingredients: unknown;
     portion: string | null;
+    nutrition: unknown;
+    image_path: string | null;
   } | null;
 }
 
@@ -794,7 +798,7 @@ export async function mealsForDates(
   let q = supabase
     .from('meal_services')
     .select(
-      'id,institution_id,service_date,period,rev:meal_revisions!meal_revision_id(name,allergens,ingredients,portion)',
+      'id,institution_id,service_date,period,rev:meal_revisions!meal_revision_id(name,allergens,ingredients,portion,nutrition,image_path)',
     )
     .gte('service_date', from)
     .lte('service_date', to)
@@ -822,6 +826,8 @@ export async function mealsForDates(
         allergens: asStringArray(r.rev!.allergens),
         ingredients: asStringArray(r.rev!.ingredients),
         portion: r.rev!.portion,
+        nutrition: (r.rev!.nutrition as Record<string, unknown>) ?? {},
+        image_path: r.rev!.image_path,
       })),
     error: null,
   };

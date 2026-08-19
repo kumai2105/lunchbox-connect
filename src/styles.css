@@ -1924,3 +1924,14 @@ tbody tr:last-child td {
   padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px;
   background: #fff; color: var(--ink); width: 100%;
 }
+
+/* ---- parent history (§29) --------------------------------------------- */
+.history-list { display: flex; flex-direction: column; gap: 10px; }
+.history-day { font-weight: 600; margin-bottom: 6px; }
+.history-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; }
+
+/* ---- parent meal detail (§28) ----------------------------------------- */
+.menu-line-btn { width: 100%; text-align: left; background: transparent; border: none; cursor: pointer; padding: 0; }
+.meal-detail-img { width: 100%; max-height: 200px; object-fit: cover; border-radius: 10px; margin-bottom: 12px; }
+.meal-detail-nutrition { margin-top: 10px; }
+.meal-detail-nutrition ul { margin: 4px 0 0; padding-left: 18px; }

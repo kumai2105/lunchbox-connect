@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { useParentData } from './context';
-import { Banner, Card, EmptyState, Pill } from '../../components/ui';
+import { Banner, Card, EmptyState, Modal, Pill } from '../../components/ui';
+import { mealImageUrl, type DayMeal } from '../../lib/api';
 import { Icon } from '../../components/icons';
 import { weekStartISO } from '../../lib/format';
 import { PERIOD_ICON, PERIOD_LABEL, PERIOD_ORDER } from './shared';
@@ -11,6 +13,21 @@ import { PERIOD_ICON, PERIOD_LABEL, PERIOD_ORDER } from './shared';
  */
 export default function ParentMenu() {
   const { meals } = useParentData();
+  const [detail, setDetail] = useState<DayMeal | null>(null);
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setImgUrl(null);
+    if (detail?.image_path) {
+      void mealImageUrl(detail.image_path).then((u) => {
+        if (active) setImgUrl(u);
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [detail]);
 
   // Group by the real service date. The previous version iterated weekday
   // names and matched template rows, so every Wednesday rendered identically
@@ -48,7 +65,7 @@ export default function ParentMenu() {
                     ? item.ingredients.map(String)
                     : [];
                   return (
-                    <div className="menu-line" key={period}>
+                    <button className="menu-line menu-line-btn" key={period} onClick={() => setDetail(item)}>
                       <span className="tmc-icon">
                         <Icon name={PERIOD_ICON[period]} size={16} />
                       </span>
@@ -69,7 +86,7 @@ export default function ParentMenu() {
                           </div>
                         )}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -83,6 +100,42 @@ export default function ParentMenu() {
         an allergy that isn't reflected on their profile, contact your nursery — it cannot be
         changed from this app.
       </Banner>
+
+      {detail && (
+        <Modal title={detail.dish_name} onClose={() => setDetail(null)}>
+          {detail.image_path && imgUrl && (
+            <img className="meal-detail-img" src={imgUrl} alt={detail.dish_name} />
+          )}
+          <div className="tmc-period">{PERIOD_LABEL[detail.period]}</div>
+          {detail.ingredients.length > 0 && (
+            <p className="tmc-meta">
+              <b>Ingredients:</b> {detail.ingredients.join(', ')}
+            </p>
+          )}
+          {detail.allergens.length > 0 && (
+            <div className="menu-allergen-row">
+              {detail.allergens.map((a) => (
+                <Pill key={a} variant="reduced">
+                  {a}
+                </Pill>
+              ))}
+            </div>
+          )}
+          {detail.portion && <p className="tmc-meta">Portion: {detail.portion}</p>}
+          {Object.keys(detail.nutrition).length > 0 && (
+            <div className="meal-detail-nutrition">
+              <b>Nutrition</b>
+              <ul>
+                {Object.entries(detail.nutrition).map(([k, v]) => (
+                  <li key={k}>
+                    {k}: {String(v)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }
