@@ -277,11 +277,24 @@ begin
 
   -- Sanity: the super admin genuinely has full read, so the zeros above are
   -- a policy refusal and not an empty table.
-  select count(*) into n from students;
-  if n <> 3 then raise exception 'FAIL super admin sees % students, expected 3 — fixtures are wrong', n; end if;
-  select count(*) into n from meal_services where published = false;
-  if n <> 1 then raise exception 'FAIL super admin sees % drafts, expected 1', n; end if;
-  raise notice 'PASS  control: super admin sees all 3 students and the 1 draft (zeros above were refusals)';
+  --
+  -- Scoped to the ZZ fixtures ON PURPOSE. An earlier version counted every
+  -- student in the database and asserted 3, which is only true on an empty
+  -- one; against a real project it failed with "sees 13, expected 3" even
+  -- though every access-control check above had passed. A control that breaks
+  -- when unrelated rows exist tests the fixture count, not the policy.
+  select count(*) into n from students where student_no like 'ZZ-%';
+  if n <> 3 then
+    raise exception 'FAIL super admin sees % of the 3 ZZ fixture students', n;
+  end if;
+  select count(*) into n from meal_services
+   where published = false
+     and institution_id in ('bb000000-0000-0000-0000-000000000001',
+                            'bb000000-0000-0000-0000-000000000002');
+  if n <> 1 then
+    raise exception 'FAIL super admin sees % fixture drafts, expected 1', n;
+  end if;
+  raise notice 'PASS  control: super admin sees all 3 fixture students and the 1 fixture draft (zeros above were refusals)';
 end $$;
 reset role;
 

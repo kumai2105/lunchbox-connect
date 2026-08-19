@@ -29,14 +29,25 @@
 create or replace function backfill_legacy_menus()
 returns table (meals_created int, slots_created int, institutions_mapped int)
 language plpgsql security definer set search_path = public as $fn$
+declare
+  v_weeks int;
 begin
-  -- The legacy menu becomes one shared 4-week rotation. Every institution
-  -- was already reading the same global menu, so a single shared rotation
+  -- The legacy menu becomes ONE shared rotation. Every institution was
+  -- already reading the same global menu, so a single shared rotation
   -- preserves exactly the behaviour that existed - only advancing weekly
   -- instead of every seventh week.
+  --
+  -- Its length is taken from the data, never assumed to be 4. An earlier
+  -- draft hard-coded 4 and mapped legacy week numbers with `% 4`, which
+  -- silently DROPPED menu weeks: with 7 distinct week numbers, positions
+  -- 1-3 collided and `on conflict do nothing` kept whichever row arrived
+  -- first. Losing a planned week of meals is data loss, not a rounding
+  -- detail, and §30 requires rotation length to be data-driven anyway.
+  select greatest(count(distinct week_number), 1)::int into v_weeks from menus;
+
   insert into rotations (id, name, week_count)
-  values ('00000000-0000-4000-8000-000000000171'::uuid, 'Legacy 4-week menu', 4)
-  on conflict (id) do nothing;
+  values ('00000000-0000-4000-8000-000000000171'::uuid, 'Legacy menu', v_weeks)
+  on conflict (id) do update set week_count = excluded.week_count;
 
   -- One Meal per distinct dish. Dishes are matched by name because that is
   -- the only identity the legacy table ever had.
@@ -69,12 +80,13 @@ begin
      and r.revision_no = 1
      and m.current_revision_id is null;
 
-  -- Legacy week numbers are dense-ranked into rotation positions 1-4, in
-  -- ascending order, so the admin's planning order is preserved. Anything
-  -- past the fourth distinct week wraps, because the rotation is 4 long.
+  -- Legacy week numbers are dense-ranked into rotation positions in
+  -- ascending order, so the admin's planning order is preserved. No
+  -- modulo: the rotation was sized above to hold every distinct week, so
+  -- every position is unique and nothing collides.
   with ranked as (
     select week_number,
-           ((dense_rank() over (order by week_number) - 1) % 4) + 1 as rot_week
+           (dense_rank() over (order by week_number))::int as rot_week
     from (select distinct week_number from menus) w
   )
   insert into rotation_slots (rotation_id, week_number, weekday, period, meal_id)

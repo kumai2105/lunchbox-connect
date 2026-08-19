@@ -81,13 +81,18 @@ begin
   end if;
   raise notice 'PASS  rotation advances on all 11 week boundaries out of 12 weeks';
 
-  -- ...and cycles with a period equal to week_count, not longer.
+  -- ...and cycles with a period equal to week_count, whatever that is.
+  -- Read the length from the rotation rather than assuming 4: the backfill
+  -- sizes it from the data, so on a project with more planned weeks this
+  -- must still hold.
+  select r.week_count into n2 from rotations r
+   where r.id = '00000000-0000-4000-8000-000000000171'::uuid;
   select week_number into wk from resolve_rotation_week(v_inst, date '2026-01-05');
-  select week_number into n  from resolve_rotation_week(v_inst, date '2026-02-02');
+  select week_number into n  from resolve_rotation_week(v_inst, date '2026-01-05' + (n2 * 7));
   if wk <> n then
-    raise exception 'FAIL rotation did not repeat after 4 weeks (% then %)', wk, n;
+    raise exception 'FAIL rotation did not repeat after its % weeks (% then %)', n2, wk, n;
   end if;
-  raise notice 'PASS  rotation repeats after exactly 4 weeks (week % both times)', wk;
+  raise notice 'PASS  rotation repeats after exactly its own length of % weeks (week % both times)', n2, wk;
 
   -- ---------------------------------------------------------------
   -- The dish a date resolves to must actually differ week to week.
@@ -104,18 +109,44 @@ begin
   end if;
   raise notice 'PASS  consecutive Mondays resolve to different lunches (% then %)', dish_a, dish_b;
 
-  -- Legacy planning ORDER is preserved: week 6 -> position 1, 9 -> 4.
-  select mm.name into dish_a from resolve_meal(v_inst, date '2026-01-05', 'lunch') r
-    join meals mm on mm.id = r.meal_id;
-  if dish_a <> 'ZZ Dish W6D0-lunch' then
-    raise exception 'FAIL legacy week order not preserved: position 1 resolved to %', dish_a;
+  -- Legacy planning ORDER is preserved. Asserted RELATIVELY, against the
+  -- ranking the backfill actually applied, rather than against a hard-coded
+  -- dish name. An earlier version asserted 'position 1 is ZZ Dish W6...',
+  -- which only held when the fixtures were the only rows in `menus`; on a
+  -- real project with menu weeks already planned it failed even though the
+  -- mapping was correct.
+  select count(*) into n from (
+    with ranked as (
+      select week_number, (dense_rank() over (order by week_number))::int as pos
+      from (select distinct week_number from menus) w
+    )
+    select 1
+    from ranked rk
+    join menus mn
+      on mn.week_number = rk.week_number and mn.weekday = 0 and mn.period = 'lunch'
+    join rotation_slots rs
+      on rs.rotation_id = '00000000-0000-4000-8000-000000000171'::uuid
+     and rs.week_number = rk.pos and rs.weekday = 0 and rs.period = 'lunch'
+    join meals mm on mm.id = rs.meal_id
+    where mm.name <> mn.dish_name
+  ) bad;
+  if n <> 0 then
+    raise exception 'FAIL legacy week order not preserved for % week(s)', n;
   end if;
-  select mm.name into dish_a from resolve_meal(v_inst, date '2026-01-26', 'lunch') r
-    join meals mm on mm.id = r.meal_id;
-  if dish_a <> 'ZZ Dish W9D0-lunch' then
-    raise exception 'FAIL legacy week order not preserved: position 4 resolved to %', dish_a;
+  raise notice 'PASS  every legacy week maps to its rank-ordered rotation position';
+
+  -- NO DATA LOSS. Every distinct legacy (week, weekday, period) must have a
+  -- slot. This is the check that catches a rotation sized too small: an
+  -- earlier backfill hard-coded 4 weeks and used `% 4`, so with more than
+  -- four planned weeks the positions collided and `on conflict do nothing`
+  -- silently discarded the surplus.
+  select count(distinct (week_number, weekday, period)) into n from menus;
+  select count(*) into n2 from rotation_slots
+   where rotation_id = '00000000-0000-4000-8000-000000000171'::uuid;
+  if n2 <> n then
+    raise exception 'FAIL cutover DROPPED schedule entries: % legacy slots became % rotation slots', n, n2;
   end if;
-  raise notice 'PASS  legacy planning order preserved (week 6->position 1, week 9->position 4)';
+  raise notice 'PASS  no data loss: all % legacy schedule entries became rotation slots', n;
 
   -- Idempotency: running the backfill twice must not duplicate anything.
   select count(*) into n from rotation_slots

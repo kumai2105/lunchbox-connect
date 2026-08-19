@@ -394,6 +394,101 @@ export async function resolveMenuItemId(
   return (data as { id: string } | null)?.id ?? null;
 }
 
+// ------------------------------------------------- meal services (0016/0017)
+// The authoritative dated schedule. Replaces the legacy `menus` lookup, which
+// addressed dishes by a single global calendar-week number and so could not
+// express a per-institution rotation, a closure, or a date override. RLS scopes
+// what comes back: Kitchen sees every institution it serves, a Parent sees only
+// their child's, and NOBODY except a Super Admin sees an unpublished row.
+export interface DayMeal {
+  service_id: string;
+  institution_id: string;
+  service_date: string;
+  period: AppPeriod;
+  dish_name: string;
+  allergens: string[];
+  ingredients: string[];
+  portion: string | null;
+}
+
+interface RawService {
+  id: string;
+  institution_id: string;
+  service_date: string;
+  period: AppPeriod;
+  rev: {
+    name: string;
+    allergens: unknown;
+    ingredients: unknown;
+    portion: string | null;
+  } | null;
+}
+
+function asStringArray(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+}
+
+export async function mealsForDates(
+  from: string,
+  to: string,
+  institutionId?: string | null,
+): Promise<ApiResult<DayMeal[]>> {
+  let q = supabase
+    .from('meal_services')
+    .select(
+      'id,institution_id,service_date,period,rev:meal_revisions!meal_revision_id(name,allergens,ingredients,portion)',
+    )
+    .gte('service_date', from)
+    .lte('service_date', to)
+    // Belt and braces. RLS already hides drafts from every role but Super
+    // Admin, and a Super Admin viewing the Kitchen screen must not be shown
+    // a draft as though the kitchen were going to cook it.
+    .eq('published', true)
+    .order('service_date')
+    .order('period');
+  if (institutionId) q = q.eq('institution_id', institutionId);
+  const { data, error } = await q;
+  if (error) return err(error);
+  const rows = (data ?? []) as unknown as RawService[];
+  return {
+    data: rows
+      // A service whose revision is missing is skipped rather than rendered as
+      // a blank dish — the spec forbids showing a meal that was never resolved.
+      .filter((r) => r.rev !== null)
+      .map((r) => ({
+        service_id: r.id,
+        institution_id: r.institution_id,
+        service_date: r.service_date,
+        period: r.period,
+        dish_name: r.rev!.name,
+        allergens: asStringArray(r.rev!.allergens),
+        ingredients: asStringArray(r.rev!.ingredients),
+        portion: r.rev!.portion,
+      })),
+    error: null,
+  };
+}
+
+// Links a Classroom observation to the exact dated service it was recorded
+// against, giving Production -> Meal -> revision traceability. Returns null
+// when nothing is published for that slot, and the caller must record the
+// observation anyway rather than inventing a service.
+export async function resolveMealServiceId(
+  institutionId: string,
+  serving_date: string,
+  period: AppPeriod,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from('meal_services')
+    .select('id')
+    .eq('institution_id', institutionId)
+    .eq('service_date', serving_date)
+    .eq('period', period)
+    .eq('published', true)
+    .maybeSingle();
+  return (data as { id: string } | null)?.id ?? null;
+}
+
 // Meal-performance analytics (docs/13 Decision 032, Super Admin only via RLS
 // on v_meal_performance — returns empty for any other role).
 export async function mealPerformance(): Promise<ApiResult<MealPerformanceRow[]>> {
