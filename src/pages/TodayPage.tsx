@@ -4,7 +4,7 @@ import {
   listClasses,
   notesForServing,
   recordServing,
-  resolveMenuItemId,
+  resolveMealServiceId,
   rosterForClass,
   servingForDay,
   studentPhotoUrl,
@@ -72,7 +72,7 @@ export default function TodayPage() {
   const [records, setRecords] = useState<ServingRecord[]>([]);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string | null>>({});
   const [notes, setNotes] = useState<Record<string, ServingNote>>({});
-  const [menuItemId, setMenuItemId] = useState<string | null>(null);
+  const [mealServiceId, setMealServiceId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -91,6 +91,11 @@ export default function TodayPage() {
     });
   }, []);
 
+  // The dated schedule is per institution, so the Meal Service lookup needs
+  // the institution the selected class belongs to. Declared before the effect
+  // that reads it.
+  const institutionId = classes.find((c) => c.id === classId)?.institution_id ?? null;
+
   useEffect(() => {
     if (!classId) return;
     let active = true;
@@ -99,13 +104,20 @@ export default function TodayPage() {
       const [r, s, m] = await Promise.all([
         rosterForClass(classId),
         servingForDay(classId, today, period),
-        resolveMenuItemId(today, period),
+        // Traceability now points at the DATED Meal Service for this class's
+        // institution, not at a template row addressed by a global
+        // calendar-week number. Returns null when nothing is published for
+        // the slot; the observation is still recorded, just without a link,
+        // because inventing a service would be worse than an honest gap.
+        institutionId
+          ? resolveMealServiceId(institutionId, today, period)
+          : Promise.resolve(null),
       ]);
       if (!active) return;
       if (r.error || s.error) setError(r.error ?? s.error);
       setRoster(r.data ?? []);
       setRecords(s.data ?? []);
-      setMenuItemId(m);
+      setMealServiceId(m);
       setIndex(0);
 
       const urls: Record<string, string | null> = {};
@@ -119,7 +131,11 @@ export default function TodayPage() {
     return () => {
       active = false;
     };
-  }, [classId, period]);
+    // institutionId belongs here: it is derived from `classes`, which loads
+    // asynchronously. Without it, a page opened with ?class= already set
+    // resolves institutionId as null on the first run and never retries, so
+    // every observation that session would be saved with no Meal Service link.
+  }, [classId, period, institutionId]);
 
   const byStudent = useMemo(() => {
     const map: Record<string, ServingRecord> = {};
@@ -154,7 +170,7 @@ export default function TodayPage() {
           student_id: student.id,
           period,
           served_status: 'served',
-          menu_item_id: menuItemId,
+          meal_service_id: mealServiceId,
           ...input,
         },
       ],

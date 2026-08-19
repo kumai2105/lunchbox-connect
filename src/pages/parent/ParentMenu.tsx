@@ -1,7 +1,7 @@
 import { useParentData } from './context';
 import { Banner, Card, EmptyState, Pill } from '../../components/ui';
 import { Icon } from '../../components/icons';
-import { WEEKDAY_NAMES } from '../../lib/format';
+import { weekStartISO } from '../../lib/format';
 import { PERIOD_ICON, PERIOD_LABEL, PERIOD_ORDER } from './shared';
 
 /**
@@ -10,20 +10,35 @@ import { PERIOD_ICON, PERIOD_LABEL, PERIOD_ORDER } from './shared';
  * menu upload anywhere in the system.
  */
 export default function ParentMenu() {
-  const { menu } = useParentData();
+  const { meals } = useParentData();
+
+  // Group by the real service date. The previous version iterated weekday
+  // names and matched template rows, so every Wednesday rendered identically
+  // and a closure or a one-off override was invisible. Dates that have no
+  // published service simply do not appear — a day with no meal must never be
+  // rendered as an empty meal.
+  // The shell fetches a wider range for Insights; this screen shows the
+  // current week only.
+  const from = weekStartISO();
+  const dates = [...new Set(meals.filter((m) => m.service_date >= from).map((m) => m.service_date))].sort();
 
   return (
     <div>
       <h2 className="parent-title">This week's menu</h2>
 
-      {menu.length === 0 ? (
+      {dates.length === 0 ? (
         <EmptyState text="The menu for this week has not been published yet." />
       ) : (
-        WEEKDAY_NAMES.map((day, weekday) => {
-          const dayItems = menu.filter((m) => m.weekday === weekday);
+        dates.map((date) => {
+          const dayItems = meals.filter((m) => m.service_date === date);
           if (dayItems.length === 0) return null;
+          const label = new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'short',
+          });
           return (
-            <Card key={day} title={day}>
+            <Card key={date} title={label}>
               <div className="menu-day-list">
                 {PERIOD_ORDER.map((period) => {
                   const item = dayItems.find((m) => m.period === period);

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { listMenu, productionDemand } from '../lib/api';
-import type { AppPeriod, MenuItem, ProductionDemandRow } from '../lib/types';
+import { mealsForDates, productionDemand } from '../lib/api';
+import type { AppPeriod, ProductionDemandRow } from '../lib/types';
+import type { DayMeal } from '../lib/api';
 import { Banner, Card, EmptyState, PageHead, Pill, Spinner, StatCard } from '../components/ui';
 import { Icon, type IconName } from '../components/icons';
-import { isoWeek, isoWeekday } from '../lib/format';
+import { isoWeekday, todayISO } from '../lib/format';
 
 const PERIODS: Array<{ period: AppPeriod; label: string; icon: IconName }> = [
   { period: 'breakfast', label: 'Breakfast', icon: 'sunrise' },
@@ -19,7 +20,7 @@ const PERIODS: Array<{ period: AppPeriod; label: string; icon: IconName }> = [
  */
 export default function KitchenPage() {
   const [rows, setRows] = useState<ProductionDemandRow[] | null>(null);
-  const [todayMenu, setTodayMenu] = useState<MenuItem[]>([]);
+  const [todayMeals, setTodayMeals] = useState<DayMeal[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const now = new Date();
@@ -29,19 +30,23 @@ export default function KitchenPage() {
   useEffect(() => {
     let active = true;
     void (async () => {
-      const [demand, menu] = await Promise.all([productionDemand(), listMenu([isoWeek(now)])]);
-      if (!active) return;
-      if (demand.error || menu.error) setError(demand.error ?? menu.error);
-      setRows(demand.data ?? []);
-      // Same authoritative menu rows Admin publishes and Parents read — the
+      // Today's DATED services, scoped by RLS to the institutions this
+      // kitchen serves. Previously this asked for a global ISO-week number
+      // and filtered by weekday, which returned the same template every week
+      // for seven weeks running and could not honour a closure or an
+      // override. These are the same published rows Parents read — the
       // Kitchen is not given a separate copy to maintain (blueprint Part 23).
-      setTodayMenu((menu.data ?? []).filter((m) => m.weekday === weekday && m.published));
+      const today = todayISO();
+      const [demand, meals] = await Promise.all([productionDemand(), mealsForDates(today, today)]);
+      if (!active) return;
+      if (demand.error || meals.error) setError(demand.error ?? meals.error);
+      setRows(demand.data ?? []);
+      setTodayMeals(meals.data ?? []);
     })();
     return () => {
       active = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekday]);
+  }, []);
 
   const totalEligible = rows?.reduce((sum, r) => sum + r.eligible_students, 0) ?? 0;
   const totalAllergy = rows?.reduce((sum, r) => sum + r.allergy_flagged, 0) ?? 0;
@@ -90,7 +95,7 @@ export default function KitchenPage() {
         <StatCard
           icon="utensils"
           label="Meals scheduled today"
-          value={isWeekend ? '—' : todayMenu.length}
+          value={isWeekend ? '—' : todayMeals.length}
           trend={isWeekend ? 'no service at the weekend' : 'published for today'}
         />
       </div>
@@ -119,7 +124,7 @@ export default function KitchenPage() {
             </thead>
             <tbody>
               {PERIODS.map((p) => {
-                const item = todayMenu.find((m) => m.period === p.period);
+                const item = todayMeals.find((m) => m.period === p.period);
                 return (
                   <tr key={p.period}>
                     <td className="cell-name">

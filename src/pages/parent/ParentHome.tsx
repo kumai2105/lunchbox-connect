@@ -8,7 +8,7 @@ import {
   PERIOD_ICON,
   PERIOD_LABEL,
   PERIOD_ORDER,
-  menuForDate,
+  mealsForDate,
   recordsForDate,
   timeOf,
   toneFor,
@@ -20,10 +20,10 @@ import {
  * is entered or maintained for parents separately.
  */
 export default function ParentHome() {
-  const { child, photoUrl, records, notes, menu } = useParentData();
+  const { child, photoUrl, records, notes, meals } = useParentData();
   const today = todayISO();
   const byPeriod = recordsForDate(records, today);
-  const todayMenu = menuForDate(menu, today);
+  const todayMeals = mealsForDate(meals, today);
 
   const completed = PERIOD_ORDER.filter((p) => byPeriod[p]).length;
 
@@ -88,7 +88,7 @@ export default function ParentHome() {
       <div className="today-meal-list">
         {PERIOD_ORDER.map((period) => {
           const rec = byPeriod[period];
-          const item = todayMenu[period];
+          const item = todayMeals[period];
           const tone = toneFor(rec);
           const note = rec ? notes[rec.id] : undefined;
           return (

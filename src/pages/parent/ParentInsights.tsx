@@ -27,7 +27,7 @@ function daysAgoISO(days: number): string {
  * observed, aggregated with the same validity rules management analytics uses.
  */
 export default function ParentInsights() {
-  const { child, records, menu } = useParentData();
+  const { child, records, meals } = useParentData();
   const [days, setDays] = useState(7);
 
   const from = daysAgoISO(days);
@@ -65,13 +65,17 @@ export default function ParentInsights() {
     scoped
       .filter((r) => isValidPreferenceObservation(r))
       .forEach((r) => {
-        if (!r.menu_item_id) return;
-        const dish = menu.find((m) => m.id === r.menu_item_id)?.dish_name;
+        // Observations are linked to the dated Meal Service they were
+        // recorded against. Records written before the cutover carry only the
+        // legacy menu_item_id and resolve to no dish here; they are skipped
+        // rather than shown under a guessed name.
+        if (!r.meal_service_id) return;
+        const dish = meals.find((m) => m.service_id === r.meal_service_id)?.dish_name;
         if (!dish) return;
-        const e = map.get(r.menu_item_id) ?? { name: dish, total: 0, count: 0 };
+        const e = map.get(r.meal_service_id) ?? { name: dish, total: 0, count: 0 };
         e.total += r.consumption_pct ?? 0;
         e.count += 1;
-        map.set(r.menu_item_id, e);
+        map.set(r.meal_service_id, e);
       });
     return [...map.values()]
       .map((e) => ({
@@ -80,7 +84,7 @@ export default function ParentInsights() {
         hint: `${e.count} times`,
       }))
       .sort((a, b) => b.value - a.value);
-  }, [scoped, menu]);
+  }, [scoped, meals]);
 
   const reasons = useMemo(
     () =>

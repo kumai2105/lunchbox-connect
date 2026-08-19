@@ -1,5 +1,4 @@
 import { supabase } from './supabase';
-import { isoWeek, isoWeekday } from './format';
 import {
   OPERATIONAL_STATUS_ELIGIBLE,
   type AppPeriod,
@@ -375,23 +374,19 @@ export async function publishMenuWeek(week: number): Promise<ApiResult<null>> {
   return { data: null, error: null };
 }
 
-// Resolves which Menu row a serving_date/period corresponds to, via the same
-// week/weekday/period lookup already used for the Parent menu view — gives
-// Production→Meal traceability without inventing a versioning system
-// (docs/13 Decision 032).
-export async function resolveMenuItemId(
-  serving_date: string,
-  period: AppPeriod,
-): Promise<string | null> {
-  const d = new Date(`${serving_date}T00:00:00`);
-  const { data } = await supabase
-    .from('menus')
-    .select('id')
-    .eq('week_number', isoWeek(d))
-    .eq('weekday', isoWeekday(d))
-    .eq('period', period)
-    .maybeSingle();
-  return (data as { id: string } | null)?.id ?? null;
+// Distinct week numbers actually present in the legacy `menus` table.
+//
+// The Menu editor used to derive its tabs from the current ISO week. That
+// coupled the admin's planning grid to a calendar-week number the app no
+// longer uses for anything and which, once the ISO helper was corrected,
+// jumped from 6 to 34 - hiding every menu row that had ever been entered.
+// Showing the weeks that actually exist is both stable and honest.
+export async function menuWeeks(): Promise<ApiResult<number[]>> {
+  const { data, error } = await supabase.from('menus').select('week_number').order('week_number');
+  if (error) return err(error);
+  const rows = (data ?? []) as Array<{ week_number: number }>;
+  const weeks = [...new Set(rows.map((r) => r.week_number))].sort((a, b) => a - b);
+  return { data: weeks.length > 0 ? weeks : [1, 2, 3, 4], error: null };
 }
 
 // ------------------------------------------------- meal services (0016/0017)
@@ -577,6 +572,8 @@ export interface MealObservationInput {
   low_intake_reason?: LowIntakeReason | null;
   concern_observed?: boolean;
   menu_item_id?: string | null;
+  /** The dated Meal Service this observation was recorded against (0016/0020). */
+  meal_service_id?: string | null;
   note?: string | null;
 }
 

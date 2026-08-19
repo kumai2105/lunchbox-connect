@@ -1,9 +1,9 @@
 import { Icon } from '../components/icons';
-import { useEffect, useMemo, useState } from 'react';
-import { listMenu, publishMenuWeek, saveMenuItem } from '../lib/api';
+import { useEffect, useState } from 'react';
+import { listMenu, menuWeeks, publishMenuWeek, saveMenuItem } from '../lib/api';
 import type { AppPeriod, MenuItem } from '../lib/types';
 import { Btn, Banner, Card, Field, Modal, PageHead, Spinner } from '../components/ui';
-import { WEEKDAY_NAMES, isoWeek } from '../lib/format';
+import { WEEKDAY_NAMES } from '../lib/format';
 import { can } from '../lib/rbac';
 import { useRole } from '../lib/auth';
 
@@ -27,8 +27,8 @@ export default function MenuPage() {
   const canEdit = can(role, 'menu', 'create');
   const canPublish = can(role, 'menu', 'publish');
 
-  const baseWeek = useMemo(() => isoWeek(new Date()), []);
-  const [selectedWeek, setSelectedWeek] = useState(baseWeek);
+
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
   const [rows, setRows] = useState<MenuItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,9 +42,25 @@ export default function MenuPage() {
   const [publishMsg, setPublishMsg] = useState<string | null>(null);
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
 
-  const weeks = [baseWeek, baseWeek + 1, baseWeek + 2, baseWeek + 3];
+  // The weeks that actually exist in the menu table, not four derived from
+  // today's calendar week. See menuWeeks() for why.
+  const [weeks, setWeeks] = useState<number[]>([]);
 
   useEffect(() => {
+    let active = true;
+    void menuWeeks().then((res) => {
+      if (!active) return;
+      const w = res.data ?? [];
+      setWeeks(w);
+      setSelectedWeek((prev) => prev ?? w[0] ?? null);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (weeks.length === 0) return;
     let active = true;
     void listMenu(weeks).then((res) => {
       if (!active) return;
@@ -90,6 +106,7 @@ export default function MenuPage() {
   }
 
   async function publish() {
+    if (selectedWeek === null) return;
     setBusy(true);
     const res = await publishMenuWeek(selectedWeek);
     setBusy(false);
@@ -144,6 +161,18 @@ export default function MenuPage() {
         }
       />
 
+      {/*
+        This screen still edits the legacy `menus` table, while Kitchen,
+        Classroom and Parent now read dated `meal_services`. Saving here does
+        NOT reach families until the schedule is republished. Saying so is the
+        whole point: a screen that looks like it publishes, but doesn't, is
+        exactly the kind of dead control the doctrine forbids.
+      */}
+      <Banner kind="info">
+        Changes saved here update the master menu only. Kitchen, Classroom and Parent read the
+        published dated schedule, so they will not change until the schedule is republished. The
+        Calendar screen that does this is not built yet.
+      </Banner>
       {error && <Banner kind="err">{error}</Banner>}
       {publishMsg && (
         <Banner kind={publishMsg.startsWith('Week') ? 'info' : 'err'}>{publishMsg}</Banner>
@@ -189,7 +218,7 @@ export default function MenuPage() {
                     <small>{monday.getDate()}</small>
                   </div>
                   {PERIODS.map((period) => {
-                    const item = dishFor(selectedWeek, weekday, period);
+                    const item = selectedWeek === null ? undefined : dishFor(selectedWeek, weekday, period);
                     return (
                       <button
                         key={period}
@@ -201,6 +230,7 @@ export default function MenuPage() {
                         }}
                         onClick={() =>
                           canEdit &&
+                          selectedWeek !== null &&
                           setEditing({
                             week: selectedWeek,
                             weekday,

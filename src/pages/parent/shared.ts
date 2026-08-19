@@ -1,6 +1,6 @@
-import type { AppPeriod, MenuItem, ServingRecord } from '../../lib/types';
+import type { AppPeriod, ServingRecord } from '../../lib/types';
+import type { DayMeal } from '../../lib/api';
 import type { IconName } from '../../components/icons';
-import { isoWeekday } from '../../lib/format';
 
 // Four approved meal periods (docs/02 §26, docs/09 AT-082).
 export const PERIOD_ORDER: AppPeriod[] = ['breakfast', 'snack', 'lunch', 'afternoon_snack'];
@@ -32,11 +32,17 @@ export function recordsForDate(
   return out;
 }
 
-export function menuForDate(menu: MenuItem[], date: string): Partial<Record<AppPeriod, MenuItem>> {
-  const weekday = isoWeekday(new Date(`${date}T00:00:00`));
-  const out: Partial<Record<AppPeriod, MenuItem>> = {};
-  menu
-    .filter((m) => m.weekday === weekday)
+/**
+ * Meals for one calendar date, keyed by period.
+ *
+ * Matches on the service date itself. The previous version derived a weekday
+ * and matched template rows, which meant every Wednesday of the year looked
+ * identical and a closure or a one-off override could not be represented.
+ */
+export function mealsForDate(meals: DayMeal[], date: string): Partial<Record<AppPeriod, DayMeal>> {
+  const out: Partial<Record<AppPeriod, DayMeal>> = {};
+  meals
+    .filter((m) => m.service_date === date)
     .forEach((m) => {
       out[m.period] = m;
     });

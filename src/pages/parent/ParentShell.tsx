@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
-  listMenu,
+  mealsForDates,
   myChildren,
   notesForServing,
   servingRangeForStudent,
   studentPhotoUrl,
 } from '../../lib/api';
-import type { MenuItem, ServingNote, ServingRecord, Student } from '../../lib/types';
+import type { ServingNote, ServingRecord, Student } from '../../lib/types';
+import type { DayMeal } from '../../lib/api';
 import { Banner, EmptyState, Spinner } from '../../components/ui';
 import { Icon, type IconName } from '../../components/icons';
-import { isoWeek, todayISO } from '../../lib/format';
+import { todayISO, weekEndISO } from '../../lib/format';
 import { ParentContext, type ParentCtx } from './context';
 
 const NAV: Array<{ to: string; label: string; icon: IconName; end?: boolean }> = [
@@ -39,7 +40,7 @@ export default function ParentShell() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [records, setRecords] = useState<ServingRecord[]>([]);
   const [notes, setNotes] = useState<Record<string, ServingNote>>({});
-  const [menu, setMenu] = useState<MenuItem[]>([]);
+  const [meals, setMeals] = useState<DayMeal[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -64,15 +65,25 @@ export default function ParentShell() {
   }, []);
 
   async function loadChild(id: string) {
-    const [recs, menuRes, url] = await Promise.all([
+    const kid = (children ?? []).find((c) => c.id === id);
+    // Meals are read for THIS child's institution as dated rows, over a range
+    // wide enough for every screen that consumes them: Insights looks back 30
+    // days, the Menu screen forward to the end of this week. Fetching once
+    // here keeps all three screens reading the SAME rows, so they cannot
+    // disagree about what was served. The previous call asked for a global ISO-week
+    // number, which is institution-agnostic and, because the helper divided
+    // by seven twice, only changed every seventh week.
+    const [recs, mealRes, url] = await Promise.all([
       servingRangeForStudent(id, daysAgoISO(30), todayISO()),
-      listMenu([isoWeek(new Date())]),
-      studentPhotoUrl((children ?? []).find((c) => c.id === id)?.photo_path ?? null),
+      kid
+        ? mealsForDates(daysAgoISO(30), weekEndISO(), kid.institution_id)
+        : Promise.resolve({ data: [] as DayMeal[], error: null }),
+      studentPhotoUrl(kid?.photo_path ?? null),
     ]);
-    setError(recs.error ?? menuRes.error);
+    setError(recs.error ?? mealRes.error);
     const rows = recs.data ?? [];
     setRecords(rows);
-    setMenu((menuRes.data ?? []).filter((m) => m.published));
+    setMeals(mealRes.data ?? []);
     setPhotoUrl(url);
 
     // Free-text notes reach a parent ONLY once a reviewer has published them
@@ -109,7 +120,7 @@ export default function ParentShell() {
     photoUrl,
     records,
     notes,
-    menu,
+    meals,
     reload: () => loadChild(child.id),
   };
 

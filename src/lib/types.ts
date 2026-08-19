@@ -125,6 +125,12 @@ export interface ServingRecord {
   low_intake_reason: LowIntakeReason | null;
   concern_observed: boolean;
   menu_item_id: string | null;
+  /**
+   * The dated Meal Service this observation was recorded against. Supersedes
+   * menu_item_id, which pointed at a template row addressed by a global
+   * calendar-week number. Null on records written before the cutover.
+   */
+  meal_service_id: string | null;
   note: string | null;
   recorded_by: string;
   created_at: string;
