@@ -62,12 +62,15 @@ export default function ParentInsights() {
   // Which meals this child reliably eats — computed from their own records,
   // matched back to the authoritative menu item.
   const topMeals = useMemo(() => {
-    // Group by MEAL identity (dish), not by the dated service id, so the same
-    // meal served on several days aggregates into one favourite (§30).
-    const nameFor = new Map(meals.map((m) => [m.service_id, m.dish_name]));
+    // Group by STABLE meal identity (meal_id), not the dated service id or the
+    // dish-name text, so the same meal aggregates into one favourite even
+    // across a rename, and same-named-but-different meals never merge (§9/§30).
+    const identityFor = new Map(
+      meals.map((m) => [m.service_id, { id: m.meal_id, label: m.dish_name }]),
+    );
     return groupPreferencesByMeal(
       scoped.filter((r) => isValidPreferenceObservation(r)),
-      (id) => nameFor.get(id),
+      (id) => identityFor.get(id),
     ).map((e) => ({ label: e.label, value: e.value, hint: `${e.count} times` }));
   }, [scoped, meals]);
 

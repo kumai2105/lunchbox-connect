@@ -41,6 +41,7 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
     { page: 'students', label: 'Students', icon: 'users' },
     { page: 'guardians', label: 'Parents / guardians', icon: 'heart' },
     { page: 'classes', label: 'Classes', icon: 'folder' },
+    { page: 'staff', label: 'Staff', icon: 'user' },
     { page: 'today', label: 'Today — serving', icon: 'sun' },
     { page: 'review', label: 'Parent-safe updates', icon: 'checkCircle' },
     { page: 'absences', label: 'Absences', icon: 'xCircle', shell: true },

@@ -3,7 +3,12 @@ import { useParentData } from './context';
 import { Avatar, Card, Pill } from '../../components/ui';
 import { Icon } from '../../components/icons';
 import { initials, todayISO } from '../../lib/format';
-import { consumptionHumanLabel, isValidPreferenceObservation } from '../../lib/mealAnalytics';
+import {
+  BEHAVIOR_LABEL,
+  LOW_INTAKE_REASON_LABEL,
+  consumptionHumanLabel,
+  isValidPreferenceObservation,
+} from '../../lib/mealAnalytics';
 import {
   PERIOD_ICON,
   PERIOD_LABEL,
@@ -112,6 +117,18 @@ export default function ParentHome() {
                   {rec && <span className="tmc-time"> {timeOf(rec.created_at)}</span>}
                 </div>
                 <div className="tmc-meta">{item?.dish_name ?? 'Not published'}</div>
+                {/* §3: the approved structured result the nurse recorded once —
+                    how they ate, plus a parent-safe reason when intake was low.
+                    These are controlled fields (not free text), so they are
+                    shown directly from the same record; only free-text notes
+                    require review before a parent sees them. */}
+                {rec && rec.served_status === 'served' && (rec.behavior || rec.low_intake_reason) && (
+                  <div className="tmc-meta tmc-result">
+                    {rec.behavior && BEHAVIOR_LABEL[rec.behavior]}
+                    {rec.behavior && rec.low_intake_reason && ' · '}
+                    {rec.low_intake_reason && LOW_INTAKE_REASON_LABEL[rec.low_intake_reason]}
+                  </div>
+                )}
                 {note && <div className="tmc-note">“{note.body}”</div>}
               </div>
               {rec ? (

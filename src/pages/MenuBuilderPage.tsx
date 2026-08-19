@@ -14,10 +14,16 @@ import type { AppPeriod, MealLibraryItem } from '../lib/types';
 import { Banner, Btn, EmptyState, Field, Modal, PageHead, Pill, Spinner } from '../components/ui';
 import { Icon } from '../components/icons';
 
-// Menu Builder (§5). A "Menu" is a rotation: a named, N-week arrangement of
+// Menu Builder (§5/§10). A "Menu" is a rotation: a named, N-week arrangement of
 // meals into weekday/period slots. Week count is chosen by Admin (§2/§6) — the
 // grid grows and shrinks with it; nothing is hard-coded to 4 weeks.
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+//
+// §10: weekday slots are NOT permanently limited to Mon–Fri. The rotation
+// engine already stores weekday 0..6, so special/camp service days are a UI
+// toggle, not a code change. The current company standard remains Mon–Fri, so
+// weekend columns are hidden until the Admin opts to show them.
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEKDAY_INDICES = [0, 1, 2, 3, 4, 5, 6];
 const PERIODS: AppPeriod[] = ['breakfast', 'snack', 'lunch', 'afternoon_snack'];
 const PERIOD_LABEL: Record<AppPeriod, string> = {
   breakfast: 'Breakfast',
@@ -42,6 +48,10 @@ export default function MenuBuilderPage() {
   const [busy, setBusy] = useState(false);
   // cell being edited: {week,weekday,period} or null
   const [cell, setCell] = useState<{ w: number; d: number; p: AppPeriod } | null>(null);
+  // §10: which service days the grid exposes. Mon–Fri by default; the Admin can
+  // reveal weekend/camp days without any code change. Any weekday that already
+  // carries a slot stays visible so existing camp menus are never hidden.
+  const [includeWeekend, setIncludeWeekend] = useState(false);
 
   async function loadRotations() {
     const res = await listRotations();
@@ -149,6 +159,13 @@ export default function MenuBuilderPage() {
     [selected],
   );
 
+  // Mon–Fri, plus Sat/Sun when the Admin opts in OR when this menu already
+  // places a meal on a weekend day (so a camp menu is never silently hidden).
+  const visibleDays = useMemo(() => {
+    const hasWeekendSlot = [...slots.values()].some((s) => s.weekday >= 5);
+    return includeWeekend || hasWeekendSlot ? WEEKDAY_INDICES : WEEKDAY_INDICES.slice(0, 5);
+  }, [includeWeekend, slots]);
+
   if (error && !rotations) return <EmptyState text={`Could not load menus: ${error}`} />;
 
   return (
@@ -206,6 +223,9 @@ export default function MenuBuilderPage() {
                   <Btn size="sm" onClick={() => void changeWeeks(1)}>
                     + week
                   </Btn>
+                  <Btn size="sm" variant="ghost" onClick={() => setIncludeWeekend((v) => !v)}>
+                    {includeWeekend || visibleDays.length > 5 ? 'Hide weekend days' : 'Show weekend / camp days'}
+                  </Btn>
                   <Btn size="sm" variant="ghost" onClick={() => void toggleActive()}>
                     {selected.active ? 'Archive' : 'Restore'}
                   </Btn>
@@ -229,8 +249,8 @@ export default function MenuBuilderPage() {
                   <thead>
                     <tr>
                       <th>Period</th>
-                      {WEEKDAYS.map((d) => (
-                        <th key={d}>{d}</th>
+                      {visibleDays.map((d) => (
+                        <th key={d}>{WEEKDAYS[d]}</th>
                       ))}
                     </tr>
                   </thead>
@@ -238,7 +258,7 @@ export default function MenuBuilderPage() {
                     {PERIODS.map((p) => (
                       <tr key={p}>
                         <td className="period-label">{PERIOD_LABEL[p]}</td>
-                        {WEEKDAYS.map((_, d) => {
+                        {visibleDays.map((d) => {
                           const s = slots.get(keyOf(week, d, p));
                           return (
                             <td key={d}>

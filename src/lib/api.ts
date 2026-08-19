@@ -259,7 +259,10 @@ export async function guardiansForStudent(studentId: string): Promise<ApiResult<
 }
 
 export async function createStudent(input: {
-  student_no: string;
+  // §7: the canonical minimum is given_name + family_name + institution_id.
+  // student_no is optional (many settings do not assign one); a blank value is
+  // stored as NULL, never as a colliding empty string.
+  student_no?: string | null;
   institution_id: string;
   given_name: string;
   family_name: string;
@@ -267,7 +270,11 @@ export async function createStudent(input: {
   grade?: string | null;
   medical_notes?: unknown[];
 }): Promise<ApiResult<Student>> {
-  const { data, error } = await supabase.from('students').insert(input).select().single();
+  const { data, error } = await supabase
+    .from('students')
+    .insert({ ...input, student_no: input.student_no?.trim() || null })
+    .select()
+    .single();
   if (error) return err(error);
   return { data: data as Student, error: null };
 }
@@ -762,6 +769,11 @@ export interface DayMeal {
   institution_id: string;
   service_date: string;
   period: AppPeriod;
+  // §9: the STABLE Meal identity behind this dated service. Parent preference
+  // grouping keys on this, not the dish-name text, so the same meal served on
+  // several days aggregates as one even if a later revision renames it. The
+  // served revision's name is preserved as dish_name for historical detail.
+  meal_id: string;
   dish_name: string;
   allergens: string[];
   ingredients: string[];
@@ -777,6 +789,7 @@ interface RawService {
   period: AppPeriod;
   rev: {
     name: string;
+    meal_id: string;
     allergens: unknown;
     ingredients: unknown;
     portion: string | null;
@@ -797,7 +810,7 @@ export async function mealsForDates(
   let q = supabase
     .from('meal_services')
     .select(
-      'id,institution_id,service_date,period,rev:meal_revisions!meal_revision_id(name,allergens,ingredients,portion,nutrition,image_path)',
+      'id,institution_id,service_date,period,rev:meal_revisions!meal_revision_id(name,meal_id,allergens,ingredients,portion,nutrition,image_path)',
     )
     .gte('service_date', from)
     .lte('service_date', to)
@@ -821,6 +834,7 @@ export async function mealsForDates(
         institution_id: r.institution_id,
         service_date: r.service_date,
         period: r.period,
+        meal_id: r.rev!.meal_id,
         dish_name: r.rev!.name,
         allergens: asStringArray(r.rev!.allergens),
         ingredients: asStringArray(r.rev!.ingredients),

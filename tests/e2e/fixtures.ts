@@ -27,8 +27,10 @@ export async function login(page: Page, email: string): Promise<void> {
   await page.locator(SEL.email).fill(email);
   await page.locator(SEL.password).fill(PASS);
   await page.getByRole('button', { name: /enter the platform/i }).click();
+  // Every role lands on its own first page. Routes reflect the CURRENT app:
+  // no /menu (retired); kitchen → /kitchen, ops → /ops, reports → /reports.
   await page.waitForURL(
-    /^\/(dashboard|today|parent|classes|students|eligibility|menu|users|institutions)/,
+    /^\/(dashboard|today|parent|classes|staff|students|status|kitchen|reports|ops|deliveries|meals|menu-builder|analytics|users|institutions)/,
   );
 }
 

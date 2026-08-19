@@ -12,11 +12,19 @@ import {
   type ClassWithMeta,
 } from '../lib/api';
 import type { AppUser, Institution } from '../lib/types';
+import { useRole } from '../lib/auth';
+import { can } from '../lib/rbac';
 import { Banner, Btn, Card, EmptyState, Field, Modal, PageHead, Spinner } from '../components/ui';
 
 export default function ClassesPage() {
   const [params] = useSearchParams();
   const institutionFilter = params.get('institution') ?? '';
+
+  const role = useRole();
+  // §5: mutation controls appear only for roles authorized to perform them.
+  // Classroom staff reach this page read-only (RLS enforces the same server-side).
+  const canCreateClass = can(role, 'classes', 'create');
+  const canManageStaff = can(role, 'classes', 'update');
 
   const [rows, setRows] = useState<ClassWithMeta[] | null>(null);
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -31,7 +39,14 @@ export default function ClassesPage() {
   useEffect(() => {
     let active = true;
     void (async () => {
-      const [c, i, u] = await Promise.all([listClasses(), listInstitutions(), listUsers()]);
+      // Only admins need the staff roster (for the assignment picker) and the
+      // institution list; classroom_staff view classes read-only, and
+      // listUsers() is admin-scoped, so skip it for them.
+      const [c, i, u] = await Promise.all([
+        listClasses(),
+        canManageStaff ? listInstitutions() : Promise.resolve({ data: [], error: null }),
+        canManageStaff ? listUsers() : Promise.resolve({ data: [], error: null }),
+      ]);
       if (!active) return;
       if (c.error || i.error || u.error) setError(c.error ?? i.error ?? u.error);
       setRows(c.data ?? []);
@@ -41,7 +56,7 @@ export default function ClassesPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [canManageStaff]);
 
   const [managing, setManaging] = useState<ClassWithMeta | null>(null);
   const [members, setMembers] = useState<ClassStaffMember[]>([]);
@@ -119,16 +134,18 @@ export default function ClassesPage() {
                 ← All institutions
               </Btn>
             )}
-            <Btn
-              variant="brand"
-              onClick={() => {
-                setError(null);
-                setInstitutionId(institutionFilter);
-                setShowCreate(true);
-              }}
-            >
-              + Create class
-            </Btn>
+            {canCreateClass && (
+              <Btn
+                variant="brand"
+                onClick={() => {
+                  setError(null);
+                  setInstitutionId(institutionFilter);
+                  setShowCreate(true);
+                }}
+              >
+                + Create class
+              </Btn>
+            )}
           </>
         }
       />
@@ -170,9 +187,13 @@ export default function ClassesPage() {
                   <td>{c.grade ?? '—'}</td>
                   <td className="mono">{c.student_count}</td>
                   <td>
-                    <Btn size="sm" variant="ghost" onClick={() => void openStaff(c)}>
-                      Manage staff
-                    </Btn>
+                    {canManageStaff ? (
+                      <Btn size="sm" variant="ghost" onClick={() => void openStaff(c)}>
+                        Manage staff
+                      </Btn>
+                    ) : (
+                      <span className="cell-sub">—</span>
+                    )}
                   </td>
                   <td>
                     <a className="btn ghost sm" href={`/today?class=${c.id}`}>

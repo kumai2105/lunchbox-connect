@@ -15,6 +15,7 @@ const PAGE_TITLES: Record<string, [string, string]> = {
   students: ['Students', 'LunchBox Connect /'],
   guardians: ['Parents / guardians', 'LunchBox Connect /'],
   classes: ['Classes', 'LunchBox Connect /'],
+  staff: ['Staff', 'LunchBox Connect /'],
   status: ['Status / eligibility', 'LunchBox Connect /'],
   audit: ['Audit', 'LunchBox Connect /'],
   meals: ['Meal Library', 'LunchBox Connect /'],

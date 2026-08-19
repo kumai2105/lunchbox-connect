@@ -2,14 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   listClasses,
+  mealsForDates,
   notesForServing,
   recordServing,
-  resolveMealServiceId,
   rosterForClass,
   servingForDay,
   studentPhotoUrl,
   upsertServingNote,
   type ClassWithMeta,
+  type DayMeal,
   type MealObservationInput,
 } from '../lib/api';
 import type {
@@ -74,7 +75,11 @@ export default function TodayPage() {
   const [records, setRecords] = useState<ServingRecord[]>([]);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string | null>>({});
   const [notes, setNotes] = useState<Record<string, ServingNote>>({});
-  const [mealServiceId, setMealServiceId] = useState<string | null>(null);
+  // §2/§35: the periods a class can record are exactly the ones with a PUBLISHED
+  // Meal Service for the institution on this date — never a fixed four. A
+  // 3-meal nursery simply has no Afternoon Snack service, so it is neither
+  // shown nor recordable.
+  const [dayServices, setDayServices] = useState<DayMeal[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -102,23 +107,21 @@ export default function TodayPage() {
     let active = true;
     void (async () => {
       const today = todayISO();
-      const [r, s, m] = await Promise.all([
+      const [r, s, svc] = await Promise.all([
         rosterForClass(classId),
         servingForDay(classId, today, period),
-        // Traceability now points at the DATED Meal Service for this class's
-        // institution, not at a template row addressed by a global
-        // calendar-week number. Returns null when nothing is published for
-        // the slot; the observation is still recorded, just without a link,
-        // because inventing a service would be worse than an honest gap.
+        // The published, dated Meal Services for this class's institution today.
+        // These decide which periods are recordable AND carry the service id
+        // each observation must link to. Nothing published ⇒ nothing to record.
         institutionId
-          ? resolveMealServiceId(institutionId, today, period)
-          : Promise.resolve(null),
+          ? mealsForDates(today, today, institutionId)
+          : Promise.resolve({ data: [] as DayMeal[], error: null }),
       ]);
       if (!active) return;
-      if (r.error || s.error) setError(r.error ?? s.error);
+      if (r.error || s.error || svc.error) setError(r.error ?? s.error ?? svc.error);
       setRoster(r.data ?? []);
       setRecords(s.data ?? []);
-      setMealServiceId(m);
+      setDayServices(svc.data ?? []);
       setIndex(0);
 
       const urls: Record<string, string | null> = {};
@@ -144,9 +147,28 @@ export default function TodayPage() {
     return map;
   }, [records]);
 
+  // Only periods that actually have a published Meal Service today (§2/§35).
+  const availablePeriods = useMemo(
+    () => PERIOD_META.filter((p) => (dayServices ?? []).some((s) => s.period === p.period)),
+    [dayServices],
+  );
+  const currentService = (dayServices ?? []).find((s) => s.period === period) ?? null;
+  const mealServiceId = currentService?.service_id ?? null;
+
+  // Keep the selected period on a published one. If the current selection has
+  // no service (e.g. a nursery with no Afternoon Snack), fall back to the first
+  // period that does — never leave the register pointed at an unpublished slot.
+  useEffect(() => {
+    if (!dayServices) return;
+    if (availablePeriods.length > 0 && !availablePeriods.some((p) => p.period === period)) {
+      setPeriod(availablePeriods[0].period);
+    }
+  }, [dayServices, availablePeriods, period]);
+
   const classLabel = classes.find((c) => c.id === classId)?.name ?? classId;
   const recordedCount = roster?.filter((s) => byStudent[s.id]).length ?? 0;
   const student = roster?.[index] ?? null;
+  const noServiceToday = dayServices !== null && availablePeriods.length === 0;
 
   useEffect(() => {
     setDraft(draftFromRecord(student ? byStudent[student.id] : undefined));
@@ -346,19 +368,33 @@ export default function TodayPage() {
 
       {error && <Banner kind="err">{error}</Banner>}
 
-      <div className="period-bar">
-        {PERIOD_META.map((p) => (
-          <button
-            key={p.period}
-            className={`period-btn${period === p.period ? ' active' : ''}`}
-            onClick={() => setPeriod(p.period)}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+      {availablePeriods.length > 0 && (
+        <div className="period-bar">
+          {availablePeriods.map((p) => (
+            <button
+              key={p.period}
+              className={`period-btn${period === p.period ? ' active' : ''}`}
+              onClick={() => setPeriod(p.period)}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {!roster ? (
+      {currentService && (
+        <Banner kind="info">
+          Serving <b>{currentService.dish_name}</b> for{' '}
+          {PERIOD_META.find((p) => p.period === period)?.label.toLowerCase()}.
+        </Banner>
+      )}
+
+      {noServiceToday ? (
+        // §1/§35: no published Meal Service for this institution today, so
+        // there is nothing to record. A consumption observation is never
+        // created against a meal that does not exist.
+        <EmptyState text={`No published Meal for ${todayISO()} — nothing to record for this class. Publish the day's menu from the institution's Service tab first.`} />
+      ) : !roster ? (
         <Spinner />
       ) : roster.length === 0 ? (
         <EmptyState text="No eligible students in this class right now." />

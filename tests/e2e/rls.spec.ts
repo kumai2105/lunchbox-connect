@@ -1,48 +1,49 @@
-import { test, expect } from 'playwright/test';
+import { expect, test } from 'playwright/test';
+import { e2eReady, login, seeded } from './fixtures';
 
 /**
- * Live-boundary acceptance specs (runbook step 9).
- *
- * These require a real Supabase project, seeded users, and the frontend
- * running against it — set:
- *   PLAYWRIGHT_BASE_URL  (default http://localhost:5173)
- *   E2E_EMAIL_SUPER, E2E_PASSWORD_SUPER, E2E_EMAIL_PARENT, E2E_PASSWORD_PARENT
- * then `pnpm test:e2e`. Until then they are BLOCKED_BY_ENVIRONMENT and skip.
+ * Live-boundary acceptance (AT-030 / AT-031). The route gate is a convenience;
+ * RLS is the real boundary and re-checks every read server-side. These drive
+ * the seeded live project via the shared fixtures.
  */
+test.describe('AT-030 / AT-031 — role isolation', () => {
+  test.skip(!e2eReady, 'needs E2E_* env (live Supabase project)');
 
-const enabled = Boolean(process.env.E2E_EMAIL_SUPER && process.env.E2E_EMAIL_PARENT);
-const describe = enabled ? test.describe : test.describe.skip;
-
-describe('AT-030 / AT-031 — RLS isolation', () => {
-  test('parent cannot navigate to staff pages', async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('input[type=email]', process.env.E2E_EMAIL_PARENT!);
-    await page.fill('input[type=password]', process.env.E2E_PASSWORD_PARENT!);
-    await page.click('button[type=submit]');
+  test('parent cannot navigate to staff/admin pages', async ({ page }) => {
+    const s = seeded();
+    await login(page, s.parentEmail);
     await expect(page).toHaveURL(/\/parent/);
 
+    // A parent is bounced off every admin route back into their portal.
     await page.goto('/users');
     await expect(page).toHaveURL(/\/parent/);
     await page.goto('/status');
     await expect(page).toHaveURL(/\/parent/);
+    await page.goto('/staff');
+    await expect(page).toHaveURL(/\/parent/);
   });
 
-  test('super admin can open the command center', async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('input[type=email]', process.env.E2E_EMAIL_SUPER!);
-    await page.fill('input[type=password]', process.env.E2E_PASSWORD_SUPER!);
-    await page.click('button[type=submit]');
+  test('super admin can open the command center and users', async ({ page }) => {
+    const s = seeded();
+    await login(page, s.superAdminEmail);
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByText('Institutions — serving today')).toBeVisible();
     await page.goto('/users');
     await expect(page.getByText('Users & roles')).toBeVisible();
   });
 
-  test('serving screen only exposes the staff member institution', async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('input[type=email]', process.env.E2E_EMAIL_SUPER!);
-    await page.fill('input[type=password]', process.env.E2E_PASSWORD_SUPER!);
-    await page.click('button[type=submit]');
+  test('a Nursery Admin can reach the institution-scoped Staff screen (§4)', async ({ page }) => {
+    const s = seeded();
+    await login(page, s.schoolAdminEmail);
+    await page.goto('/staff');
+    await expect(page).toHaveURL(/\/staff/);
+    // Provisioning is available to the Nursery Admin for their own institution.
+    await expect(page.getByRole('button', { name: /Provision classroom staff/ })).toBeVisible();
+  });
+
+  test('serving screen opens on a class picker for the staff institution', async ({ page }) => {
+    const s = seeded();
+    await login(page, s.superAdminEmail);
     await page.goto('/today');
     await expect(page.getByText('Select a class…')).toBeVisible();
   });

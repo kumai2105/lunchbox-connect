@@ -14,6 +14,7 @@ export type Resource =
   | 'guardians'
   | 'students'
   | 'classes'
+  | 'staff'
   | 'status'
   | 'meals'
   | 'menubuilder'
@@ -52,6 +53,13 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
     super_admin: ['view', 'create', 'update', 'delete'],
     school_admin: ['view', 'create', 'update', 'delete'],
     classroom_staff: ['view'],
+  },
+  // §4/§17: institution-scoped staff provisioning + class assignment. A Nursery
+  // Admin (school_admin) manages classroom staff for their OWN institution; the
+  // Edge Function and RLS enforce that boundary server-side regardless of UI.
+  staff: {
+    super_admin: ['view', 'create', 'update'],
+    school_admin: ['view', 'create', 'update'],
   },
   // operational status: exact list/transitions NOT_YET_DEFINED; the single
   // approved value ACTIVE_BILLABLE_TO_NURSERY is settable by Super Admin only.

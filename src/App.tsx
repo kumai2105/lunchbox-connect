@@ -15,6 +15,7 @@ import StatusPage from './pages/StatusPage';
 import AuditPage from './pages/AuditPage';
 import MealLibraryPage from './pages/MealLibraryPage';
 import MenuBuilderPage from './pages/MenuBuilderPage';
+import StaffPage from './pages/StaffPage';
 import MealAnalyticsPage from './pages/MealAnalyticsPage';
 import ReviewPage from './pages/ReviewPage';
 import TodayPage from './pages/TodayPage';
@@ -122,6 +123,14 @@ export default function App() {
               element={
                 <Page page="classes">
                   <ClassesPage />
+                </Page>
+              }
+            />
+            <Route
+              path="/staff"
+              element={
+                <Page page="staff">
+                  <StaffPage />
                 </Page>
               }
             />

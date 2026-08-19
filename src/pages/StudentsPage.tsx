@@ -53,6 +53,9 @@ export default function StudentsPage() {
 
   const role = useRole();
   const canCreate = can(role, 'students', 'create');
+  // §5: photo edit and class assignment are mutations — admins only. Classroom
+  // staff reach this roster read-only (RLS enforces the same server-side).
+  const canUpdate = can(role, 'students', 'update');
   const [showCreate, setShowCreate] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -112,7 +115,7 @@ export default function StudentsPage() {
       return (
         s.given_name.toLowerCase().includes(t) ||
         s.family_name.toLowerCase().includes(t) ||
-        s.student_no.toLowerCase().includes(t)
+        (s.student_no ?? '').toLowerCase().includes(t)
       );
     });
   }, [students, term, institutionFilter, classFilter]);
@@ -232,22 +235,30 @@ export default function StudentsPage() {
                 return (
                   <tr key={s.id}>
                     <td>
-                      <label
-                        style={{ cursor: 'pointer', display: 'inline-block' }}
-                        title="Upload photo"
-                      >
+                      {canUpdate ? (
+                        <label
+                          style={{ cursor: 'pointer', display: 'inline-block' }}
+                          title="Upload photo"
+                        >
+                          <Avatar
+                            photoUrl={photoUrls[s.id]}
+                            initials={initials(`${s.given_name} ${s.family_name}`)}
+                            size="sm"
+                          />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={(e) => void onPhotoChange(s, e.target.files?.[0])}
+                          />
+                        </label>
+                      ) : (
                         <Avatar
                           photoUrl={photoUrls[s.id]}
                           initials={initials(`${s.given_name} ${s.family_name}`)}
                           size="sm"
                         />
-                        <input
-                          type="file"
-                          accept="image/*"
-                          style={{ display: 'none' }}
-                          onChange={(e) => void onPhotoChange(s, e.target.files?.[0])}
-                        />
-                      </label>
+                      )}
                     </td>
                     <td className="cell-name">
                       <Link to={`/students/${s.id}`}>
@@ -257,20 +268,24 @@ export default function StudentsPage() {
                     <td className="mono cell-sub">{s.student_no}</td>
                     <td>{institutions.find((i) => i.id === s.institution_id)?.name ?? '—'}</td>
                     <td>
-                      <select
-                        value={s.class_id ?? ''}
-                        onChange={(e) => void assignClass(s, e.target.value)}
-                        title="assign class"
-                      >
-                        <option value="">Unassigned</option>
-                        {classes
-                          .filter((c) => c.institution_id === s.institution_id)
-                          .map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                            </option>
-                          ))}
-                      </select>
+                      {canUpdate ? (
+                        <select
+                          value={s.class_id ?? ''}
+                          onChange={(e) => void assignClass(s, e.target.value)}
+                          title="assign class"
+                        >
+                          <option value="">Unassigned</option>
+                          {classes
+                            .filter((c) => c.institution_id === s.institution_id)
+                            .map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                        </select>
+                      ) : (
+                        (classes.find((c) => c.id === s.class_id)?.name ?? 'Unassigned')
+                      )}
                     </td>
                     <td>
                       <Pill variant={statusPillClass(s.operational_status)}>

@@ -42,15 +42,20 @@ test.describe('operational status workflow', () => {
     expect(audit![0].new_value.operational_status).toBe('ACTIVE_BILLABLE_TO_NURSERY');
   });
 
-  test('kitchen production demand reflects eligible students only (AT-010)', async ({ page }) => {
+  test('kitchen production demand is per published meal for eligible students (AT-010/§34)', async ({
+    page,
+  }) => {
     const s = seeded();
     await login(page, s.kitchenEmail);
     await page.goto('/kitchen');
     await expect(page.getByRole('heading', { name: /Kitchen production/ })).toBeVisible();
-    await expect(page.getByText('E2E School')).toBeVisible();
-    // E2E School has three eligible students (E2E-101/102/201); the count row exists
-    const row = page.locator('tr', { hasText: 'E2E School' });
-    await expect(row).toContainText('3');
+
+    // Demand is per published MEAL (not a single per-institution number). Today
+    // the nursery serves E2E overnight oats (breakfast) and E2E wrap (lunch);
+    // both meals appear in the make list, attributed to the nursery.
+    await expect(page.getByText('E2E overnight oats')).toBeVisible();
+    await expect(page.getByText('E2E wrap')).toBeVisible();
+    await expect(page.getByText(/E2E Nursery/).first()).toBeVisible();
   });
 
   test('classroom staff cannot reach the status admin screen (AT-012 scope)', async ({ page }) => {

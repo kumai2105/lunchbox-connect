@@ -150,14 +150,14 @@ describe('aggregateObservations (blueprint Parts 24/27)', () => {
   });
 });
 
-describe('groupPreferencesByMeal (§30/§31)', () => {
+describe('groupPreferencesByMeal (§9/§30/§31)', () => {
   it('groups the same meal served on different dates into one favourite', () => {
-    // Chicken Pasta served 3 times (3 different service ids), Beef Rice once.
-    const dishFor: Record<string, string> = {
-      s1: 'Chicken Pasta',
-      s2: 'Chicken Pasta',
-      s3: 'Chicken Pasta',
-      s4: 'Beef Rice',
+    // Chicken Pasta (meal m1) served 3 times over 3 service ids, Beef Rice (m2) once.
+    const idFor: Record<string, { id: string; label: string }> = {
+      s1: { id: 'm1', label: 'Chicken Pasta' },
+      s2: { id: 'm1', label: 'Chicken Pasta' },
+      s3: { id: 'm1', label: 'Chicken Pasta' },
+      s4: { id: 'm2', label: 'Beef Rice' },
     };
     const records = [
       { meal_service_id: 's1', consumption_pct: 100 },
@@ -165,7 +165,7 @@ describe('groupPreferencesByMeal (§30/§31)', () => {
       { meal_service_id: 's3', consumption_pct: 75 },
       { meal_service_id: 's4', consumption_pct: 25 },
     ];
-    const out = groupPreferencesByMeal(records, (id) => dishFor[id]);
+    const out = groupPreferencesByMeal(records, (id) => idFor[id]);
     // Two meals, not four.
     expect(out).toHaveLength(2);
     const pasta = out.find((m) => m.label === 'Chicken Pasta')!;
@@ -176,10 +176,44 @@ describe('groupPreferencesByMeal (§30/§31)', () => {
     expect(out[0].label).toBe('Chicken Pasta');
   });
 
+  it('§9: groups by stable meal_id even when a later revision renamed the dish', () => {
+    // Same meal m1, but the second serving carries the renamed revision label.
+    const idFor: Record<string, { id: string; label: string }> = {
+      s1: { id: 'm1', label: 'Veg Curry' },
+      s2: { id: 'm1', label: 'Vegetable Curry' }, // renamed, same meal
+    };
+    const out = groupPreferencesByMeal(
+      [
+        { meal_service_id: 's1', consumption_pct: 100 },
+        { meal_service_id: 's2', consumption_pct: 50 },
+      ],
+      (id) => idFor[id],
+    );
+    // One meal, not two — the rename does not split history.
+    expect(out).toHaveLength(1);
+    expect(out[0].count).toBe(2);
+    expect(out[0].value).toBe(75);
+  });
+
+  it('§9: does NOT merge two different meals that share a dish name', () => {
+    const idFor: Record<string, { id: string; label: string }> = {
+      s1: { id: 'm1', label: 'Soup' },
+      s2: { id: 'm2', label: 'Soup' }, // different meal, same text
+    };
+    const out = groupPreferencesByMeal(
+      [
+        { meal_service_id: 's1', consumption_pct: 100 },
+        { meal_service_id: 's2', consumption_pct: 0 },
+      ],
+      (id) => idFor[id],
+    );
+    expect(out).toHaveLength(2);
+  });
+
   it('skips records with no meal-service link (pre-cutover)', () => {
     const out = groupPreferencesByMeal(
       [{ meal_service_id: null, consumption_pct: 100 }],
-      () => 'X',
+      () => ({ id: 'x', label: 'X' }),
     );
     expect(out).toHaveLength(0);
   });

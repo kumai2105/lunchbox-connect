@@ -186,6 +186,12 @@ export default function UsersPage() {
         >
           <form onSubmit={(e) => void onSubmit(e)}>
             {error && <Banner kind="err">{error}</Banner>}
+            <Banner kind="info">
+              This provisions a working account with the temporary password you set — <b>no
+              invitation email is sent</b>. Share it securely; the user signs in and should change
+              it. Email-delivered self-activation is <b>BLOCKED_BY_SPEC</b> until the sending
+              mechanism is decided.
+            </Banner>
             <div className="form-row">
               <Field label="Full name">
                 <input

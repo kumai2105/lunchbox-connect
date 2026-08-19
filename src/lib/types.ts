@@ -75,7 +75,8 @@ export interface ClassRow {
 
 export interface Student {
   id: string;
-  student_no: string;
+  // §7: optional in the canonical model — NULL when the setting assigns no number.
+  student_no: string | null;
   institution_id: string;
   given_name: string;
   family_name: string;

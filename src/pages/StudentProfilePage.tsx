@@ -167,7 +167,7 @@ export default function StudentProfilePage() {
     <div>
       <PageHead
         title={`${student.given_name} ${student.family_name}`}
-        hint={student.student_no}
+        hint={student.student_no ?? undefined}
         actions={
           <Link to="/students" className="btn ghost">
             <Icon name="arrowLeft" size={14} /> All students

@@ -53,6 +53,10 @@ insert into meals (id, name) values ('f0000000-0000-0000-0000-000000000001','ZZ 
 insert into meal_revisions (id, meal_id, revision_no, name) values
   ('f1000000-0000-0000-0000-000000000001','f0000000-0000-0000-0000-000000000001',1,'ZZ Meal');
 update meals set current_revision_id='f1000000-0000-0000-0000-000000000001' where id='f0000000-0000-0000-0000-000000000001';
+-- A published Meal Service for Class A's institution today, so a SERVED
+-- observation can carry its required link (0029 item-1 integrity constraint).
+insert into meal_services (id, institution_id, service_date, period, meal_revision_id, published) values
+  ('f2000000-0000-0000-0000-000000000001','a0000000-0000-0000-0000-000000000001',current_date,'lunch','f1000000-0000-0000-0000-000000000001',true);
 
 -- result sink
 create temp table matrix_result(role text, op text, verdict text) on commit drop;
@@ -188,9 +192,11 @@ begin
     perform zz_attempt(i, 'rotations.insert',
       'insert into rotations(name,week_count) values (''ZZ r'||i||''',2)',
       case when i=1 then 'ALLOWED' else 'DENIED' end);
+    -- Distinct date so this write probe does not collide with the fixture's
+    -- own published today/lunch service (unique on institution,date,period).
     perform zz_attempt(i, 'meal_services.insert',
       'insert into meal_services(institution_id,service_date,period,meal_revision_id,published)
-       values (''a0000000-0000-0000-0000-000000000001'',current_date,''lunch'',''f1000000-0000-0000-0000-000000000001'',true)',
+       values (''a0000000-0000-0000-0000-000000000001'',current_date + 60,''lunch'',''f1000000-0000-0000-0000-000000000001'',true)',
       case when i=1 then 'ALLOWED' else 'DENIED' end);
     perform zz_attempt(i, 'calendar_exceptions.insert',
       'insert into calendar_exceptions(institution_id,date_from,date_to,kind) values (''a0000000-0000-0000-0000-000000000001'',current_date,current_date,''closure'')',
@@ -225,8 +231,8 @@ declare i int;
 begin
   for i in 1..11 loop
     perform zz_attempt(i, 'serving_records.insert(ownClassA)',
-      'insert into serving_records(serving_date,class_id,student_id,period,served_status,concern_observed,recorded_by)
-       values (current_date,''b0000000-0000-0000-0000-000000000001'',''d0000000-0000-0000-0000-000000000001'',''lunch'',''served'',false,'''||
+      'insert into serving_records(serving_date,class_id,student_id,period,served_status,meal_service_id,concern_observed,recorded_by)
+       values (current_date,''b0000000-0000-0000-0000-000000000001'',''d0000000-0000-0000-0000-000000000001'',''lunch'',''served'',''f2000000-0000-0000-0000-000000000001'',false,'''||
        'e0000000-0000-0000-0000-0000000000'||lpad(i::text,2,'0')||''')',
       case when i in (1,2,11) then 'ALLOWED' else 'DENIED' end);
   end loop;
@@ -234,8 +240,8 @@ end $$;
 
 -- classroom_staff must NOT record in a class that is not theirs (Class B)
 select zz_attempt(11,'serving_records.insert(FOREIGN classB)',
-  'insert into serving_records(serving_date,class_id,student_id,period,served_status,concern_observed,recorded_by)
-   values (current_date,''b0000000-0000-0000-0000-000000000002'',''d0000000-0000-0000-0000-000000000002'',''lunch'',''served'',false,''e0000000-0000-0000-0000-000000000011'')',
+  'insert into serving_records(serving_date,class_id,student_id,period,served_status,meal_service_id,concern_observed,recorded_by)
+   values (current_date,''b0000000-0000-0000-0000-000000000002'',''d0000000-0000-0000-0000-000000000002'',''lunch'',''served'',''f2000000-0000-0000-0000-000000000001'',false,''e0000000-0000-0000-0000-000000000011'')',
   'DENIED');
 
 -- =====================================================================

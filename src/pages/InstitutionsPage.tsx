@@ -130,9 +130,9 @@ export default function InstitutionsPage() {
             <div className="field" style={{ marginTop: 12 }}>
               <label>Type</label>
               <select value={kind} onChange={(e) => setKind(e.target.value as Institution['kind'])}>
-                <option value="school">School</option>
+                {/* §6: nursery | school are the only supported types. */}
                 <option value="nursery">Nursery</option>
-                <option value="other">Other</option>
+                <option value="school">School</option>
               </select>
             </div>
           </form>

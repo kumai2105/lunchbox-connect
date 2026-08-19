@@ -325,7 +325,7 @@ export default function InstitutionDetailPage() {
           actions={
             canInviteStaff ? (
               <Btn variant="brand" size="sm" onClick={() => setShowInvite(true)}>
-                <Icon name="user" size={14} /> Invite classroom staff
+                <Icon name="user" size={14} /> Provision classroom staff
               </Btn>
             ) : undefined
           }
@@ -369,7 +369,7 @@ export default function InstitutionDetailPage() {
 
       {showInvite && (
         <Modal
-          title="Invite classroom staff"
+          title="Provision classroom staff"
           onClose={() => setShowInvite(false)}
           footer={
             <>
@@ -387,10 +387,12 @@ export default function InstitutionDetailPage() {
           }
         >
           {inviteMsg && <Banner kind={inviteMsg.startsWith('Error') ? 'err' : 'info'}>{inviteMsg}</Banner>}
-          <p className="tmc-meta">
-            Creates a Classroom Staff account scoped to this institution. Assign them to classes from
-            the Classes screen.
-          </p>
+          <Banner kind="info">
+            Creates a working Classroom Staff account scoped to this institution with the temporary
+            password below — <b>no invitation email is sent from here</b>. Share it securely; the
+            user signs in and should change it. Email-delivered self-activation is
+            <b> BLOCKED_BY_SPEC</b>. Assign them to classes from the Classes or Staff screen.
+          </Banner>
           <Field label="Full name">
             <input value={invite.fullName} onChange={(e) => setInvite({ ...invite, fullName: e.target.value })} />
           </Field>

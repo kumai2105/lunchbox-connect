@@ -167,21 +167,31 @@ export interface MealPreference {
   count: number; // how many valid observations contributed
 }
 
+// §9: identity resolves a dated service to the STABLE meal it served — its
+// meal_id, not the dish-name text. Grouping on meal_id means the same meal
+// aggregates as one favourite even across a rename, and two genuinely different
+// meals that happen to share a name never merge. The label is carried for
+// display only.
+export interface MealIdentity {
+  id: string;
+  label: string;
+}
+
 export function groupPreferencesByMeal(
   records: Array<{ meal_service_id: string | null; consumption_pct: number | null }>,
-  dishNameFor: (serviceId: string) => string | undefined,
+  identityFor: (serviceId: string) => MealIdentity | undefined,
 ): MealPreference[] {
-  const byMeal = new Map<string, { total: number; count: number }>();
+  const byMeal = new Map<string, { label: string; total: number; count: number }>();
   for (const r of records) {
     if (!r.meal_service_id) continue; // pre-cutover records have no service link
-    const dish = dishNameFor(r.meal_service_id);
-    if (!dish) continue;
-    const e = byMeal.get(dish) ?? { total: 0, count: 0 };
+    const meal = identityFor(r.meal_service_id);
+    if (!meal) continue;
+    const e = byMeal.get(meal.id) ?? { label: meal.label, total: 0, count: 0 };
     e.total += r.consumption_pct ?? 0;
     e.count += 1;
-    byMeal.set(dish, e); // key is the MEAL identity, never the dated service id
+    byMeal.set(meal.id, e); // key is the stable MEAL id, never the service id or name
   }
-  return [...byMeal.entries()]
-    .map(([label, e]) => ({ label, value: Math.round(e.total / e.count), count: e.count }))
+  return [...byMeal.values()]
+    .map((e) => ({ label: e.label, value: Math.round(e.total / e.count), count: e.count }))
     .sort((a, b) => b.value - a.value);
 }
