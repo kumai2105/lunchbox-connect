@@ -127,6 +127,21 @@ begin
   select count(*) into n from meal_services where institution_id = 'bb000000-0000-0000-0000-000000000002';
   if n <> 0 then raise exception 'FAIL §119 parent sees the other institution''s services'; end if;
   raise notice 'PASS  §109/§119 parent sees 0 drafts and 0 rows from the other institution';
+
+  -- §44: internal planning data must be invisible to a parent.
+  select count(*) into n from rotations;
+  if n <> 0 then raise exception 'FAIL §44 parent can read % rotation templates', n; end if;
+  select count(*) into n from rotation_slots;
+  if n <> 0 then raise exception 'FAIL §44 parent can read % rotation slots (unpublished planning)', n; end if;
+  raise notice 'PASS  §44 parent sees 0 rotation templates and 0 rotation slots';
+
+  -- ...but the parent CAN read the dish of their own published meal service.
+  select count(*) into n from meal_revisions mr
+   where exists (select 1 from meal_services ms
+                  where ms.meal_revision_id = mr.id and ms.published
+                    and ms.institution_id = 'bb000000-0000-0000-0000-000000000001');
+  if n < 1 then raise exception 'FAIL §44 parent cannot read their own published meal dish'; end if;
+  raise notice 'PASS  §44 parent CAN read the dish of their own published meal (% revision)', n;
 end $$;
 reset role;
 
