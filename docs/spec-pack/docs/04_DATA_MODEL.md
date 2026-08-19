@@ -1718,3 +1718,127 @@ Exact fields and technical storage details that have not yet been approved remai
 `NOT_YET_DEFINED`
 
 Claude Code must implement the approved logical relationships without inventing unapproved business rules.
+
+---
+
+# PART VII — MEAL / ROTATION / CALENDAR / SERVICE PLAN (Decision 033)
+
+Added by **Decision 033 — Master Operating Logic Lock**. These five concepts were
+previously conflated into a single flat menu grid keyed by
+`(week_number, weekday, period)` with the dish stored as free text. That model
+could not express a reusable Meal, a Meal revision, a Rotation of variable
+length, an Institution's actual service coverage, or a dated service — so none
+of the operating chain's guarantees could hold.
+
+## 26. Meal
+
+A reusable food item in the Meal Library. **A Meal is not a date, a Menu, or a
+Calendar.**
+
+Relationships:
+
+- a Meal has many Meal revisions;
+- a Meal points at its *current* revision for future scheduling;
+- a Meal is referenced by Rotation slots and by date overrides.
+
+## 27. Meal revision
+
+An **immutable** content snapshot: name, ingredients, allergens, nutrition,
+portion, image, and nutrition provenance status.
+
+Confirmed rules:
+
+- editing a Meal **appends** a revision; it never rewrites one;
+- a resolved Meal Service references a *revision*, not a Meal, which is what
+  keeps January history showing January's recipe after March's improvement;
+- revisions are append-only at the database level — no update or delete policy
+  exists on the table, so historical content cannot be rewritten by any role.
+
+## 28. Rotation and Rotation slot
+
+A Rotation is a reusable arrangement of Meals across `week_number × weekday ×
+Meal period`.
+
+Confirmed rules:
+
+- **Rotation length is data-driven** (`week_count`). Four weeks is the current
+  business reference, never a hard-coded limit;
+- weekday supports the full 0–6 range. Monday–Friday is the current operating
+  pattern, not a permanent global assumption;
+- clearing a slot removes the assignment only — it never deletes the Meal from
+  the Meal Library.
+
+## 29. Institution Service Plan
+
+Defines **which Meal periods an Institution actually receives**, with effective
+dates.
+
+Confirmed rules:
+
+- the master Rotation may contain four periods while an Institution receives
+  three; the Institution must not receive the fourth;
+- plans are effective-dated so a change never rewrites historical coverage;
+- **absence of a plan means no coverage.** The system never assumes service;
+- assignment is controlled by LunchBox Connect-side authorized users. An
+  Institution may read its own plan but cannot change its contracted coverage.
+
+## 30. Institution Rotation Assignment
+
+Binds an Institution to a Rotation with an effective start date and an anchor
+week.
+
+Confirmed rule: rotation position is derived from **whole calendar weeks elapsed
+since the anchor**, never from counting how many days actually had service. A
+closure therefore cannot shift the Rotation forward.
+
+## 31. Calendar Exception
+
+One of three kinds: `closure`, `override`, `special_period`.
+
+Confirmed rules:
+
+- an override changes **only** the dates it names; the master Rotation is
+  untouched and the next comparable weekday returns to normal;
+- a special period may carry its own Rotation for a date range, after which the
+  base Calendar resumes unchanged;
+- a closure suppresses service without altering the Rotation.
+
+## 32. Meal Service (the resolved dated fact)
+
+`Institution + service date + Meal period + Meal revision`, plus the provenance
+of how it was resolved and its published state.
+
+This is the **shared operational anchor**. Production, Kitchen, Classroom, Parent
+and Analytics all read this row rather than each independently re-deriving what
+was served.
+
+Confirmed rules:
+
+- **draft is not operational** — unpublished services are visible only to Super
+  Admin, which is what keeps an unfinished schedule away from Parent, Kitchen,
+  Nursery and Classroom;
+- publishing is idempotent and **never rewrites an already-published service**,
+  including its Meal revision;
+- a Classroom Meal Record references the Meal Service, so an observation is tied
+  to the exact revision served rather than to loose text.
+
+## 33. Resolution precedence (deterministic)
+
+For any Institution / date / Meal period:
+
+1. the Service Plan must include that period, otherwise nothing resolves;
+2. explicit **closure** → no service;
+3. explicit **date override** → use the override;
+4. **special period** → use its Rotation;
+5. otherwise the normal **Rotation assignment**;
+6. nothing applicable → **no Meal is fabricated** (zero rows).
+
+## 34. Expected vs actual
+
+Expected demand, produced, packed, dispatched and received quantities are
+**separate facts**. A shortfall never rewrites the expected figure; variance is
+derived. Late classroom absence never retroactively reduces historical
+production demand.
+
+Quantity-stage fields beyond expected demand remain `NOT_YET_DEFINED` pending the
+approved production and delivery state machines.

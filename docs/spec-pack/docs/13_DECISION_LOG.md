@@ -450,6 +450,52 @@ Confirmed structured fields on the Classroom Meal Record (one row per Student ×
 
 ---
 
+## Decision 033 — Master Operating Logic Lock: Meal → Rotation → Calendar → Service Plan → Meal Service
+
+**Date:** `2026-08-18`
+
+**Decision:** Locks the full operating chain from the reusable Meal through to the dated Meal Service that every downstream domain shares. Establishes five previously-absent domain concepts and the deterministic rules that connect them.
+
+**Supersedes:** the clause in Decision 032 listing *"Meal/Menu versioning beyond the existing week/weekday/period model"* as `NOT_YET_DEFINED`. Meal revisions and Rotation/Calendar separation are now approved and specified here. Also supersedes the implicit assumption in migration `0002` that a single flat `menus` table keyed by `(week_number, weekday, period)` is the authoritative Menu model — that table conflated five distinct concepts and could not express any of them correctly.
+
+### Approved concepts (previously conflated)
+
+- **Meal** — a reusable food item in the Meal Library. Not a date, not a Menu, not a Calendar.
+- **Meal revision** — an immutable snapshot of a Meal's content. Historical truth is preserved by reference to a revision, never by mutating the Meal.
+- **Rotation** — a reusable arrangement of Meals across week number × weekday × Meal period. Rotation length is **data-driven**; a four-week rotation is the current business reference, never a hard-coded limit.
+- **Institution Service Plan** — which Meal periods an Institution actually receives, with effective dates. The master Rotation may contain four periods while an Institution receives three; the Institution must not receive the fourth.
+- **Meal Service** — the resolved, dated fact: Institution + service date + Meal period + Meal revision. This is the shared operational anchor for Production, Kitchen, Classroom, Parent and Analytics. No portal independently re-resolves what was served.
+
+### Calendar resolution precedence (deterministic, in order)
+
+1. Explicit closure / no-service → no standard Meal Service is generated.
+2. Explicit date-specific override → use the override.
+3. Special period / camp assignment → use the special configuration.
+4. Normal active Rotation assignment for that Institution.
+5. Nothing applicable → **no Meal is fabricated.**
+
+### Mandatory invariants
+
+- **Past truth survives future edits.** Editing a Meal creates a new revision; already-served and already-published Meal Services keep the revision they referenced. January history never retroactively shows March's recipe.
+- **A closure does not shift the Rotation.** If Monday is closed, Tuesday still serves Tuesday's rotation slot. Rotation position derives from the calendar mapping, not from counting served days.
+- **A date override changes only that date.** The master Rotation is untouched; the next comparable weekday returns to normal.
+- **Draft is not operational.** Unpublished schedule changes must never reach Parent, Kitchen, Nursery or Classroom views.
+- **Expected and actual are different facts.** Expected demand, produced, packed, dispatched and received quantities are stored separately; a shortfall never rewrites the expected figure. Variance is derived.
+- **Late absence never rewrites history.** A classroom absence recorded during the meal period does not retroactively reduce the production demand the Kitchen already worked to.
+- **Class context is historical.** Moving a Student to another Class does not move their past Classroom Meal Records into it.
+
+### Analytics distinction (reinforces Decision 032)
+
+*Actual intake* (what physically happened to a child, which a Parent may need to see) and *Meal acceptance* (whether the Meal itself is liked) are different measures. `ABSENT` / `UNWELL` / `SLEEPING` / `NOT_SERVED` remain excluded from acceptance metrics. `DID_NOT_LIKE_IT` must come from the recorded structured reason and must never be inferred from low intake alone. Analytics must retain the ability to distinguish Meal revisions so a recipe improvement can be evaluated.
+
+### Not approved — remain `NOT_YET_DEFINED`
+
+Bulk/CSV/Excel/PDF Meal import, AI menu parsing, pre-production absence workflow and its cutoff time, production lock policy and who may override it, permanent production/delivery state enums, GPS/routing/proof-of-delivery, multi-Kitchen routing/territories/capacity, retention and deletion rules, commercial pricing and billing logic, Parent payment, daily Parent meal choice.
+
+**Status:** ACTIVE
+
+---
+
 ## Superseded Rule Register
 
 ### S-001 — Direct Parent-Payment Enrolment
