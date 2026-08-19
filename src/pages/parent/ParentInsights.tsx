@@ -5,6 +5,7 @@ import { BarChart, TrendChart } from '../../components/charts';
 import {
   LOW_INTAKE_REASON_LABEL,
   aggregateObservations,
+  groupPreferencesByMeal,
   isValidPreferenceObservation,
 } from '../../lib/mealAnalytics';
 
@@ -61,29 +62,13 @@ export default function ParentInsights() {
   // Which meals this child reliably eats — computed from their own records,
   // matched back to the authoritative menu item.
   const topMeals = useMemo(() => {
-    const map = new Map<string, { name: string; total: number; count: number }>();
-    scoped
-      .filter((r) => isValidPreferenceObservation(r))
-      .forEach((r) => {
-        // Observations are linked to the dated Meal Service they were
-        // recorded against. Records written before the cutover carry only the
-        // legacy menu_item_id and resolve to no dish here; they are skipped
-        // rather than shown under a guessed name.
-        if (!r.meal_service_id) return;
-        const dish = meals.find((m) => m.service_id === r.meal_service_id)?.dish_name;
-        if (!dish) return;
-        const e = map.get(r.meal_service_id) ?? { name: dish, total: 0, count: 0 };
-        e.total += r.consumption_pct ?? 0;
-        e.count += 1;
-        map.set(r.meal_service_id, e);
-      });
-    return [...map.values()]
-      .map((e) => ({
-        label: e.name,
-        value: Math.round(e.total / e.count),
-        hint: `${e.count} times`,
-      }))
-      .sort((a, b) => b.value - a.value);
+    // Group by MEAL identity (dish), not by the dated service id, so the same
+    // meal served on several days aggregates into one favourite (§30).
+    const nameFor = new Map(meals.map((m) => [m.service_id, m.dish_name]));
+    return groupPreferencesByMeal(
+      scoped.filter((r) => isValidPreferenceObservation(r)),
+      (id) => nameFor.get(id),
+    ).map((e) => ({ label: e.label, value: e.value, hint: `${e.count} times` }));
   }, [scoped, meals]);
 
   const reasons = useMemo(

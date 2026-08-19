@@ -148,8 +148,13 @@ export default function DashboardPage() {
             </thead>
             <tbody>
               {rows.map((r) => {
+                // §38: completion = completed applicable records / EXPECTED
+                // applicable records (eligible students × periods published
+                // today). Undefined when nothing is expected today.
                 const rate =
-                  r.active_students > 0 ? Math.round((r.meals_today / r.active_students) * 100) : 0;
+                  r.expected_today > 0
+                    ? Math.round((r.meals_today / r.expected_today) * 100)
+                    : null;
                 return (
                   <tr key={r.institution_id}>
                     <td className="cell-name">{r.name}</td>
@@ -157,8 +162,10 @@ export default function DashboardPage() {
                     <td className="mono">{r.active_students}</td>
                     <td className="mono">{r.meals_today}</td>
                     <td className="col-secondary">
-                      <span className={r.active_students === 0 ? 'pill na' : mealsTodayPill(rate)}>
-                        {r.active_students > 0 ? `${rate}%` : '—'}
+                      {/* Undefined when nothing is published/expected today —
+                          shown as "—", never a divide-by-zero or a >100% ratio. */}
+                      <span className={rate === null ? 'pill na' : mealsTodayPill(rate)}>
+                        {rate === null ? '—' : `${rate}%`}
                       </span>
                     </td>
                     <td>

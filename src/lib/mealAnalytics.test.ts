@@ -5,6 +5,7 @@ import {
   isLowIntake,
   isNonPreferenceReason,
   isValidPreferenceObservation,
+  groupPreferencesByMeal,
   type ObservationLike,
 } from './mealAnalytics';
 import { CONSUMPTION_VALUES } from './types';
@@ -148,3 +149,38 @@ describe('aggregateObservations (blueprint Parts 24/27)', () => {
     expect(a.distribution).toEqual({ 0: 0, 25: 1, 50: 0, 75: 0, 100: 2 });
   });
 });
+
+describe('groupPreferencesByMeal (§30/§31)', () => {
+  it('groups the same meal served on different dates into one favourite', () => {
+    // Chicken Pasta served 3 times (3 different service ids), Beef Rice once.
+    const dishFor: Record<string, string> = {
+      s1: 'Chicken Pasta',
+      s2: 'Chicken Pasta',
+      s3: 'Chicken Pasta',
+      s4: 'Beef Rice',
+    };
+    const records = [
+      { meal_service_id: 's1', consumption_pct: 100 },
+      { meal_service_id: 's2', consumption_pct: 50 },
+      { meal_service_id: 's3', consumption_pct: 75 },
+      { meal_service_id: 's4', consumption_pct: 25 },
+    ];
+    const out = groupPreferencesByMeal(records, (id) => dishFor[id]);
+    // Two meals, not four.
+    expect(out).toHaveLength(2);
+    const pasta = out.find((m) => m.label === 'Chicken Pasta')!;
+    expect(pasta.count).toBe(3); // three servings contributed
+    expect(pasta.value).toBe(75); // (100+50+75)/3
+    expect(out.find((m) => m.label === 'Beef Rice')!.count).toBe(1);
+    // sorted by value desc
+    expect(out[0].label).toBe('Chicken Pasta');
+  });
+
+  it('skips records with no meal-service link (pre-cutover)', () => {
+    const out = groupPreferencesByMeal(
+      [{ meal_service_id: null, consumption_pct: 100 }],
+      () => 'X',
+    );
+    expect(out).toHaveLength(0);
+  });
+})

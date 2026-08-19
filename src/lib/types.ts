@@ -164,6 +164,10 @@ export interface DashboardInstitutionRow {
   classrooms: number;
   active_students: number;
   meals_today: number;
+  /** Published meal-service periods this institution has today (§38). */
+  periods_today: number;
+  /** Expected applicable student-meal records today = eligible students × periods_today (§38). */
+  expected_today: number;
 }
 
 export interface ProductionDemandRow {

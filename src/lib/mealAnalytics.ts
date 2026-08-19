@@ -152,3 +152,36 @@ export function classifyMealPerformance(row: MealPerformanceRow): {
   if (pct < 55 || refusalShare >= 0.15) return { label: 'REVIEW_IMPROVE', variant: 'reduced' };
   return { label: 'MONITOR', variant: 'free' };
 }
+
+// ---------------------------------------------------------------------------
+// Preference grouping (correction order §30/§31).
+//
+// A "favourite meal" is the MEAL, not a single dated serving of it. Chicken
+// Pasta served on Monday, Thursday and next Tuesday is ONE meal with three
+// observations — it must not appear as three unrelated meals keyed by
+// meal_service_id. Group by the meal's identity (its dish name, which is the
+// meal revision's name) and average consumption across every serving of it.
+export interface MealPreference {
+  label: string;
+  value: number; // mean consumption_pct across all servings of this meal
+  count: number; // how many valid observations contributed
+}
+
+export function groupPreferencesByMeal(
+  records: Array<{ meal_service_id: string | null; consumption_pct: number | null }>,
+  dishNameFor: (serviceId: string) => string | undefined,
+): MealPreference[] {
+  const byMeal = new Map<string, { total: number; count: number }>();
+  for (const r of records) {
+    if (!r.meal_service_id) continue; // pre-cutover records have no service link
+    const dish = dishNameFor(r.meal_service_id);
+    if (!dish) continue;
+    const e = byMeal.get(dish) ?? { total: 0, count: 0 };
+    e.total += r.consumption_pct ?? 0;
+    e.count += 1;
+    byMeal.set(dish, e); // key is the MEAL identity, never the dated service id
+  }
+  return [...byMeal.entries()]
+    .map(([label, e]) => ({ label, value: Math.round(e.total / e.count), count: e.count }))
+    .sort((a, b) => b.value - a.value);
+}
