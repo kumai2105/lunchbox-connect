@@ -7,6 +7,8 @@ interface AuthState {
   session: Session | null;
   profile: AppUser | null;
   loading: boolean;
+  /** Set when the auth service itself was unreachable, so the UI can say so. */
+  authError: string | null;
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
 }
@@ -17,15 +19,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setSession(data.session);
-      setLoading(false);
-    });
+    // A rejection here (offline, DNS failure, blocked host, Supabase down) must
+    // still clear `loading`. Without the catch the promise rejected unhandled
+    // and `loading` stayed true forever, which the UI rendered as a permanently
+    // blank screen with no error.
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!active) return;
+        setSession(data.session);
+      })
+      .catch((e: unknown) => {
+        if (!active) return;
+        setSession(null);
+        setAuthError(e instanceof Error ? e.message : 'Could not reach the authentication service.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
@@ -71,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, profile, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, profile, loading, authError, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,8 +1,8 @@
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { navFor } from '../lib/roles';
 import { initials } from '../lib/format';
-import { Btn } from './ui';
+import { Btn, Spinner } from './ui';
 import { Icon } from './icons';
 
 // Every route in App.tsx needs an entry here, or its topbar silently falls
@@ -41,7 +41,7 @@ function todayChip(): string {
 }
 
 export default function Layout() {
-  const { profile, session, signOut } = useAuth();
+  const { profile, session, loading, authError, signOut } = useAuth();
   const location = useLocation();
   // First path segment only — nested detail routes (/students/:id,
   // /institutions/:id) must still resolve to their section's title and keep
@@ -49,7 +49,32 @@ export default function Layout() {
   const page = location.pathname.split('/').filter(Boolean)[0] ?? 'dashboard';
   const title = PAGE_TITLES[page] ?? ['Dashboard', 'LunchBox Connect /'];
 
-  if (!session) return null;
+  // Every authenticated route is nested inside this Layout, so its <Outlet/> —
+  // and therefore the per-route <Guard> — only mounts if Layout renders. It
+  // previously returned null while unauthenticated, which meant the Guard never
+  // ran, the redirect never fired, and a logged-out user opening a bookmarked
+  // /dashboard link saw a permanently blank page. Layout owns the redirect now.
+  if (loading) {
+    return (
+      <div className="auth-wrap">
+        <Spinner />
+      </div>
+    );
+  }
+  if (authError && !session) {
+    return (
+      <div className="auth-wrap">
+        <div className="auth-card">
+          <h1>Can't reach the service</h1>
+          <p className="tagline">{authError}</p>
+          <Btn variant="brand" onClick={() => window.location.reload()} style={{ width: '100%' }}>
+            Try again
+          </Btn>
+        </div>
+      </div>
+    );
+  }
+  if (!session) return <Navigate to="/login" replace />;
   if (!profile) {
     return (
       <div className="auth-wrap">
