@@ -111,3 +111,36 @@ scopes stay NOT_YET_DEFINED until the spec names them.
 pnpm build
 wrangler deploy   # Cloudflare Workers, serves dist/ from the assets binding
 ```
+
+## Supabase MCP server
+
+`.mcp.json` is committed, so the server is configured for everyone. It is
+**not** authenticated by the repo — authentication is per-developer OAuth and
+the token is stored outside the project.
+
+```bash
+claude              # approve the project-scoped server when prompted
+/mcp                # select "supabase" -> Authenticate
+```
+
+Agent Skills (`.agents/skills/`, symlinked into `.claude/skills/`) are pinned
+by `skills-lock.json`. Reinstall or update with:
+
+```bash
+npx skills add supabase/agent-skills
+```
+
+### If the MCP server cannot connect
+
+Check whether the host is reachable at all before debugging credentials:
+
+```bash
+curl -so /dev/null -w "%{http_code}" https://mcp.supabase.com/mcp
+```
+
+`401` means the server is up and simply wants a token — authenticate. `403`
+from a corporate or sandbox egress proxy means the request never reached
+Supabase, and no amount of re-authenticating will help; the host has to be
+allowed by the network policy. That is the case inside the Claude Code web
+sandbox, which is why `tests/sql/run_verification.sh` exists — it verifies the
+schema against a local PostgreSQL with no network at all.
