@@ -1,90 +1,99 @@
-import { useEffect, useState } from 'react';
-import { mealsForDates, productionDemand } from '../lib/api';
-import type { AppPeriod, ProductionDemandRow } from '../lib/types';
-import type { DayMeal } from '../lib/api';
-import { Banner, Card, EmptyState, PageHead, Pill, Spinner, StatCard } from '../components/ui';
+import { useEffect, useMemo, useState } from 'react';
+import { mealProductionDemand, type MealDemandRow } from '../lib/api';
+import type { AppPeriod } from '../lib/types';
+import { Banner, Card, EmptyState, Field, PageHead, Pill, Spinner, StatCard } from '../components/ui';
 import { Icon, type IconName } from '../components/icons';
-import { isoWeekday, todayISO } from '../lib/format';
+import { todayISO } from '../lib/format';
 
-const PERIODS: Array<{ period: AppPeriod; label: string; icon: IconName }> = [
-  { period: 'breakfast', label: 'Breakfast', icon: 'sunrise' },
-  { period: 'snack', label: 'Morning snack', icon: 'apple' },
-  { period: 'lunch', label: 'Lunch', icon: 'utensils' },
-  { period: 'afternoon_snack', label: 'Afternoon snack', icon: 'cookie' },
-];
+const PERIOD_META: Record<AppPeriod, { label: string; icon: IconName }> = {
+  breakfast: { label: 'Breakfast', icon: 'sunrise' },
+  snack: { label: 'Morning snack', icon: 'apple' },
+  lunch: { label: 'Lunch', icon: 'utensils' },
+  afternoon_snack: { label: 'Afternoon snack', icon: 'cookie' },
+};
+const PERIOD_ORDER: AppPeriod[] = ['breakfast', 'snack', 'lunch', 'afternoon_snack'];
 
 /**
- * Kitchen production demand (docs/02 §31-35, AT-060/061/062, AT-034).
- * Demand is DERIVED from eligible records — counts only, no student identity.
- * Exact production formula and preparation states remain NOT_YET_DEFINED.
+ * Kitchen production demand (§33/§34/§35/§56). Demand is per PUBLISHED MEAL:
+ * the kitchen sees how many of each actual meal to make. Whether a date is a
+ * service day is decided entirely by what is published for it — no weekend
+ * rule. Counts only, never student identity.
  */
 export default function KitchenPage() {
-  const [rows, setRows] = useState<ProductionDemandRow[] | null>(null);
-  const [todayMeals, setTodayMeals] = useState<DayMeal[]>([]);
+  const [date, setDate] = useState(todayISO());
+  const [rows, setRows] = useState<MealDemandRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const now = new Date();
-  const weekday = isoWeekday(now);
-  const isWeekend = weekday > 4;
 
   useEffect(() => {
     let active = true;
-    void (async () => {
-      // Today's DATED services, scoped by RLS to the institutions this
-      // kitchen serves. Previously this asked for a global ISO-week number
-      // and filtered by weekday, which returned the same template every week
-      // for seven weeks running and could not honour a closure or an
-      // override. These are the same published rows Parents read — the
-      // Kitchen is not given a separate copy to maintain (blueprint Part 23).
-      const today = todayISO();
-      const [demand, meals] = await Promise.all([productionDemand(), mealsForDates(today, today)]);
+    setRows(null);
+    void mealProductionDemand(date).then((res) => {
       if (!active) return;
-      if (demand.error || meals.error) setError(demand.error ?? meals.error);
-      setRows(demand.data ?? []);
-      setTodayMeals(meals.data ?? []);
-    })();
+      if (res.error) setError(res.error);
+      setRows(res.data ?? []);
+    });
     return () => {
       active = false;
     };
-  }, []);
+  }, [date]);
 
-  const totalEligible = rows?.reduce((sum, r) => sum + r.eligible_students, 0) ?? 0;
-  const totalAllergy = rows?.reduce((sum, r) => sum + r.allergy_flagged, 0) ?? 0;
-  const kitchenName = rows?.find((r) => r.kitchen_name)?.kitchen_name ?? null;
+  // Aggregate by meal (a meal may be served at several institutions for the
+  // same period — the kitchen makes the total). §34.
+  const byMeal = useMemo(() => {
+    const map = new Map<
+      string,
+      { meal_name: string; period: AppPeriod; total: number; allergy: number; sites: MealDemandRow[] }
+    >();
+    for (const r of rows ?? []) {
+      const key = `${r.period}::${r.meal_name}`;
+      const e = map.get(key) ?? {
+        meal_name: r.meal_name,
+        period: r.period,
+        total: 0,
+        allergy: 0,
+        sites: [],
+      };
+      e.total += r.eligible_students;
+      e.allergy += r.allergy_flagged;
+      e.sites.push(r);
+      map.set(key, e);
+    }
+    return [...map.values()].sort(
+      (a, b) => PERIOD_ORDER.indexOf(a.period) - PERIOD_ORDER.indexOf(b.period),
+    );
+  }, [rows]);
+
+  const totalPortions = byMeal.reduce((s, m) => s + m.total, 0);
+  const totalAllergy = byMeal.reduce((s, m) => s + m.allergy, 0);
+  const isServiceDay = (rows?.length ?? 0) > 0;
 
   return (
     <div>
-      <PageHead
-        title="Kitchen production"
-        hint={kitchenName ? `derived demand for ${kitchenName}` : 'derived demand — counts only'}
-      />
+      <PageHead title="Kitchen production" hint="what to make, per meal, for a chosen day" />
+
       <Banner kind="info">
         Demand is derived from authoritative eligible records (operational status{' '}
-        <b>ACTIVE_BILLABLE_TO_NURSERY</b>). Kitchen staff cannot change eligibility, cannot invent
-        counts, and never see student identity (AT-034).
-      </Banner>
-      <Banner kind="info">
-        Responsible Kitchen: <b>{kitchenName ?? '—'}</b>. Kitchen is a LunchBox Connect operational
-        entity, not owned by any institution — this is the current active Kitchen (MVP), not
-        permanently hard-coded (docs/13 Decision 031).
-      </Banner>
-      <Banner kind="warn">
-        The <b>eligible children</b> column is exactly that — the authoritative count of children
-        eligible for service. It is deliberately not labelled "portions": the production formula
-        (per-period package sizing, wastage allowance, dietary substitutions) is{' '}
-        <b>NOT_YET_DEFINED</b>, so this screen shows the inputs a human needs and stops short of
-        inventing the calculation. Packing and dispatch-readiness states are <b>BLOCKED_BY_SPEC</b>{' '}
-        for the same reason — the delivery state machine has no approved values yet.
+        <b>ACTIVE_BILLABLE_TO_NURSERY</b>) against the <b>published</b> schedule. Kitchen staff never
+        see student identity — counts only (§56). Whether a day has service is decided by what is
+        published for it, not by the day of the week (§35). Packing / dispatch / delivery states
+        remain <b>BLOCKED_BY_SPEC</b> until the spec defines them.
       </Banner>
 
       {error && <Banner kind="err">{error}</Banner>}
 
+      <div className="toolbar">
+        <Field label="Production date">
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+      </div>
+
       <div className="stat-grid">
+        <StatCard icon="utensils" label="Distinct meals" value={byMeal.length} trend="to prepare" />
         <StatCard
           icon="users"
-          label="Eligible children"
-          value={totalEligible}
-          trend="across visible institutions"
+          label="Total eligible servings"
+          value={totalPortions}
+          trend="summed across meals"
         />
         <StatCard
           icon="alertTriangle"
@@ -92,90 +101,47 @@ export default function KitchenPage() {
           value={totalAllergy}
           trend="require safe-handling awareness"
         />
-        <StatCard
-          icon="utensils"
-          label="Meals scheduled today"
-          value={isWeekend ? '—' : todayMeals.length}
-          trend={isWeekend ? 'no service at the weekend' : 'published for today'}
-        />
       </div>
 
-      <Card
-        title="Today's production"
-        hint={now.toLocaleDateString(undefined, {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-        })}
-      >
-        {isWeekend ? (
-          <EmptyState text="No meal service is scheduled at the weekend." />
-        ) : !rows ? (
+      <Card title="Make list" hint="one line per meal — quantities are eligible headcount">
+        {!rows ? (
           <Spinner />
+        ) : !isServiceDay ? (
+          <EmptyState text="Nothing is published for this date — no production scheduled." />
         ) : (
           <table>
             <thead>
               <tr>
                 <th>Period</th>
-                <th>Scheduled meal</th>
-                <th className="col-secondary">Allergens</th>
-                <th>Eligible children</th>
+                <th>Meal</th>
+                <th>Make (eligible)</th>
+                <th className="col-secondary">Allergy-flagged</th>
+                <th className="col-secondary">Sites</th>
               </tr>
             </thead>
             <tbody>
-              {PERIODS.map((p) => {
-                const item = todayMeals.find((m) => m.period === p.period);
-                return (
-                  <tr key={p.period}>
-                    <td className="cell-name">
-                      <span className="period-cell">
-                        <Icon name={p.icon} size={15} /> {p.label}
-                      </span>
-                    </td>
-                    <td>
-                      {item ? (
-                        item.dish_name
-                      ) : (
-                        <span className="cell-sub">No published meal for this period</span>
-                      )}
-                      {item?.portion ? <span className="cell-sub"> · {item.portion}</span> : null}
-                    </td>
-                    <td className="col-secondary">
-                      {item && Array.isArray(item.allergens) && item.allergens.length > 0 ? (
-                        <Pill variant="reduced">{item.allergens.map(String).join(', ')}</Pill>
-                      ) : (
-                        <span className="cell-sub">—</span>
-                      )}
-                    </td>
-                    <td className="mono">{item ? totalEligible : '—'}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </Card>
-
-      <Card title="Demand by institution">
-        {!rows ? (
-          <Spinner />
-        ) : rows.length === 0 ? (
-          <EmptyState text="No eligible students yet in your scope." />
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Institution</th>
-                <th>Eligible students</th>
-                <th>Allergy-flagged</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.institution_id}>
-                  <td className="cell-name">{r.institution_name}</td>
-                  <td className="mono">{r.eligible_students}</td>
-                  <td className="mono">{r.allergy_flagged}</td>
+              {byMeal.map((m) => (
+                <tr key={`${m.period}-${m.meal_name}`}>
+                  <td className="cell-name">
+                    <span className="period-cell">
+                      <Icon name={PERIOD_META[m.period].icon} size={15} />{' '}
+                      {PERIOD_META[m.period].label}
+                    </span>
+                  </td>
+                  <td>{m.meal_name}</td>
+                  <td className="mono">
+                    <b>{m.total}</b>
+                  </td>
+                  <td className="col-secondary">
+                    {m.allergy > 0 ? (
+                      <Pill variant="reduced">{m.allergy}</Pill>
+                    ) : (
+                      <span className="cell-sub">—</span>
+                    )}
+                  </td>
+                  <td className="col-secondary cell-sub">
+                    {m.sites.map((s) => `${s.institution_name} (${s.eligible_students})`).join(', ')}
+                  </td>
                 </tr>
               ))}
             </tbody>

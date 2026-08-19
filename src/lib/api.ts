@@ -379,6 +379,35 @@ export async function listAudit(): Promise<ApiResult<AuditLogRow[]>> {
 // Authoritative derived demand: eligible students per institution, plus the
 // number of allergy-flagged eligible students (counts only — kitchen never
 // receives student identity, AT-034 / docs/02 §33).
+export interface MealDemandRow {
+  institution_id: string;
+  institution_name: string;
+  period: AppPeriod;
+  meal_revision_id: string;
+  meal_name: string;
+  eligible_students: number;
+  allergy_flagged: number;
+}
+
+// Per-published-meal demand for a date (§33/§34): the kitchen sees the quantity
+// for each ACTUAL meal, not one institution count applied to every meal.
+export async function mealProductionDemand(date: string): Promise<ApiResult<MealDemandRow[]>> {
+  const { data, error } = await supabase.rpc('meal_production_demand', { p_date: date });
+  if (error) return err(error);
+  return {
+    data: ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
+      institution_id: r.institution_id as string,
+      institution_name: r.institution_name as string,
+      period: r.period as AppPeriod,
+      meal_revision_id: r.meal_revision_id as string,
+      meal_name: r.meal_name as string,
+      eligible_students: Number(r.eligible_students),
+      allergy_flagged: Number(r.allergy_flagged),
+    })),
+    error: null,
+  };
+}
+
 export async function productionDemand(): Promise<ApiResult<ProductionDemandRow[]>> {
   const { data, error } = await supabase.from('v_production_demand').select('*');
   if (error) return err(error);

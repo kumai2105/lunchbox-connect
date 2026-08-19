@@ -37,11 +37,13 @@ import { BEHAVIOR_LABEL, LOW_INTAKE_REASON_LABEL, isLowIntake } from '../lib/mea
 import { initials, todayISO } from '../lib/format';
 import { Icon, type IconName } from '../components/icons';
 
-const PERIOD_META: Array<{ period: AppPeriod; label: string; time: string }> = [
-  { period: 'breakfast', label: 'Breakfast', time: '11:00–11:25' },
-  { period: 'snack', label: 'Snack', time: '10:30–10:50' },
-  { period: 'lunch', label: 'Lunch', time: '12:15–13:00' },
-  { period: 'afternoon_snack', label: 'Afternoon snack', time: '14:30–14:50' },
+// §19: meal-time configuration is not an approved feature, so no fabricated
+// clock times are shown. Periods are ordered, not time-stamped.
+const PERIOD_META: Array<{ period: AppPeriod; label: string }> = [
+  { period: 'breakfast', label: 'Breakfast' },
+  { period: 'snack', label: 'Snack' },
+  { period: 'lunch', label: 'Lunch' },
+  { period: 'afternoon_snack', label: 'Afternoon snack' },
 ];
 
 interface Draft {
@@ -351,7 +353,7 @@ export default function TodayPage() {
             className={`period-btn${period === p.period ? ' active' : ''}`}
             onClick={() => setPeriod(p.period)}
           >
-            {p.label} <small>{p.time}</small>
+            {p.label}
           </button>
         ))}
       </div>
