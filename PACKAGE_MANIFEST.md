@@ -16,11 +16,12 @@ All four gates were run immediately before packaging.
 | ---------------- | ---------------- | -------------------------------------- |
 | Types            | `pnpm typecheck` | **PASS** — no errors                   |
 | Lint             | `pnpm lint`      | **PASS** — no errors, no warnings      |
-| Unit tests       | `pnpm test:unit` | **PASS — 39/39** across 4 files        |
+| Unit tests       | `pnpm test:unit` | **PASS — 47/47** across 5 files        |
 | Production build | `pnpm build`     | **PASS** — 115 modules, built in ~2.5s |
 
 Test files: `rbac.test.ts` (11), `calendar.test.ts` (14),
-`mealAnalytics.test.ts` (11), `status.test.ts` (3).
+`mealAnalytics.test.ts` (11), `authorization.consistency.test.ts` (8),
+`status.test.ts` (3).
 
 The build prints one advisory notice that the JS chunk exceeds 500 kB. That is a
 bundle-size suggestion, not an error, and the build succeeds.
@@ -29,7 +30,23 @@ bundle-size suggestion, not an error, and the build succeeds.
 `*.supabase.co`, which this sandbox blocks. The spec files are included in the
 package and are runnable in your own environment.
 
-## 2. Live database verification
+## 2. Database verification
+
+Two runnable suites now cover the golden path and cross-portal visibility, with
+a one-command harness that builds a PostgreSQL 16 cluster from nothing and
+applies `supabase/migrations/*.sql` verbatim:
+
+```bash
+./tests/sql/run_verification.sh     # exit 0 only if every assertion passed
+```
+
+25 assertions pass. Three deliberate schema mutations were used to confirm the
+suites actually fail when an invariant is broken. Full report, including two
+checks that initially passed for the wrong reason and were fixed, is in
+**`docs/VERIFICATION_FINAL.md`** — which also carries the release decision:
+**APPROVED WITH LIMITATIONS**.
+
+### Earlier live-project verification
 
 Executed against the real Supabase project `llnofriwvnerntrbpehc`. Full evidence
 with query output is in **`docs/VERIFICATION_DECISION_033.md`**.
