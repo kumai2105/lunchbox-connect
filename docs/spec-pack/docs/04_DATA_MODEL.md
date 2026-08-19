@@ -1738,7 +1738,7 @@ Calendar.**
 Relationships:
 
 - a Meal has many Meal revisions;
-- a Meal points at its *current* revision for future scheduling;
+- a Meal points at its _current_ revision for future scheduling;
 - a Meal is referenced by Rotation slots and by date overrides.
 
 ## 27. Meal revision
@@ -1749,7 +1749,7 @@ portion, image, and nutrition provenance status.
 Confirmed rules:
 
 - editing a Meal **appends** a revision; it never rewrites one;
-- a resolved Meal Service references a *revision*, not a Meal, which is what
+- a resolved Meal Service references a _revision_, not a Meal, which is what
   keeps January history showing January's recipe after March's improvement;
 - revisions are append-only at the database level — no update or delete policy
   exists on the table, so historical content cannot be rewritten by any role.

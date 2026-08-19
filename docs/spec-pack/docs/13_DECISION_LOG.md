@@ -456,7 +456,7 @@ Confirmed structured fields on the Classroom Meal Record (one row per Student ×
 
 **Decision:** Locks the full operating chain from the reusable Meal through to the dated Meal Service that every downstream domain shares. Establishes five previously-absent domain concepts and the deterministic rules that connect them.
 
-**Supersedes:** the clause in Decision 032 listing *"Meal/Menu versioning beyond the existing week/weekday/period model"* as `NOT_YET_DEFINED`. Meal revisions and Rotation/Calendar separation are now approved and specified here. Also supersedes the implicit assumption in migration `0002` that a single flat `menus` table keyed by `(week_number, weekday, period)` is the authoritative Menu model — that table conflated five distinct concepts and could not express any of them correctly.
+**Supersedes:** the clause in Decision 032 listing _"Meal/Menu versioning beyond the existing week/weekday/period model"_ as `NOT_YET_DEFINED`. Meal revisions and Rotation/Calendar separation are now approved and specified here. Also supersedes the implicit assumption in migration `0002` that a single flat `menus` table keyed by `(week_number, weekday, period)` is the authoritative Menu model — that table conflated five distinct concepts and could not express any of them correctly.
 
 ### Approved concepts (previously conflated)
 
@@ -486,7 +486,7 @@ Confirmed structured fields on the Classroom Meal Record (one row per Student ×
 
 ### Analytics distinction (reinforces Decision 032)
 
-*Actual intake* (what physically happened to a child, which a Parent may need to see) and *Meal acceptance* (whether the Meal itself is liked) are different measures. `ABSENT` / `UNWELL` / `SLEEPING` / `NOT_SERVED` remain excluded from acceptance metrics. `DID_NOT_LIKE_IT` must come from the recorded structured reason and must never be inferred from low intake alone. Analytics must retain the ability to distinguish Meal revisions so a recipe improvement can be evaluated.
+_Actual intake_ (what physically happened to a child, which a Parent may need to see) and _Meal acceptance_ (whether the Meal itself is liked) are different measures. `ABSENT` / `UNWELL` / `SLEEPING` / `NOT_SERVED` remain excluded from acceptance metrics. `DID_NOT_LIKE_IT` must come from the recorded structured reason and must never be inferred from low intake alone. Analytics must retain the ability to distinguish Meal revisions so a recipe improvement can be evaluated.
 
 ### Not approved — remain `NOT_YET_DEFINED`
 
