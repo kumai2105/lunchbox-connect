@@ -12,12 +12,12 @@
 
 All four gates were run immediately before packaging.
 
-| Gate | Command | Result |
-| --- | --- | --- |
-| Types | `pnpm typecheck` | **PASS** — no errors |
-| Lint | `pnpm lint` | **PASS** — no errors, no warnings |
-| Unit tests | `pnpm test:unit` | **PASS — 39/39** across 4 files |
-| Production build | `pnpm build` | **PASS** — 115 modules, built in ~2.5s |
+| Gate             | Command          | Result                                 |
+| ---------------- | ---------------- | -------------------------------------- |
+| Types            | `pnpm typecheck` | **PASS** — no errors                   |
+| Lint             | `pnpm lint`      | **PASS** — no errors, no warnings      |
+| Unit tests       | `pnpm test:unit` | **PASS — 39/39** across 4 files        |
+| Production build | `pnpm build`     | **PASS** — 115 modules, built in ~2.5s |
 
 Test files: `rbac.test.ts` (11), `calendar.test.ts` (14),
 `mealAnalytics.test.ts` (11), `status.test.ts` (3).
@@ -34,16 +34,16 @@ package and are runnable in your own environment.
 Executed against the real Supabase project `llnofriwvnerntrbpehc`. Full evidence
 with query output is in **`docs/VERIFICATION_DECISION_033.md`**.
 
-| Scenario | Result |
-| --- | --- |
-| 104 Rotation → calendar, repeats 1,2,1,2,1 | PASS |
-| 105 Closure does not shift the rotation | PASS |
-| 106 Date override changes only that date | PASS |
-| 107 Service Plan filters applicable periods | PASS |
-| 108 Plan effective dates preserve history | PASS |
-| 109 Drafts invisible to Parent and Kitchen | PASS |
-| 111 Historical meal revision survives republish | PASS |
-| 119 Cross-institution isolation, shared rotation | PASS |
+| Scenario                                         | Result |
+| ------------------------------------------------ | ------ |
+| 104 Rotation → calendar, repeats 1,2,1,2,1       | PASS   |
+| 105 Closure does not shift the rotation          | PASS   |
+| 106 Date override changes only that date         | PASS   |
+| 107 Service Plan filters applicable periods      | PASS   |
+| 108 Plan effective dates preserve history        | PASS   |
+| 109 Drafts invisible to Parent and Kitchen       | PASS   |
+| 111 Historical meal revision survives republish  | PASS   |
+| 119 Cross-institution isolation, shared rotation | PASS   |
 
 Role isolation was separately verified live: Parent sees 2 of 10 students and 0
 rows when querying another child directly by ID; Teacher sees 5; Kitchen and
@@ -59,42 +59,42 @@ Everything required to run the project, excluding only the items in §5.
 
 ### Frontend — `src/`
 
-| Path | Notes |
-| --- | --- |
-| `App.tsx`, `main.tsx`, `styles.css` | Routing, entry, full design system |
-| `components/Layout.tsx` | App shell; parent role gets its own mobile chrome |
-| `components/ui.tsx` | Card, StatCard, Pill, Modal, Banner, Avatar, etc. |
-| `components/icons.tsx` | **New** — inline SVG icon set replacing all emoji |
-| `components/charts.tsx` | **New** — BarChart / TrendChart, no chart library |
-| `lib/api.ts` | All Supabase access |
-| `lib/calendar.ts` + `.test.ts` | **New** — calendar resolution + 14 tests |
-| `lib/mealAnalytics.ts` + `.test.ts` | Analytics validity rules + 11 tests |
-| `lib/rbac.ts` + `.test.ts` | Permission matrix mirroring RLS + 11 tests |
-| `lib/roles.ts`, `auth.tsx`, `types.ts`, `format.ts`, `status.ts`, `supabase.ts` | Core libs |
-| `pages/` (20 files) | Admin/nursery/kitchen pages |
-| `pages/parent/` (7 files) | **New** — four-screen mobile parent portal |
+| Path                                                                            | Notes                                             |
+| ------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `App.tsx`, `main.tsx`, `styles.css`                                             | Routing, entry, full design system                |
+| `components/Layout.tsx`                                                         | App shell; parent role gets its own mobile chrome |
+| `components/ui.tsx`                                                             | Card, StatCard, Pill, Modal, Banner, Avatar, etc. |
+| `components/icons.tsx`                                                          | **New** — inline SVG icon set replacing all emoji |
+| `components/charts.tsx`                                                         | **New** — BarChart / TrendChart, no chart library |
+| `lib/api.ts`                                                                    | All Supabase access                               |
+| `lib/calendar.ts` + `.test.ts`                                                  | **New** — calendar resolution + 14 tests          |
+| `lib/mealAnalytics.ts` + `.test.ts`                                             | Analytics validity rules + 11 tests               |
+| `lib/rbac.ts` + `.test.ts`                                                      | Permission matrix mirroring RLS + 11 tests        |
+| `lib/roles.ts`, `auth.tsx`, `types.ts`, `format.ts`, `status.ts`, `supabase.ts` | Core libs                                         |
+| `pages/` (20 files)                                                             | Admin/nursery/kitchen pages                       |
+| `pages/parent/` (7 files)                                                       | **New** — four-screen mobile parent portal        |
 
 Pages added this session: `InstitutionDetailPage`, `StudentProfilePage`,
 `MealAnalyticsPage`, `ReviewPage`, and the whole `parent/` directory.
 
 ### Backend — `supabase/`
 
-| Path | Notes |
-| --- | --- |
-| `migrations/0001`–`0015` | Pre-existing schema, RLS, RPCs, views |
+| Path                                       | Notes                                                                                                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `migrations/0001`–`0015`                   | Pre-existing schema, RLS, RPCs, views                                                                                                             |
 | `migrations/0016_operating_logic_lock.sql` | **New** — Decision 033. Meals, revisions, rotations, service plans, calendar exceptions, meal services, RLS, and the resolution/publish functions |
-| `functions/admin-create-user/index.ts` | Edge function for account provisioning |
-| `config.toml` | Supabase config |
+| `functions/admin-create-user/index.ts`     | Edge function for account provisioning                                                                                                            |
+| `config.toml`                              | Supabase config                                                                                                                                   |
 
 ### Governance — `docs/`
 
-| Path | Change |
-| --- | --- |
-| `spec-pack/docs/13_DECISION_LOG.md` | **Decision 033 added** (supersedes a clause of 032) |
-| `spec-pack/docs/04_DATA_MODEL.md` | **Part VII added** — §26–34, the new entities |
-| `VERIFICATION_DECISION_033.md` | **New** — live test evidence |
-| `spec-pack/` (remaining 17 docs) | Unchanged canonical specification |
-| `BUILD_STATUS.md`, `14-RELEASE_GATE.md` | Unchanged |
+| Path                                    | Change                                              |
+| --------------------------------------- | --------------------------------------------------- |
+| `spec-pack/docs/13_DECISION_LOG.md`     | **Decision 033 added** (supersedes a clause of 032) |
+| `spec-pack/docs/04_DATA_MODEL.md`       | **Part VII added** — §26–34, the new entities       |
+| `VERIFICATION_DECISION_033.md`          | **New** — live test evidence                        |
+| `spec-pack/` (remaining 17 docs)        | Unchanged canonical specification                   |
+| `BUILD_STATUS.md`, `14-RELEASE_GATE.md` | Unchanged                                           |
 
 ### Tests, config, deployment
 
@@ -118,13 +118,13 @@ Supabase Storage buckets, not shipped files. Nothing is missing from the archive
 
 ## 5. Deliberately excluded
 
-| Excluded | Why |
-| --- | --- |
-| **`.env`** | Contains `SUPABASE_SERVICE_ROLE_KEY`, which bypasses RLS entirely. Never package a service-role key. Copy `.env.example` and fill it in. |
-| `node_modules/` | Reinstall with `pnpm install` (`pnpm-lock.yaml` is included, so versions are exact). |
-| `dist/` | Build output. Regenerate with `pnpm build`. |
-| `.git/` | History is on GitHub at the branch/commit above. |
-| `supabase/.temp/` | CLI scratch file. |
+| Excluded          | Why                                                                                                                                      |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **`.env`**        | Contains `SUPABASE_SERVICE_ROLE_KEY`, which bypasses RLS entirely. Never package a service-role key. Copy `.env.example` and fill it in. |
+| `node_modules/`   | Reinstall with `pnpm install` (`pnpm-lock.yaml` is included, so versions are exact).                                                     |
+| `dist/`           | Build output. Regenerate with `pnpm build`.                                                                                              |
+| `.git/`           | History is on GitHub at the branch/commit above.                                                                                         |
+| `supabase/.temp/` | CLI scratch file.                                                                                                                        |
 
 ---
 

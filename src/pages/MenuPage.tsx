@@ -1,3 +1,4 @@
+import { Icon } from '../components/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { listMenu, publishMenuWeek, saveMenuItem } from '../lib/api';
 import type { AppPeriod, MenuItem } from '../lib/types';
@@ -211,7 +212,12 @@ export default function MenuPage() {
                       >
                         <b>
                           {PERIOD_LABEL[period]}
-                          {item?.published ? ' ✓' : ''}
+                          {item?.published ? (
+                            <>
+                              {' '}
+                              <Icon name="checkCircle" size={11} />
+                            </>
+                          ) : null}
                         </b>
                         {item?.dish_name ?? '— add meal'}
                         {item?.portion ? ` · ${item.portion}` : ''}

@@ -1,5 +1,6 @@
 import type { AppRole } from './types';
 import type { IconName } from '../components/icons';
+import { can, type Resource } from './rbac';
 
 export interface NavItem {
   page: string;
@@ -65,6 +66,19 @@ export function navFor(role: AppRole): NavItem[] {
   return NAV_BY_ROLE[role] ?? [];
 }
 
+/**
+ * Route gate.
+ *
+ * Derived from the RBAC matrix — the authorization source of truth — NOT from
+ * the nav list, which is a presentation concern. Deriving it from nav meant a
+ * role could hold a documented permission and still be locked out of the page,
+ * which was true for six role/page pairs (super_admin -> ops, absences, parent;
+ * classroom_staff -> classes, menu; parent -> menu). Nav now decides what is
+ * *shown*; the matrix decides what is *reachable*.
+ *
+ * This is a convenience gate for routing only. It is not the security boundary
+ * — RLS is, and it re-checks every read and write independently.
+ */
 export function canAccessPage(role: AppRole, page: string): boolean {
-  return navFor(role).some((item) => item.page === page);
+  return can(role, page as Resource, 'view');
 }

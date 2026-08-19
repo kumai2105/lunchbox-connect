@@ -9,16 +9,16 @@ persist.
 
 ## Fixtures
 
-| Object | Value |
-| --- | --- |
-| Meals | `Test Meal A` … `Test Meal D`, revision 1 each |
-| Rotation | `Test Rotation 2wk`, **week_count = 2** (proves length is data-driven, not fixed at 4) |
-| Rotation slots | 40 — 2 weeks × Mon–Fri × 4 periods |
-| Week 1 slots | breakfast/snack → Meal A, lunch/afternoon → Meal B |
-| Week 2 slots | breakfast/snack → Meal C, lunch/afternoon → Meal D |
-| Al Noor Nursery | four-meal plan, effective 2026-01-01 |
-| Sunshine Valley School | three-meal plan (no afternoon snack), effective 2026-01-01 |
-| Rotation assignment | **both** institutions → the same rotation, anchor 2026-08-03, week 1 |
+| Object                 | Value                                                                                  |
+| ---------------------- | -------------------------------------------------------------------------------------- |
+| Meals                  | `Test Meal A` … `Test Meal D`, revision 1 each                                         |
+| Rotation               | `Test Rotation 2wk`, **week_count = 2** (proves length is data-driven, not fixed at 4) |
+| Rotation slots         | 40 — 2 weeks × Mon–Fri × 4 periods                                                     |
+| Week 1 slots           | breakfast/snack → Meal A, lunch/afternoon → Meal B                                     |
+| Week 2 slots           | breakfast/snack → Meal C, lunch/afternoon → Meal D                                     |
+| Al Noor Nursery        | four-meal plan, effective 2026-01-01                                                   |
+| Sunshine Valley School | three-meal plan (no afternoon snack), effective 2026-01-01                             |
+| Rotation assignment    | **both** institutions → the same rotation, anchor 2026-08-03, week 1                   |
 
 Fixture rows are prefixed `Test ` so they are distinguishable from production
 data (Part 63).
@@ -41,10 +41,10 @@ data (Part 63).
 
 Same date (2026-08-18), same master rotation:
 
-| Institution | breakfast | snack | lunch | afternoon snack |
-| --- | --- | --- | --- | --- |
-| Al Noor Nursery | resolves | resolves | resolves | **resolves** |
-| Sunshine Valley School | resolves | resolves | resolves | **does not resolve** |
+| Institution            | breakfast | snack    | lunch    | afternoon snack      |
+| ---------------------- | --------- | -------- | -------- | -------------------- |
+| Al Noor Nursery        | resolves  | resolves | resolves | **resolves**         |
+| Sunshine Valley School | resolves  | resolves | resolves | **does not resolve** |
 
 **PASS.** The master rotation contains an afternoon snack; the three-meal
 institution does not receive one.
@@ -69,10 +69,10 @@ still rotation week 2 — the closure changed nothing about rotation position.
 
 ## Part 106 — A date override changes only that date
 
-| Date | Baseline (no override) | With override on 2026-08-21 lunch |
-| --- | --- | --- |
-| 2026-08-21 (Fri) | rotation → **Meal B** | override → **Meal D** |
-| 2026-08-28 (Fri) | rotation → **Meal D** | rotation → **Meal D** (unchanged) |
+| Date             | Baseline (no override) | With override on 2026-08-21 lunch |
+| ---------------- | ---------------------- | --------------------------------- |
+| 2026-08-21 (Fri) | rotation → **Meal B**  | override → **Meal D**             |
+| 2026-08-28 (Fri) | rotation → **Meal D**  | rotation → **Meal D** (unchanged) |
 
 **PASS.** The override changed 08-21 from Meal B to Meal D. The next Friday kept
 its own normal rotation value. The master rotation was not modified.
@@ -94,11 +94,11 @@ Three-meal plan added effective 2026-09-01:
 
 One unpublished service inserted for 2026-09-07 alongside 20 published ones:
 
-| Role | services visible | drafts visible |
-| --- | --- | --- |
-| Super Admin | 21 | **1** |
-| Parent | 20 | **0** |
-| Kitchen | 20 | **0** |
+| Role        | services visible | drafts visible |
+| ----------- | ---------------- | -------------- |
+| Super Admin | 21               | **1**          |
+| Parent      | 20               | **0**          |
+| Kitchen     | 20               | **0**          |
 
 **PASS.** Enforced by RLS, not by screen logic.
 
@@ -110,10 +110,10 @@ One unpublished service inserted for 2026-09-07 alongside 20 published ones:
 3. The already-published August range was **republished**.
 4. A new September range (rotation week 2, where Meal C appears) was published.
 
-| Range | Revision referenced |
-| --- | --- |
-| August (already published, then republished) | **1** — 10 services |
-| September (newly published) | **2** — `["improved recipe v2"]` |
+| Range                                        | Revision referenced              |
+| -------------------------------------------- | -------------------------------- |
+| August (already published, then republished) | **1** — 10 services              |
+| September (newly published)                  | **2** — `["improved recipe v2"]` |
 
 **PASS.** Past truth stayed past truth; republishing did not rewrite it; future
 schedules pick up the new revision.
@@ -133,10 +133,10 @@ cannot be rewritten by any role — including Super Admin.
 Both institutions published over the identical week (2026-08-24 → 08-28) from
 the **same** master rotation:
 
-| Institution | services that week | afternoon snacks |
-| --- | --- | --- |
-| Al Noor Nursery | 20 | **5** |
-| Sunshine Valley School | 15 | **0** |
+| Institution            | services that week | afternoon snacks |
+| ---------------------- | ------------------ | ---------------- |
+| Al Noor Nursery        | 20                 | **5**            |
+| Sunshine Valley School | 15                 | **0**            |
 
 Visibility, as the Al Noor admin:
 
@@ -151,16 +151,16 @@ leaked_from_other_institution = 0
 
 ## Summary
 
-| Scenario | Result |
-| --- | --- |
-| 104 Rotation → calendar, repetition | PASS |
-| 105 No-service day | PASS |
-| 106 Date override | PASS |
-| 107 Service plan filtering | PASS |
-| 108 Plan effective dates | PASS |
-| 109 Draft vs published | PASS |
-| 111 Historical meal version + append-only | PASS |
-| 119 Cross-institution isolation | PASS |
+| Scenario                                  | Result |
+| ----------------------------------------- | ------ |
+| 104 Rotation → calendar, repetition       | PASS   |
+| 105 No-service day                        | PASS   |
+| 106 Date override                         | PASS   |
+| 107 Service plan filtering                | PASS   |
+| 108 Plan effective dates                  | PASS   |
+| 109 Draft vs published                    | PASS   |
+| 111 Historical meal version + append-only | PASS   |
+| 119 Cross-institution isolation           | PASS   |
 
 Also verified: **39 unit tests** pass (`pnpm test:unit`), including 14 in
 `src/lib/calendar.test.ts` that pin the same resolution semantics without a

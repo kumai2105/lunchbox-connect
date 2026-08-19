@@ -23,6 +23,7 @@ import {
   Spinner,
   StatusDot,
 } from '../components/ui';
+import { Icon } from '../components/icons';
 import { statusLabel, statusPillClass } from '../lib/status';
 import { initials } from '../lib/format';
 
@@ -176,7 +177,7 @@ export default function StudentsPage() {
 
       <Card bodyClassName="filters">
         <div className="search-box">
-          <span>⌕</span>
+          <Icon name="search" size={15} />
           <input
             placeholder="Search name / ID..."
             value={term}
@@ -272,8 +273,10 @@ export default function StudentsPage() {
                     </td>
                     <td>
                       {Array.isArray(s.medical_notes) && s.medical_notes.length > 0 ? (
+                        // Amber, not green. A green dot reads as "fine" and this
+                        // is allergy/dietary safety data that staff must notice.
                         <span>
-                          <StatusDot color="green" />
+                          <StatusDot color="amber" />
                           {s.medical_notes.map((m) => m.text).join(' · ')}
                         </span>
                       ) : (
