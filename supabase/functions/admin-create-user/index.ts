@@ -1,11 +1,12 @@
 // admin-create-user — runbook step 6.
 //
 // Privileged action: creates a Supabase Auth user AND its app_users row.
-// Caller must already be SUPER_ADMIN (validated server-side with the JWT).
+// Caller must be SUPER_ADMIN (any role) or a SCHOOL_ADMIN creating classroom
+// staff for their own institution (§17). Validated server-side with the JWT.
 // Uses the service-role key ONLY inside this Deno environment (set via
 // `supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...`), never the frontend.
 
-import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.49.1';
+import { createClient } from 'npm:@supabase/supabase-js@2.49.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,15 +53,6 @@ function bad(message: string, status = 400): Response {
   return json({ error: message }, status);
 }
 
-async function callerIsSuperAdmin(adminDb: SupabaseClient, userId: string): Promise<boolean> {
-  const { data } = await adminDb
-    .from('app_users')
-    .select('role')
-    .eq('user_id', userId)
-    .maybeSingle();
-  return data?.role === 'super_admin';
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -80,7 +72,20 @@ Deno.serve(async (req) => {
   if (authError || !user) return bad('unauthenticated', 401);
 
   const adminDb = createClient(url, serviceKey, { auth: { persistSession: false } });
-  if (!(await callerIsSuperAdmin(adminDb, user.id))) return bad('forbidden', 403);
+
+  // Caller authorization (§14/§17). A Super Admin may create any allowed role.
+  // A School/Nursery Admin may create ONLY classroom_staff, and ONLY scoped to
+  // their own institution — never a system-level role, never another
+  // institution. Anyone else is refused.
+  const { data: caller } = await adminDb
+    .from('app_users')
+    .select('role, institution_id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  const callerRole = caller?.role ?? null;
+  const isSuper = callerRole === 'super_admin';
+  const isSchoolAdmin = callerRole === 'school_admin';
+  if (!isSuper && !isSchoolAdmin) return bad('forbidden', 403);
 
   let payload: Payload;
   try {
@@ -92,6 +97,15 @@ Deno.serve(async (req) => {
   if (!payload.email || !payload.fullName || !payload.role)
     return bad('email, fullName and role are required');
   if (!ALLOWED_ROLES.has(payload.role)) return bad(`role not allowed: ${payload.role}`);
+
+  // Scope enforcement for a Nursery Admin caller.
+  if (isSchoolAdmin) {
+    if (payload.role !== 'classroom_staff')
+      return bad('a Nursery Admin may only create classroom staff', 403);
+    if (!payload.institutionId || payload.institutionId !== caller?.institution_id)
+      return bad('a Nursery Admin may only create staff for their own institution', 403);
+  }
+
   if (STAFF_ROLES.has(payload.role) && !payload.institutionId)
     return bad('staff roles require institutionId');
   if (payload.role === 'kitchen' && !payload.kitchenId)

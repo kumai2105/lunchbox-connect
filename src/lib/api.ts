@@ -147,6 +147,25 @@ export async function classStaff(classId: string): Promise<ApiResult<ClassStaffM
   };
 }
 
+// All class_staff memberships within one institution (for the institution
+// Staff view — which staff cover which classes, via the real join, not the
+// retired teacher_id).
+export async function classStaffForInstitution(
+  institutionId: string,
+): Promise<ApiResult<Array<{ class_id: string; class_name: string; user_id: string }>>> {
+  const { data, error } = await supabase
+    .from('class_staff')
+    .select('class_id,user_id,class:classes!class_id(name,institution_id)')
+    .eq('class.institution_id', institutionId);
+  if (error) return err(error);
+  type Row = { class_id: string; user_id: string; class: { name: string; institution_id: string } | null };
+  const rows = ((data ?? []) as unknown as Row[]).filter((r) => r.class !== null);
+  return {
+    data: rows.map((r) => ({ class_id: r.class_id, class_name: r.class!.name, user_id: r.user_id })),
+    error: null,
+  };
+}
+
 export async function addClassStaff(classId: string, userId: string): Promise<ApiResult<null>> {
   const { error } = await supabase.from('class_staff').insert({ class_id: classId, user_id: userId });
   if (error) return err(error);

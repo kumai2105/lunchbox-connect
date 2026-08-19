@@ -1,18 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
+  classStaffForInstitution,
+  createAccount,
   getInstitution,
   listClasses,
   listStudents,
   staffForInstitution,
   type ClassWithMeta,
 } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import type { AppUser, Institution, Student } from '../lib/types';
 import {
   Avatar,
   Banner,
+  Btn,
   Card,
   EmptyState,
+  Field,
+  Modal,
   PageHead,
   Pill,
   Spinner,
@@ -40,6 +46,37 @@ const TABS: Array<{ key: Tab; label: string }> = [
  */
 export default function InstitutionDetailPage() {
   const { id = '' } = useParams();
+  const { profile } = useAuth();
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState<string | null>(null);
+  const [invite, setInvite] = useState({ fullName: '', email: '', password: '' });
+  // §17: Super Admin anywhere, or the Nursery Admin OF THIS institution.
+  const canInviteStaff =
+    profile?.role === 'super_admin' ||
+    (profile?.role === 'school_admin' && profile?.institution_id === id);
+
+  async function onInvite() {
+    setInviteBusy(true);
+    setInviteMsg(null);
+    const res = await createAccount({
+      email: invite.email.trim(),
+      password: invite.password,
+      fullName: invite.fullName.trim(),
+      role: 'classroom_staff',
+      institutionId: id,
+      authenticate: true,
+    });
+    setInviteBusy(false);
+    if (res.error) {
+      setInviteMsg(`Error: ${res.error}`);
+      return;
+    }
+    setInviteMsg(`Created ${invite.email}.`);
+    setInvite({ fullName: '', email: '', password: '' });
+    const stf = await staffForInstitution(id);
+    setStaff(stf.data ?? []);
+  }
   const [params, setParams] = useSearchParams();
   const tab = (params.get('tab') as Tab) ?? 'overview';
 
@@ -47,6 +84,7 @@ export default function InstitutionDetailPage() {
   const [classes, setClasses] = useState<ClassWithMeta[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [staff, setStaff] = useState<AppUser[]>([]);
+  const [memberships, setMemberships] = useState<Array<{ class_id: string; class_name: string; user_id: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,18 +93,20 @@ export default function InstitutionDetailPage() {
     let active = true;
     setLoading(true);
     void (async () => {
-      const [inst, cls, studs, stf] = await Promise.all([
+      const [inst, cls, studs, stf, mem] = await Promise.all([
         getInstitution(id),
         listClasses(),
         listStudents({ institutionId: id }),
         staffForInstitution(id),
+        classStaffForInstitution(id),
       ]);
       if (!active) return;
-      setError(inst.error ?? cls.error ?? studs.error ?? stf.error);
+      setError(inst.error ?? cls.error ?? studs.error ?? stf.error ?? mem.error);
       setInstitution(inst.data);
       setClasses((cls.data ?? []).filter((c) => c.institution_id === id));
       setStudents(studs.data ?? []);
       setStaff(stf.data ?? []);
+      setMemberships(mem.data ?? []);
       setLoading(false);
     })();
     return () => {
@@ -273,9 +313,11 @@ export default function InstitutionDetailPage() {
           title="Staff accounts"
           hint="institution-scoped users"
           actions={
-            <Link to="/users" className="btn ghost">
-              Users &amp; roles <Icon name="arrowRight" size={14} />
-            </Link>
+            canInviteStaff ? (
+              <Btn variant="brand" size="sm" onClick={() => setShowInvite(true)}>
+                <Icon name="user" size={14} /> Invite classroom staff
+              </Btn>
+            ) : undefined
           }
         >
           {staff.length === 0 ? (
@@ -292,7 +334,8 @@ export default function InstitutionDetailPage() {
               </thead>
               <tbody>
                 {staff.map((u) => {
-                  const assigned = classes.filter((c) => c.teacher_id === u.user_id);
+                  // Real assignments via class_staff (§16), not the retired teacher_id.
+                  const assigned = memberships.filter((m) => m.user_id === u.user_id);
                   return (
                     <tr key={u.user_id}>
                       <td className="cell-name">{u.full_name}</td>
@@ -303,7 +346,7 @@ export default function InstitutionDetailPage() {
                         </Pill>
                       </td>
                       <td className="cell-sub">
-                        {assigned.length ? assigned.map((c) => c.name).join(', ') : '—'}
+                        {assigned.length ? assigned.map((m) => m.class_name).join(', ') : '—'}
                       </td>
                     </tr>
                   );
@@ -312,6 +355,42 @@ export default function InstitutionDetailPage() {
             </table>
           )}
         </Card>
+      )}
+
+      {showInvite && (
+        <Modal
+          title="Invite classroom staff"
+          onClose={() => setShowInvite(false)}
+          footer={
+            <>
+              <Btn variant="ghost" onClick={() => setShowInvite(false)}>
+                Cancel
+              </Btn>
+              <Btn
+                variant="brand"
+                onClick={() => void onInvite()}
+                disabled={inviteBusy || !invite.email || !invite.fullName || invite.password.length < 8}
+              >
+                {inviteBusy ? 'Creating…' : 'Create account'}
+              </Btn>
+            </>
+          }
+        >
+          {inviteMsg && <Banner kind={inviteMsg.startsWith('Error') ? 'err' : 'info'}>{inviteMsg}</Banner>}
+          <p className="tmc-meta">
+            Creates a Classroom Staff account scoped to this institution. Assign them to classes from
+            the Classes screen.
+          </p>
+          <Field label="Full name">
+            <input value={invite.fullName} onChange={(e) => setInvite({ ...invite, fullName: e.target.value })} />
+          </Field>
+          <Field label="Email">
+            <input type="email" value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} />
+          </Field>
+          <Field label="Temporary password (min 8 chars)">
+            <input type="text" value={invite.password} onChange={(e) => setInvite({ ...invite, password: e.target.value })} />
+          </Field>
+        </Modal>
       )}
     </div>
   );
