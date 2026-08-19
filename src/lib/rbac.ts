@@ -17,6 +17,7 @@ export type Resource =
   | 'status'
   | 'menu'
   | 'meals'
+  | 'menubuilder'
   | 'analytics'
   | 'review'
   | 'today'
@@ -68,6 +69,9 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
   },
   meals: {
     super_admin: ['view', 'create', 'update', 'delete'],
+  },
+  menubuilder: {
+    super_admin: ['view', 'create', 'update', 'delete', 'publish'],
   },
   menu: {
     super_admin: ['view', 'create', 'update', 'delete', 'publish'],

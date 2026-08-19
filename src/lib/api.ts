@@ -391,6 +391,105 @@ export async function menuWeeks(): Promise<ApiResult<number[]>> {
   return { data: weeks.length > 0 ? weeks : [1, 2, 3, 4], error: null };
 }
 
+// ------------------------------------------------- menus / rotations (§5)
+// A "Menu" in the Admin UI is a rotation: a named, N-week arrangement of meals
+// into day/period slots. Duration is data-driven (week_count), never fixed.
+export interface RotationSummary {
+  id: string;
+  name: string;
+  week_count: number;
+  active: boolean;
+  slot_count: number;
+}
+export interface RotationSlotRow {
+  week_number: number;
+  weekday: number; // 0=Mon..4=Fri
+  period: AppPeriod;
+  meal_id: string;
+  meal_name: string;
+}
+
+export async function listRotations(): Promise<ApiResult<RotationSummary[]>> {
+  const { data, error } = await supabase
+    .from('rotations')
+    .select('id,name,week_count,active,rotation_slots(count)')
+    .order('name');
+  if (error) return err(error);
+  type Row = { id: string; name: string; week_count: number; active: boolean; rotation_slots: Array<{ count: number }> };
+  const rows = (data ?? []) as unknown as Row[];
+  return {
+    data: rows.map((r) => ({
+      id: r.id, name: r.name, week_count: r.week_count, active: r.active,
+      slot_count: r.rotation_slots?.[0]?.count ?? 0,
+    })),
+    error: null,
+  };
+}
+
+export async function createRotation(name: string, weekCount: number): Promise<ApiResult<string>> {
+  const { data, error } = await supabase
+    .from('rotations')
+    .insert({ name, week_count: weekCount })
+    .select('id')
+    .single();
+  if (error) return err(error);
+  return { data: (data as { id: string }).id, error: null };
+}
+
+export async function setRotationWeekCount(id: string, weekCount: number): Promise<ApiResult<null>> {
+  // Shrinking removes the now-out-of-range slots so no orphan planning lingers.
+  const { error: delErr } = await supabase
+    .from('rotation_slots')
+    .delete()
+    .eq('rotation_id', id)
+    .gt('week_number', weekCount);
+  if (delErr) return err(delErr);
+  const { error } = await supabase.from('rotations').update({ week_count: weekCount }).eq('id', id);
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+export async function setRotationActive(id: string, active: boolean): Promise<ApiResult<null>> {
+  const { error } = await supabase.from('rotations').update({ active }).eq('id', id);
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+export async function rotationSlots(rotationId: string): Promise<ApiResult<RotationSlotRow[]>> {
+  const { data, error } = await supabase
+    .from('rotation_slots')
+    .select('week_number,weekday,period,meal_id,meal:meals!meal_id(name)')
+    .eq('rotation_id', rotationId);
+  if (error) return err(error);
+  type Row = { week_number: number; weekday: number; period: AppPeriod; meal_id: string; meal: { name: string } | null };
+  const rows = (data ?? []) as unknown as Row[];
+  return {
+    data: rows.map((r) => ({
+      week_number: r.week_number, weekday: r.weekday, period: r.period,
+      meal_id: r.meal_id, meal_name: r.meal?.name ?? '—',
+    })),
+    error: null,
+  };
+}
+
+// Assign a meal to a slot (upsert), or clear it (mealId null → delete the row).
+export async function setRotationSlot(
+  rotationId: string, week: number, weekday: number, period: AppPeriod, mealId: string | null,
+): Promise<ApiResult<null>> {
+  if (mealId === null) {
+    const { error } = await supabase.from('rotation_slots').delete()
+      .eq('rotation_id', rotationId).eq('week_number', week).eq('weekday', weekday).eq('period', period);
+    if (error) return err(error);
+    return { data: null, error: null };
+  }
+  const { error } = await supabase.from('rotation_slots').upsert(
+    { rotation_id: rotationId, week_number: week, weekday, period, meal_id: mealId },
+    { onConflict: 'rotation_id,week_number,weekday,period' },
+  );
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
 // ------------------------------------------------- meal library (0024, §4)
 // The single source of Meals for the whole system. Admin creates a Meal once
 // here; Menu, Kitchen, Classroom, Parent and Analytics all reference it.

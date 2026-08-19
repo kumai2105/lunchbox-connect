@@ -18,6 +18,7 @@ const PAGE_TITLES: Record<string, [string, string]> = {
   status: ['Status / eligibility', 'LunchBox Connect /'],
   audit: ['Audit', 'LunchBox Connect /'],
   meals: ['Meal Library', 'LunchBox Connect /'],
+  menubuilder: ['Menu Builder', 'LunchBox Connect /'],
   menu: ['4-week menu', 'LunchBox Connect /'],
   analytics: ['Meal analytics', 'LunchBox Connect /'],
   review: ['Parent-safe updates', 'LunchBox Connect /'],
