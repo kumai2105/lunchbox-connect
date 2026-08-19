@@ -391,6 +391,100 @@ export async function menuWeeks(): Promise<ApiResult<number[]>> {
   return { data: weeks.length > 0 ? weeks : [1, 2, 3, 4], error: null };
 }
 
+// ---------------------------------------- institution service config (§7,§12,§47)
+// The Admin sets, per institution, the CONTRACTED meal periods (service plan)
+// and which menu (rotation) applies from when. Never inferred from the menu.
+export interface InstitutionServiceConfig {
+  periods: AppPeriod[] | null;
+  plan_effective_from: string | null;
+  rotation_id: string | null;
+  rotation_name: string | null;
+  anchor_week: number | null;
+  rotation_effective_from: string | null;
+}
+
+export async function getInstitutionServiceConfig(
+  institutionId: string,
+): Promise<ApiResult<InstitutionServiceConfig>> {
+  const [planRes, assignRes] = await Promise.all([
+    supabase
+      .from('institution_service_plans')
+      .select('periods,effective_from')
+      .eq('institution_id', institutionId)
+      .order('effective_from', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('institution_rotation_assignments')
+      .select('rotation_id,anchor_week,effective_from,rotation:rotations!rotation_id(name)')
+      .eq('institution_id', institutionId)
+      .order('effective_from', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (planRes.error) return err(planRes.error);
+  if (assignRes.error) return err(assignRes.error);
+  const plan = planRes.data as { periods: AppPeriod[]; effective_from: string } | null;
+  const asg = assignRes.data as
+    | { rotation_id: string; anchor_week: number; effective_from: string; rotation: { name: string } | null }
+    | null;
+  return {
+    data: {
+      periods: plan?.periods ?? null,
+      plan_effective_from: plan?.effective_from ?? null,
+      rotation_id: asg?.rotation_id ?? null,
+      rotation_name: asg?.rotation?.name ?? null,
+      anchor_week: asg?.anchor_week ?? null,
+      rotation_effective_from: asg?.effective_from ?? null,
+    },
+    error: null,
+  };
+}
+
+export async function setInstitutionServicePlan(
+  institutionId: string,
+  periods: AppPeriod[],
+  effectiveFrom: string,
+): Promise<ApiResult<null>> {
+  const { error } = await supabase
+    .from('institution_service_plans')
+    .insert({ institution_id: institutionId, periods, effective_from: effectiveFrom });
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+export async function assignInstitutionRotation(
+  institutionId: string,
+  rotationId: string,
+  anchorWeek: number,
+  effectiveFrom: string,
+): Promise<ApiResult<null>> {
+  const { error } = await supabase.from('institution_rotation_assignments').insert({
+    institution_id: institutionId,
+    rotation_id: rotationId,
+    anchor_week: anchorWeek,
+    effective_from: effectiveFrom,
+  });
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+// Publish (materialize) dated Meal Services for an explicit window. Gated in
+// the DB: only a Super Admin, and it will not overwrite already-served rows.
+export async function publishInstitutionWindow(
+  institutionId: string,
+  from: string,
+  to: string,
+): Promise<ApiResult<number>> {
+  const { data, error } = await supabase.rpc('publish_meal_services', {
+    p_inst: institutionId,
+    p_from: from,
+    p_to: to,
+  });
+  if (error) return err(error);
+  return { data: (data as number) ?? 0, error: null };
+}
+
 // ------------------------------------------------- menus / rotations (§5)
 // A "Menu" in the Admin UI is a rotation: a named, N-week arrangement of meals
 // into day/period slots. Duration is data-driven (week_count), never fixed.

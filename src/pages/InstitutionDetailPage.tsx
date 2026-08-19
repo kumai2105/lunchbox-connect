@@ -19,12 +19,14 @@ import {
   StatCard,
 } from '../components/ui';
 import { Icon } from '../components/icons';
+import InstitutionServiceTab from './InstitutionServiceTab';
 import { initials } from '../lib/format';
 import { statusLabel, statusPillClass } from '../lib/status';
 
-type Tab = 'overview' | 'classes' | 'students' | 'staff';
+type Tab = 'overview' | 'service' | 'classes' | 'students' | 'staff';
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'overview', label: 'Overview' },
+  { key: 'service', label: 'Service' },
   { key: 'classes', label: 'Classes' },
   { key: 'students', label: 'Students' },
   { key: 'staff', label: 'Staff' },
@@ -166,6 +168,8 @@ export default function InstitutionDetailPage() {
           </Banner>
         </>
       )}
+
+      {tab === 'service' && id && <InstitutionServiceTab institutionId={id} />}
 
       {tab === 'classes' && (
         <Card
