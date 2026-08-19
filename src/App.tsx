@@ -13,7 +13,6 @@ import GuardiansPage from './pages/GuardiansPage';
 import ClassesPage from './pages/ClassesPage';
 import StatusPage from './pages/StatusPage';
 import AuditPage from './pages/AuditPage';
-import MenuPage from './pages/MenuPage';
 import MealLibraryPage from './pages/MealLibraryPage';
 import MenuBuilderPage from './pages/MenuBuilderPage';
 import MealAnalyticsPage from './pages/MealAnalyticsPage';
@@ -155,14 +154,6 @@ export default function App() {
               element={
                 <Page page="menubuilder">
                   <MenuBuilderPage />
-                </Page>
-              }
-            />
-            <Route
-              path="/menu"
-              element={
-                <Page page="menu">
-                  <MenuPage />
                 </Page>
               }
             />

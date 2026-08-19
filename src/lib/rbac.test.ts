@@ -31,7 +31,6 @@ describe('rbac matrix (9 role domains — docs/02)', () => {
     }
     expect(can('super_admin', 'students', 'create')).toBe(true);
     expect(can('super_admin', 'status', 'set')).toBe(true);
-    expect(can('super_admin', 'menu', 'publish')).toBe(true);
     expect(can('super_admin', 'today', 'record')).toBe(true);
     expect(can('super_admin', 'kitchens', 'create')).toBe(true); // provisions Kitchen entities
   });
@@ -40,7 +39,6 @@ describe('rbac matrix (9 role domains — docs/02)', () => {
     expect(can('school_admin', 'students', 'create')).toBe(true);
     expect(can('school_admin', 'guardians', 'update')).toBe(true);
     expect(can('school_admin', 'status', 'set')).toBe(false); // NOT_YET_DEFINED -> deny
-    expect(can('school_admin', 'menu', 'create')).toBe(false);
     expect(can('school_admin', 'users', 'view')).toBe(false);
     expect(can('school_admin', 'institutions', 'view')).toBe(false);
     expect(can('school_admin', 'audit', 'view')).toBe(false);
@@ -62,12 +60,10 @@ describe('rbac matrix (9 role domains — docs/02)', () => {
     expect(can('classroom_staff', 'students', 'create')).toBe(false);
     expect(can('classroom_staff', 'classes', 'view')).toBe(true);
     expect(can('classroom_staff', 'status', 'view')).toBe(false);
-    expect(can('classroom_staff', 'menu', 'view')).toBe(true); // allergy awareness
   });
 
   it('kitchen sees derived production + menu reference only (AT-034)', () => {
     expect(can('kitchen', 'kitchen', 'view')).toBe(true);
-    expect(can('kitchen', 'menu', 'view')).toBe(true);
     expect(can('kitchen', 'students', 'view')).toBe(false);
     expect(can('kitchen', 'status', 'set')).toBe(false); // AT-012
     expect(can('kitchen', 'reports', 'view')).toBe(false);
@@ -98,17 +94,16 @@ describe('rbac matrix (9 role domains — docs/02)', () => {
     expect(can('operations_manager', 'students', 'update')).toBe(false);
   });
 
-  it('parent sees only the parent surface + menu (AT-031)', () => {
+  it('parent sees only the parent surface (AT-031, §43)', () => {
     const visible = viewableResources('parent').sort();
-    expect(visible).toEqual(['menu', 'parent']);
+    expect(visible).toEqual(['parent']);
     expect(can('parent', 'today', 'view')).toBe(false);
     expect(can('parent', 'status', 'view')).toBe(false);
-    expect(can('parent', 'menu', 'view')).toBe(true); // confirmed parent menu visibility
   });
 
   it('no role outside the matrix gets invented powers', () => {
     for (const role of ALL_ROLES) {
-      expect(can(role, 'menu', 'publish')).toBe(role === 'super_admin');
+      expect(can(role, 'menubuilder', 'publish')).toBe(role === 'super_admin');
       expect(can(role, 'status', 'set')).toBe(role === 'super_admin');
     }
   });

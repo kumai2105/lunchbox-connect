@@ -28,7 +28,6 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
     { page: 'status', label: 'Status / eligibility', icon: 'checkCircle' },
     { page: 'meals', label: 'Meal Library', icon: 'apple' },
     { page: 'menubuilder', label: 'Menu Builder', icon: 'utensils' },
-    { page: 'menu', label: 'Menus', icon: 'utensils' },
     { page: 'analytics', label: 'Meal analytics', icon: 'barChart' },
     { page: 'today', label: 'Serving (Today)', icon: 'sun' },
     { page: 'review', label: 'Parent-safe updates', icon: 'checkCircle' },
@@ -42,7 +41,6 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
     { page: 'students', label: 'Students', icon: 'users' },
     { page: 'guardians', label: 'Parents / guardians', icon: 'heart' },
     { page: 'classes', label: 'Classes', icon: 'folder' },
-    { page: 'menu', label: 'Menus', icon: 'utensils' },
     { page: 'today', label: 'Today — serving', icon: 'sun' },
     { page: 'review', label: 'Parent-safe updates', icon: 'checkCircle' },
     { page: 'absences', label: 'Absences', icon: 'xCircle', shell: true },
@@ -59,7 +57,6 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
   ],
   kitchen: [
     { page: 'kitchen', label: 'Production demand', icon: 'flame' },
-    { page: 'menu', label: 'Menu reference', icon: 'utensils' },
   ],
   driver: [{ page: 'deliveries', label: 'My deliveries', icon: 'truck', shell: true }],
 };

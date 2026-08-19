@@ -15,7 +15,6 @@ export type Resource =
   | 'students'
   | 'classes'
   | 'status'
-  | 'menu'
   | 'meals'
   | 'menubuilder'
   | 'analytics'
@@ -72,13 +71,6 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
   },
   menubuilder: {
     super_admin: ['view', 'create', 'update', 'delete', 'publish'],
-  },
-  menu: {
-    super_admin: ['view', 'create', 'update', 'delete', 'publish'],
-    school_admin: ['view'],
-    classroom_staff: ['view'],
-    kitchen: ['view'],
-    parent: ['view'],
   },
   today: {
     super_admin: ['view', 'record'],

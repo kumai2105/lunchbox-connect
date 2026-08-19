@@ -14,7 +14,6 @@ import {
   type MealInput,
   type MealLibraryItem,
   type MealPerformanceRow,
-  type MenuItem,
   type ProductionDemandRow,
   type ServedStatus,
   type ServingNote,
@@ -384,56 +383,6 @@ export async function productionDemand(): Promise<ApiResult<ProductionDemandRow[
   const { data, error } = await supabase.from('v_production_demand').select('*');
   if (error) return err(error);
   return { data: (data ?? []) as ProductionDemandRow[], error: null };
-}
-
-// ---------------------------------------------------------------- menus
-export async function listMenu(weekNumbers: number[]): Promise<ApiResult<MenuItem[]>> {
-  const { data, error } = await supabase
-    .from('menus')
-    .select('*')
-    .in('week_number', weekNumbers)
-    .order('week_number')
-    .order('weekday')
-    .order('period');
-  if (error) return err(error);
-  return { data: (data ?? []) as MenuItem[], error: null };
-}
-
-export async function saveMenuItem(input: {
-  week_number: number;
-  weekday: number;
-  period: AppPeriod;
-  dish_name: string;
-  allergens?: string[];
-}): Promise<ApiResult<MenuItem>> {
-  const { data, error } = await supabase
-    .from('menus')
-    .upsert(input, { onConflict: 'week_number,weekday,period' })
-    .select()
-    .single();
-  if (error) return err(error);
-  return { data: data as MenuItem, error: null };
-}
-
-export async function publishMenuWeek(week: number): Promise<ApiResult<null>> {
-  const { error } = await supabase.rpc('publish_menu_week', { p_week: week });
-  if (error) return err(error);
-  return { data: null, error: null };
-}
-
-// Distinct week numbers actually present in the legacy `menus` table.
-//
-// The Menu editor used to derive its tabs from the current ISO week. That
-// coupled the admin's planning grid to a calendar-week number the app no
-// longer uses for anything and which, once the ISO helper was corrected,
-// jumped from 6 to 34 - hiding every menu row that had ever been entered.
-// Showing the weeks that actually exist is both stable and honest.
-export async function menuWeeks(): Promise<ApiResult<number[]>> {
-  const { data, error } = await supabase.from('menus').select('week_number').order('week_number');
-  if (error) return err(error);
-  const rows = (data ?? []) as Array<{ week_number: number }>;
-  const weeks = [...new Set(rows.map((r) => r.week_number))].sort((a, b) => a - b);
-  return { data: weeks.length > 0 ? weeks : [1, 2, 3, 4], error: null };
 }
 
 // ---------------------------------------- calendar exceptions (§7)
