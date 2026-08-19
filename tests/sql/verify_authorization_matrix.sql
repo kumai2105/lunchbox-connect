@@ -47,6 +47,8 @@ insert into students (id, student_no, institution_id, given_name, family_name, c
   ('d0000000-0000-0000-0000-000000000002','ZZ-2','a0000000-0000-0000-0000-000000000002','Kid','B','b0000000-0000-0000-0000-000000000002','enrolled','ACTIVE_BILLABLE_TO_NURSERY');
 insert into student_parents (student_id, user_id) values
   ('d0000000-0000-0000-0000-000000000001','e0000000-0000-0000-0000-000000000005');
+insert into class_staff (class_id, user_id) values
+  ('b0000000-0000-0000-0000-000000000001','e0000000-0000-0000-0000-000000000011');
 insert into meals (id, name) values ('f0000000-0000-0000-0000-000000000001','ZZ Meal');
 insert into meal_revisions (id, meal_id, revision_no, name) values
   ('f1000000-0000-0000-0000-000000000001','f0000000-0000-0000-0000-000000000001',1,'ZZ Meal');

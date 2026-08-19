@@ -70,6 +70,10 @@ insert into students (id, student_no, institution_id, given_name, family_name, c
 insert into student_parents (student_id, user_id) values
   ('ff000000-0000-0000-0000-000000000001','cc000000-0000-0000-0000-000000000004');
 
+-- Classroom scope is driven by class_staff now (migration 0025), not teacher_id.
+insert into class_staff (class_id, user_id) values
+  ('ee000000-0000-0000-0000-000000000001','cc000000-0000-0000-0000-000000000003');
+
 insert into meals (id, name) values ('a1000000-0000-0000-0000-000000000001','ZZ Portal Meal');
 insert into meal_revisions (id, meal_id, revision_no, name, ingredients, portion) values
   ('a2000000-0000-0000-0000-000000000001','a1000000-0000-0000-0000-000000000001',1,'ZZ Portal Meal','["rev one"]'::jsonb,'1 portion');

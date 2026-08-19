@@ -119,22 +119,48 @@ export async function createClass(input: {
   return { data: data as ClassRow, error: null };
 }
 
-// classes.teacher_id is what actually drives a classroom_staff user's RLS
-// scope (app_can_see_class / app_can_record_in_class, migrations 0010/0011)
-// — without a way to set it, the Classroom Staff role can never see a
-// roster. Pass null to unassign.
-export async function assignClassStaff(
-  classId: string,
-  teacherId: string | null,
-): Promise<ApiResult<ClassRow>> {
+// Classroom Staff ⇄ Class is a many-to-many (class_staff, migration 0025):
+// a class may have several staff, and a staff member several classes. These
+// membership rows drive classroom_staff RLS scope (app_can_see_class /
+// app_can_record_in_class / app_can_see_student).
+export interface ClassStaffMember {
+  user_id: string;
+  full_name: string;
+  email: string;
+}
+
+export async function classStaff(classId: string): Promise<ApiResult<ClassStaffMember[]>> {
   const { data, error } = await supabase
-    .from('classes')
-    .update({ teacher_id: teacherId })
-    .eq('id', classId)
-    .select()
-    .single();
+    .from('class_staff')
+    .select('user_id,staff:app_users!user_id(full_name,email)')
+    .eq('class_id', classId);
   if (error) return err(error);
-  return { data: data as ClassRow, error: null };
+  type Row = { user_id: string; staff: { full_name: string; email: string } | null };
+  const rows = (data ?? []) as unknown as Row[];
+  return {
+    data: rows.map((r) => ({
+      user_id: r.user_id,
+      full_name: r.staff?.full_name ?? '—',
+      email: r.staff?.email ?? '',
+    })),
+    error: null,
+  };
+}
+
+export async function addClassStaff(classId: string, userId: string): Promise<ApiResult<null>> {
+  const { error } = await supabase.from('class_staff').insert({ class_id: classId, user_id: userId });
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+export async function removeClassStaff(classId: string, userId: string): Promise<ApiResult<null>> {
+  const { error } = await supabase
+    .from('class_staff')
+    .delete()
+    .eq('class_id', classId)
+    .eq('user_id', userId);
+  if (error) return err(error);
+  return { data: null, error: null };
 }
 
 // ---------------------------------------------------------------- students

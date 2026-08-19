@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  assignClassStaff,
+  addClassStaff,
+  classStaff,
   createClass,
   listClasses,
   listInstitutions,
   listUsers,
+  removeClassStaff,
+  type ClassStaffMember,
   type ClassWithMeta,
 } from '../lib/api';
 import type { AppUser, Institution } from '../lib/types';
@@ -40,15 +43,29 @@ export default function ClassesPage() {
     };
   }, []);
 
-  async function onAssignStaff(classId: string, teacherId: string) {
-    const res = await assignClassStaff(classId, teacherId || null);
-    if (res.error) {
-      setError(res.error);
-      return;
-    }
-    setRows((prev) =>
-      (prev ?? []).map((c) => (c.id === classId ? { ...c, teacher_id: res.data!.teacher_id } : c)),
-    );
+  const [managing, setManaging] = useState<ClassWithMeta | null>(null);
+  const [members, setMembers] = useState<ClassStaffMember[]>([]);
+  const [addUserId, setAddUserId] = useState('');
+
+  async function openStaff(c: ClassWithMeta) {
+    setManaging(c);
+    setAddUserId('');
+    const res = await classStaff(c.id);
+    if (res.error) setError(res.error);
+    setMembers(res.data ?? []);
+  }
+  async function onAddStaff() {
+    if (!managing || !addUserId) return;
+    const res = await addClassStaff(managing.id, addUserId);
+    if (res.error) return setError(res.error);
+    setAddUserId('');
+    await openStaff(managing);
+  }
+  async function onRemoveStaff(userId: string) {
+    if (!managing) return;
+    const res = await removeClassStaff(managing.id, userId);
+    if (res.error) return setError(res.error);
+    await openStaff(managing);
   }
 
   const filteredRows = useMemo(
@@ -153,20 +170,9 @@ export default function ClassesPage() {
                   <td>{c.grade ?? '—'}</td>
                   <td className="mono">{c.student_count}</td>
                   <td>
-                    <select
-                      value={c.teacher_id ?? ''}
-                      onChange={(e) => void onAssignStaff(c.id, e.target.value)}
-                      title="assign classroom staff"
-                    >
-                      <option value="">Unassigned</option>
-                      {staffUsers
-                        .filter((u) => u.institution_id === c.institution_id)
-                        .map((u) => (
-                          <option key={u.user_id} value={u.user_id}>
-                            {u.full_name}
-                          </option>
-                        ))}
-                    </select>
+                    <Btn size="sm" variant="ghost" onClick={() => void openStaff(c)}>
+                      Manage staff
+                    </Btn>
                   </td>
                   <td>
                     <a className="btn ghost sm" href={`/today?class=${c.id}`}>
@@ -235,6 +241,54 @@ export default function ClassesPage() {
           </form>
         </Modal>
       )}
+      {managing && (
+        <Modal
+          title={`Staff — ${managing.name}`}
+          onClose={() => setManaging(null)}
+          footer={
+            <Btn variant="ghost" onClick={() => setManaging(null)}>
+              Done
+            </Btn>
+          }
+        >
+          <p className="tmc-meta">
+            A class may have several classroom staff, and a staff member may cover several classes.
+          </p>
+          {members.length === 0 ? (
+            <EmptyState text="No staff assigned yet." />
+          ) : (
+            <ul className="staff-chips">
+              {members.map((m) => (
+                <li key={m.user_id}>
+                  <span>
+                    {m.full_name} <span className="tmc-meta">{m.email}</span>
+                  </span>
+                  <button className="chip-x" onClick={() => void onRemoveStaff(m.user_id)}>
+                    remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Field label="Add classroom staff">
+            <select value={addUserId} onChange={(e) => setAddUserId(e.target.value)}>
+              <option value="">— choose staff —</option>
+              {staffUsers
+                .filter((u) => u.institution_id === managing.institution_id)
+                .filter((u) => !members.some((m) => m.user_id === u.user_id))
+                .map((u) => (
+                  <option key={u.user_id} value={u.user_id}>
+                    {u.full_name}
+                  </option>
+                ))}
+            </select>
+          </Field>
+          <Btn variant="brand" onClick={() => void onAddStaff()} disabled={!addUserId}>
+            Add to class
+          </Btn>
+        </Modal>
+      )}
+
     </div>
   );
 }
