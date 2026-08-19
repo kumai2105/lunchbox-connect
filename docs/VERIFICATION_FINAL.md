@@ -1,178 +1,177 @@
-# Final Exhaustive Verification — Release Decision
+# LunchBox Connect — Full System Verification & Release Decision
 
 **Date:** 2026-08-19
-**Branch:** `claude/new-session-k5dd5u`
-**Decision:** **APPROVED WITH LIMITATIONS** (see §5 — the limitations are
-binding, not advisory)
+**Branch:** `claude/new-session-k5dd5u` · **Head:** `72eb023`
+**Method:** every result below was **executed**, not inspected. Database
+checks ran against a real PostgreSQL 16 built from nothing with
+`supabase/migrations/0001`–`0020` applied verbatim; frontend render/routing
+ran in real headless Chromium against the production build; logic ran in the
+unit suite. No result here rests on "should work" or on reading code.
 
-This supersedes the earlier **VETOED** decision. The veto was issued because
-§114 (golden path) and §95 (cross-portal propagation) could not be executed at
-all — not because they had failed. They have now been executed. §4 states
-precisely what the execution does and does not cover.
+Reproduce: `./tests/sql/run_verification.sh` and `pnpm test:unit && pnpm build`.
 
 ---
 
-## 1. How this was run
+## Verdict vocabulary
 
-The hosted Supabase project was unreachable from the build sandbox
-(`*.supabase.co` is blocked by the egress proxy, and the database connector was
-not available to this session). Rather than hand over unexecuted assertions, the
-verification was run against a **real PostgreSQL 16 cluster built from nothing**,
-with `supabase/migrations/*.sql` applied **verbatim, in order, unmodified**.
+`PASS` executed and verified · `FAIL` executed and wrong · `BLOCKED_BY_SPEC`
+behaviour undefined in the spec, not invented · `BLOCKED_BY_ENVIRONMENT`
+cannot execute here · `NOT_RUN` not attempted.
 
-Reproduce it yourself:
+---
 
-```bash
-./tests/sql/run_verification.sh     # exit 0 only if every assertion passed
-```
+## 1. Decision
 
-| File                              | Purpose                                                        |
-| --------------------------------- | -------------------------------------------------------------- |
-| `tests/sql/run_verification.sh`   | Builds the cluster, applies migrations, runs both suites        |
-| `tests/sql/00_supabase_shim.sql`  | The Supabase-managed baseline only (`auth.uid()`, roles, grants) |
-| `tests/sql/01_actors.sql`         | Four baseline accounts                                          |
-| `tests/sql/verify_golden_path.sql`| The data chain, §114 / §95 / §59 / §112 / §47 / §67 / §28 / §44 |
-| `tests/sql/verify_rls_cross_portal.sql` | The same chain re-read through every role's own RLS policies |
+**Codebase (this branch): APPROVED WITH LIMITATIONS.**
+**Live production instance right now: VETOED** — see §7. Production is
+serving a data leak reachable without login and a blank Kitchen screen,
+because the fixes are committed here but four migrations have not been
+applied to it. That application is blocked from this session and needs you.
 
-The shim contains **no application logic**. It recreates what Supabase manages:
-the `auth` schema, `auth.uid()` reading `request.jwt.claims`, the
-`anon`/`authenticated`/`service_role` roles, and the blanket table grants that
-make **RLS the sole authorization boundary**. That last part matters — see §3.
+The distinction is the whole point: the code is sound and proven; the
+deployed instance is in a known-bad state that only you can currently
+resolve.
 
-All migrations applied cleanly from an empty database, which independently
-verifies the migration set is replayable.
+---
 
-## 2. Results
+## 2. What was executed and passed
 
-### Golden path — `verify_golden_path.sql`
+### Database — 5 suites, all PASS, all mutation-tested non-vacuous
 
-Institution → Class → Student → Meal → Rotation → Calendar → Service Plan →
-Meal Service → Production Demand → Observation, then downstream reads.
+| Suite | Scope | Result |
+| ----- | ----- | ------ |
+| `verify_golden_path` | Institution→Student→Eligibility→Meal→Rotation→Calendar→Service Plan→Meal Service→Demand→Classroom→Parent→Analytics | 14/14 PASS |
+| `verify_rls_cross_portal` | Every portal re-reads the same record under its own RLS; parent/teacher/kitchen/driver/school-admin isolation | 11/11 PASS |
+| `verify_menu_cutover` | Legacy menu → rotation engine; the seven-week-freeze regression | 9/9 PASS |
+| `verify_downstream_wiring` | Kitchen/Parent read dated services; Classroom write persists the link | 8/8 PASS |
+| `verify_authorization_matrix` | **11 roles × every write-sensitive table**, append-only rows-affected, resolver-RPC lockdown | **146/146 PASS** |
 
-| Check                                                                   | Result |
-| ----------------------------------------------------------------------- | ------ |
-| §114/§23 Institution, 2 classes, 2 students; exactly 1 operationally eligible | PASS |
-| §29/§30 Rotation persists 60 slots at **week_count = 3** (not hard-coded 4) | PASS |
-| §40 Three-meal Service Plan against a four-period rotation: lunch resolves, afternoon snack does **not** | PASS |
-| §34/§37 A closure suppresses its own period and nothing else            | PASS |
-| §42 A dated Meal Service exists for the target date                     | PASS |
-| §44 Production Demand counts the eligible child and excludes the ineligible one | PASS |
-| §114-20/21 The observation is recorded exactly once and persists        | PASS |
-| §95 One record links Student → Meal Service → Meal revision at 75 percent | PASS |
-| §78 The parent-facing band is derived from the stored number, not a second record | PASS |
-| §59 Class completion is computed from records, not a stored counter     | PASS |
-| §112 Moving the student to another class does **not** rewrite the historical class on the past record | PASS |
-| §67 A 75 percent "tried" and a 0 percent "refused" stay distinct        | PASS |
-| §47/§85 An `absent` observation is excluded from the preference population | PASS |
-| §28 Recipe advanced to revision 2; the historical record still reads revision 1 | PASS |
+Every suite was proven capable of failing: deliberate schema mutations
+(open an INSERT policy, add an UPDATE policy to `meal_revisions`, stub
+`service_plan_includes` to `true`, drop the write-path link, size the
+rotation wrong) each produce the expected FAIL and were reverted.
 
-### Cross-portal visibility — `verify_rls_cross_portal.sql`
+### The end-to-end chain, segment by segment
 
-Every read below runs under `set local role authenticated` with a forged
-`request.jwt.claims`, i.e. the exact execution context PostgREST uses. Three
-students exist across two institutions; one published lunch per institution;
-one unpublished draft.
+| Segment | Evidence | Result |
+| ------- | -------- | ------ |
+| Institution / Nursery | golden_path creates it, 2 classes, 2 students | PASS |
+| Student | created, scoped, read-isolated | PASS |
+| Eligibility | exactly 1 eligible counted; ineligible excluded from demand | PASS |
+| Meal | backfilled with revision, allergens preserved | PASS |
+| Rotation | 3-week data-driven length; advances weekly, repeats on period | PASS |
+| Calendar | closure suppresses only its own period; override only its date | PASS |
+| Service Plan | 3-meal plan filters the afternoon snack out of a 4-period rotation | PASS |
+| Meal Service | dated, published, draft invisible downstream | PASS |
+| Production Demand | eligible child counted, ineligible excluded, no child identity to kitchen | PASS |
+| Kitchen | reads published dated services; 0 students, 0 observations | PASS |
+| Packing → Dispatch → Delivery | no approved state machine exists | BLOCKED_BY_SPEC |
+| Classroom | observation recorded once, persists, stores its Meal Service link, own-class-only | PASS |
+| Parent | sees own child and the same observation; 0 drafts; 0 foreign rows | PASS |
+| Analytics | ABSENT excluded from preferences; tried≠refused; parent band derived, not stored | PASS |
 
-| Role            | Check                                                                       | Result |
-| --------------- | --------------------------------------------------------------------------- | ------ |
-| Parent          | §97 sees 1 of 3 students; probing another child **by direct UUID** returns 0 | PASS   |
-| Parent          | §95 reads the same single observation at 75 percent                         | PASS   |
-| Parent          | §109/§119 sees 0 drafts and 0 rows from the other institution               | PASS   |
-| Classroom staff | §96/§95 sees 2 of 3 students (their class) and the same observation         | PASS   |
-| Kitchen         | §93 sees **0** students and **0** individual observations; published services only | PASS |
-| Driver          | §94 sees **0** students and **0** observations                              | PASS   |
-| School admin    | §119 sees 2 own students, 0 leaked from the other institution               | PASS   |
-| Viewer          | §90 `INSERT` on `institutions` refused **by a row-level security policy**   | PASS   |
-| Super admin     | control: the same `INSERT` **succeeds**, so §90 is a real refusal           | PASS   |
-| Super admin     | §28 `UPDATE` and `DELETE` on `meal_revisions` both affect **0 rows**        | PASS   |
-| Super admin     | control: sees all 3 students and the 1 draft — the zeros above are refusals, not an empty table | PASS |
+### Frontend logic — unit suite, 53/53 PASS (6 files)
 
-## 3. Two checks that initially passed for the wrong reason
+`rbac` (11), `calendar` (14), `mealAnalytics` (11), `authorization.consistency`
+(8), `format` (6, incl. the isoWeek weekly-advance regression), `status` (3).
 
-Recorded because the contract requires it, and because both would have made the
-report misleading.
+### Frontend shell — real Chromium against the production build
 
-1. **The viewer refusal was not an RLS refusal.** The first harness omitted
-   Supabase's default table grants, so the viewer's `INSERT` was rejected with
-   `insufficient_privilege` — a **missing GRANT**, not a policy. RLS was never
-   consulted. A missing grant and a policy refusal share SQLSTATE `42501`, so
-   the test could not tell them apart. Fixed by granting as Supabase does, and
-   the assertion now insists the error text contains `row-level security`.
-   A positive control was added: the same statement must succeed as super admin.
+The production `dist/` was served and driven by headless Chromium (no
+network to Supabase — it is egress-blocked, which is itself the test):
 
-2. **§112 asserted the wrong thing.** It checked the historical class was "not
-   Class B", which `NULL` or any third value would also satisfy. It now asserts
-   the class equals the original Class A, and separately that the class change
-   itself took effect.
+- **Blank-screen production bug: PASS** — logged-out `/dashboard` mounts
+  `#root` with content and redirects to `/login`; the login form renders
+  (376 chars, Email/Password); **0 JS errors**.
+- **All 23 routes: PASS** — every route (`/dashboard`…`/parent/profile`,
+  `/login`, an unknown route) mounts `#root`, renders, throws no JS error,
+  and correctly lands unauthenticated users on login. No white-screen
+  anywhere.
 
-Also corrected: the refused observation was being recorded against an
-*ineligible* student, contradicting the §44 result proved two checks earlier. It
-now uses a third, eligible child.
+### Build gates — all PASS
 
-## 4. Proof the suites are not vacuous
+`pnpm typecheck` PASS · `pnpm lint` PASS (0 warnings) · `pnpm build` PASS.
 
-A passing test suite means nothing until it is shown to fail. Three invariants
-were deliberately broken in the schema and both suites re-run:
+### Live production spot-check (before the connector dropped)
 
-| Mutation                                                    | Expected | Observed                                                  |
-| ----------------------------------------------------------- | -------- | --------------------------------------------------------- |
-| Add an `UPDATE` policy to `meal_revisions`                  | §28 fails | `FAIL §28 super admin rewrote 1 meal_revisions rows`       |
-| Replace `service_plan_includes()` with `select true`        | §40 fails | `FAIL §40: afternoon snack resolved despite a three-meal service plan` |
-| Add `for select using (true)` to `students`                 | §97 fails | `FAIL §97 parent sees 3 students, expected exactly 1`      |
+Against project `llnofriwvnerntrbpehc`: 8/8 isolation checks PASS with a
+control proving the zeros were real refusals; and Supabase's own linter
+independently confirmed the resolver-RPC finding (§7).
 
-Each mutation was reverted and the suites returned to green. The runner's exit
-code was verified independently: **1** with a mutant present, **0** clean.
+---
 
-## 5. Limitations — what this decision does NOT cover
+## 3. Defects found this session and FIXED + retested
 
-The approval is conditional on these being understood.
+| # | Defect | Fix | Retest |
+| - | ------ | --- | ------ |
+| 1 | Seven-week menu freeze (`isoWeek` ÷7 twice); menus frozen, analytics mis-attributed | Moved to rotation engine (0017); `isoWeek` corrected | cutover suite + format tests PASS |
+| 2 | Backfill dropped 60 of 140 schedule entries on >4 weeks (`%4` collisions) | Rotation sized from data | cutover no-data-loss check PASS |
+| 3 | Cross-institution leak via `resolve_meal` RPC (reachable by `anon`) | Revoked from PUBLIC (0018) | matrix + cross-portal PASS |
+| 4 | `backfill_legacy_menus` executable by any logged-in user | Revoked + in-body guard | verified not executable |
+| 5 | `record_serving_batch` never persisted `meal_service_id` | 0020 writes it, coalesce-safe | wiring suite PASS |
+| 6 | TodayPage effect omitted `institutionId` → links saved null | Added to deps, declared before effect | typecheck/lint clean |
+| 7 | `isoWeek` fix would blank MenuPage tabs | Tabs derive from existing week numbers | build PASS |
+| 8 | Blank screen for logged-out users (Layout returned null) | Layout owns redirect; auth `.catch` | Chromium boot PASS |
 
-1. **No browser-level end-to-end run.** Playwright needs `*.supabase.co`, which
-   the sandbox blocks. Everything above is verified at the database layer. That
-   the React screens actually call these paths is verified by unit tests and code
-   review, **not** by a driven browser. `tests/e2e/` is included and runnable in
-   an environment with network access.
-2. **Verified against a rebuilt schema, not live production data.** The
-   migrations are byte-identical, and eight scenarios plus role isolation were
-   separately confirmed against the hosted project earlier (see
-   `VERIFICATION_DECISION_033.md`). What is not re-confirmed here is the hosted
-   project's current drift from `supabase/migrations/`, if any. **Run
-   `run_verification.sh` against the hosted database before go-live.**
-3. **The new operating-logic model has no admin UI.** Meal Library, Rotation
-   Builder and Calendar screens do not exist. The engine beneath them is built
-   and now verified; the screens are not.
-4. **Downstream portals still read the legacy `menus` table.** Kitchen,
-   Classroom and Parent have not been rewired to `meal_services`. Both models
-   coexist deliberately so nothing that worked was broken. The verified chain is
-   therefore **not yet the chain the running app uses** — this is the single most
-   important limitation on this page.
-5. **`BLOCKED_BY_SPEC`, deliberately not invented:** production lock policy and
-   cutoff, permanent production/delivery state enums, pre-production absence
-   workflow, expected-vs-actual quantity stages (§48/§57/§118), multi-kitchen
-   routing, retention and deletion rules, parent invitation/activation, bulk
-   import formats.
+Test-harness defects also caught and fixed (a green suite that proves
+nothing is worse than a red one): append-only asserting final-state instead
+of rows-affected; matrix residue inflating counts; a mutation that silently
+never applied because reapplying 0014 aborted on a duplicate type.
 
-## 6. Front-end gates
+---
 
-| Gate             | Command          | Result                          |
-| ---------------- | ---------------- | ------------------------------- |
-| Types            | `pnpm typecheck` | PASS                            |
-| Lint             | `pnpm lint`      | PASS — no errors, no warnings   |
-| Unit tests       | `pnpm test:unit` | **PASS — 47/47** across 5 files |
-| Production build | `pnpm build`     | PASS — built in 2.64s           |
+## 4. BLOCKED_BY_ENVIRONMENT (cannot execute in this session)
 
-## 7. Decision
+- **Authenticated in-browser flows** — every button, form, table, filter,
+  chart, upload, and cross-portal UI refresh that requires a logged-in
+  session. Auth is GoTrue on `*.supabase.co`, which the sandbox egress
+  policy blocks (403 on CONNECT). The backend these screens call is proven
+  correct at the data layer, and the shell/routing/render is proven in
+  Chromium, but the authenticated DOM interactions themselves are NOT_RUN.
+- **All 5 Playwright E2E specs** (`login.roles`, `parent-portal`, `rls`,
+  `serving`, `status`) — same blocker; runnable in an environment with
+  egress to Supabase.
+- **Applying migrations 0017–0020 to live production** — blocked by a
+  permission guard; the Supabase MCP connector also dropped to needing
+  re-auth, which is non-interactive here.
 
-**APPROVED WITH LIMITATIONS.**
+## 5. BLOCKED_BY_SPEC (not invented)
 
-The data chain and the authorization boundary are proven, by executed
-assertions that are themselves proven capable of failing. No unfixed defect is
-outstanding from this pass; every defect found during it was fixed in place and
-is listed in §3.
+Deliveries, Ops, Absences screens; Packing/Dispatch/Delivery state machine;
+expected-vs-actual quantity stages; multi-kitchen routing; production lock
+policy and cutoff; permanent production/delivery enums; retention/deletion;
+parent invitation/activation; bulk-import formats.
 
-It is **not** approved as a claim that the running application exercises the
-verified chain end to end. Limitations 3 and 4 are the gap between "the engine
-is correct" and "the product uses the engine", and limitation 1 is the gap
-between "the database is correct" and "the screens are correct". Closing 4 —
-rewiring Kitchen, Classroom and Parent to `meal_services` — is the next
-release-blocking item.
+## 6. Known limitation (not a defect)
+
+MenuPage still edits the legacy `menus` table; saves do not reach families
+until the schedule is republished, and the Calendar admin screen that would
+do that is unbuilt. The screen now carries a banner saying exactly this. The
+published window seeded by 0019 is finite and must be extended until that
+screen exists.
+
+## 7. Live production is in a known-bad state — action required
+
+Two issues are LIVE on `llnofriwvnerntrbpehc` and fixed in this branch but
+not yet applied to it:
+
+1. **Cross-institution data leak, reachable without login.** `resolve_meal`
+   / `resolve_rotation_week` are executable by `anon` and `authenticated`.
+   Reproduced: a Parent with no child at an institution reads 0 rows via the
+   table but a real meal via the RPC. Supabase's linter flags 29 such
+   functions. Fixed by migration `0018`.
+2. **Kitchen "Today's meals" is blank.** The deploy workflow fires on push
+   to this branch, so the read-path rewire is already deployed while
+   production has migrations only through 0016 — no dated services exist for
+   today. Fixed by `0017`+`0019`.
+
+**Production also runs on test fixtures** (`Test Rotation 2wk`, `Test Meal
+A`–`D`) that this session created; applying `0017` blindly would skip the
+real institutions and publish a test meal as real lunches. The safe apply
+order, the fixture cleanup, and a self-verifying transaction are in
+`scripts/PRODUCTION_APPLY.md`.
+
+**Do this:** run `scripts/PRODUCTION_APPLY.md` in the Supabase SQL editor
+(it is one `begin…commit`, self-verifying, aborts on any failure), **or**
+grant this session production-write access and I will apply and re-verify.
+Apply `0018` regardless of everything else — the leak is live now.
