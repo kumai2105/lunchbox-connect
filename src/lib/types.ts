@@ -37,7 +37,7 @@ export const OPERATIONAL_STATUS_ELIGIBLE = 'ACTIVE_BILLABLE_TO_NURSERY' as const
 export interface Institution {
   id: string;
   name: string;
-  kind: 'school' | 'nursery' | 'other';
+  kind: 'nursery' | 'school';
   created_at: string;
 }
 

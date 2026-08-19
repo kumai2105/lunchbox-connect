@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useRole } from '../lib/auth';
+import { can } from '../lib/rbac';
 import {
   createStudent,
   listClasses,
@@ -49,6 +51,8 @@ export default function StudentsPage() {
   const [term, setTerm] = useState('');
   const [classFilter, setClassFilter] = useState('');
 
+  const role = useRole();
+  const canCreate = can(role, 'students', 'create');
   const [showCreate, setShowCreate] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -161,15 +165,17 @@ export default function StudentsPage() {
         title="Students"
         hint="roster — RLS-scoped to your institution"
         actions={
-          <Btn
-            variant="brand"
-            onClick={() => {
-              setError(null);
-              setShowCreate(true);
-            }}
-          >
-            + Add student
-          </Btn>
+          canCreate ? (
+            <Btn
+              variant="brand"
+              onClick={() => {
+                setError(null);
+                setShowCreate(true);
+              }}
+            >
+              + Add student
+            </Btn>
+          ) : undefined
         }
       />
 

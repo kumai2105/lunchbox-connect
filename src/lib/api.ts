@@ -904,12 +904,14 @@ export async function mealObservations(
 
 // ---------------------------------------------------------------- serving
 export async function rosterForClass(classId: string): Promise<ApiResult<Student[]>> {
-  // Only operationally eligible students enter serving (docs/03 §7, AT-011).
+  // §41: operational_status = ACTIVE_BILLABLE_TO_NURSERY is the SOLE
+  // authoritative eligibility gate (docs/03 §5). The legacy enrollment_status
+  // is not an additional requirement — a billable child is eligible regardless
+  // of the old enrolled/pending/withdrawn value.
   const { data, error } = await supabase
     .from('students')
     .select('*')
     .eq('class_id', classId)
-    .eq('enrollment_status', 'enrolled')
     .eq('operational_status', OPERATIONAL_STATUS_ELIGIBLE)
     .order('family_name')
     .order('given_name');
