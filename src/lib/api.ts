@@ -11,6 +11,8 @@ import {
   type Institution,
   type Kitchen,
   type LowIntakeReason,
+  type MealInput,
+  type MealLibraryItem,
   type MealPerformanceRow,
   type MenuItem,
   type ProductionDemandRow,
@@ -387,6 +389,82 @@ export async function menuWeeks(): Promise<ApiResult<number[]>> {
   const rows = (data ?? []) as Array<{ week_number: number }>;
   const weeks = [...new Set(rows.map((r) => r.week_number))].sort((a, b) => a - b);
   return { data: weeks.length > 0 ? weeks : [1, 2, 3, 4], error: null };
+}
+
+// ------------------------------------------------- meal library (0024, §4)
+// The single source of Meals for the whole system. Admin creates a Meal once
+// here; Menu, Kitchen, Classroom, Parent and Analytics all reference it.
+export async function listMeals(opts?: {
+  search?: string;
+  includeArchived?: boolean;
+}): Promise<ApiResult<MealLibraryItem[]>> {
+  let q = supabase
+    .from('meals')
+    .select(
+      'id,name,active,current_revision_id,rev:meal_revisions!current_revision_id(ingredients,allergens,nutrition,portion,image_path,nutrition_status,revision_no)',
+    )
+    .order('name');
+  if (!opts?.includeArchived) q = q.eq('active', true);
+  if (opts?.search) q = q.ilike('name', `%${opts.search}%`);
+  const { data, error } = await q;
+  if (error) return err(error);
+  type Row = {
+    id: string; name: string; active: boolean; current_revision_id: string | null;
+    rev: {
+      ingredients: unknown; allergens: unknown; nutrition: unknown;
+      portion: string | null; image_path: string | null; nutrition_status: string;
+      revision_no: number;
+    } | null;
+  };
+  const rows = (data ?? []) as unknown as Row[];
+  return {
+    data: rows.map((r) => ({
+      id: r.id, name: r.name, active: r.active, current_revision_id: r.current_revision_id,
+      ingredients: asStringArray(r.rev?.ingredients),
+      allergens: asStringArray(r.rev?.allergens),
+      nutrition: (r.rev?.nutrition as Record<string, unknown>) ?? {},
+      portion: r.rev?.portion ?? null,
+      image_path: r.rev?.image_path ?? null,
+      nutrition_status: r.rev?.nutrition_status ?? 'NOT_APPROVED',
+      revision_no: r.rev?.revision_no ?? null,
+    })),
+    error: null,
+  };
+}
+
+export async function saveMeal(input: MealInput): Promise<ApiResult<string>> {
+  const { data, error } = await supabase.rpc('save_meal', {
+    p_meal_id: input.id ?? null,
+    p_name: input.name,
+    p_ingredients: input.ingredients,
+    p_allergens: input.allergens,
+    p_nutrition: input.nutrition,
+    p_portion: input.portion,
+    p_image_path: input.image_path ?? null,
+    p_nutrition_status: input.nutrition_status ?? 'NOT_APPROVED',
+  });
+  if (error) return err(error);
+  return { data: data as string, error: null };
+}
+
+export async function setMealActive(id: string, active: boolean): Promise<ApiResult<null>> {
+  const { error } = await supabase.rpc('set_meal_active', { p_meal_id: id, p_active: active });
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+export async function uploadMealImage(mealId: string, file: File): Promise<ApiResult<string>> {
+  const ext = file.name.split('.').pop() ?? 'jpg';
+  const path = `${mealId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from('meal-images').upload(path, file, { upsert: true });
+  if (error) return err(error);
+  return { data: path, error: null };
+}
+
+export async function mealImageUrl(path: string | null): Promise<string | null> {
+  if (!path) return null;
+  const { data } = await supabase.storage.from('meal-images').createSignedUrl(path, 3600);
+  return data?.signedUrl ?? null;
 }
 
 // ------------------------------------------------- meal services (0016/0017)

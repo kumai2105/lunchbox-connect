@@ -26,6 +26,7 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
     // sidebar — a Class always belongs to exactly one Institution.
     { page: 'classes', label: 'Classes', icon: 'folder', hidden: true },
     { page: 'status', label: 'Status / eligibility', icon: 'checkCircle' },
+    { page: 'meals', label: 'Meal Library', icon: 'apple' },
     { page: 'menu', label: 'Menus', icon: 'utensils' },
     { page: 'analytics', label: 'Meal analytics', icon: 'barChart' },
     { page: 'today', label: 'Serving (Today)', icon: 'sun' },

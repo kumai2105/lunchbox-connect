@@ -194,3 +194,30 @@ export interface MealPerformanceRow {
   encouragement_count: number;
   did_not_like_count: number;
 }
+
+
+// ---- Meal Library (§4) --------------------------------------------------
+export interface MealLibraryItem {
+  id: string;
+  name: string;
+  active: boolean;
+  current_revision_id: string | null;
+  ingredients: string[];
+  allergens: string[];
+  nutrition: Record<string, unknown>;
+  portion: string | null;
+  image_path: string | null;
+  nutrition_status: string;
+  revision_no: number | null;
+}
+
+export interface MealInput {
+  id?: string | null;
+  name: string;
+  ingredients: string[];
+  allergens: string[];
+  nutrition: Record<string, unknown>;
+  portion: string | null;
+  image_path?: string | null;
+  nutrition_status?: string;
+}

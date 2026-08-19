@@ -1786,3 +1786,88 @@ tbody tr:last-child td {
   text-overflow: ellipsis;
   max-width: 64px;
 }
+
+/* ---- Meal Library (§4) ------------------------------------------------- */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 4px 0 16px;
+  flex-wrap: wrap;
+}
+.toolbar .search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink-3);
+  min-width: 220px;
+  flex: 1;
+  max-width: 340px;
+}
+.toolbar .search-box input {
+  border: none;
+  outline: none;
+  font-size: 13px;
+  flex: 1;
+  background: transparent;
+  color: var(--ink);
+}
+.check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.meal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.meal-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.meal-thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  background: var(--slate-soft);
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.meal-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.meal-body {
+  min-width: 0;
+  flex: 1;
+}
+.meal-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.meal-allergens {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin: 4px 0;
+}
+.meal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
