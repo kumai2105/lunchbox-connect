@@ -34,8 +34,18 @@ begin
   cross join generate_series(0,4) dd
   cross join unnest(array['breakfast','snack','lunch','afternoon_snack']) p;
 
-  -- Run the REAL migration logic, not a copy of it.
+  -- Run the REAL migration logic, not a copy of it. It builds ONLY the meal
+  -- library + rotation template now — it does not assign the rotation to any
+  -- institution (that is an explicit Admin business decision).
   perform backfill_legacy_menus();
+
+  -- Explicit Admin configuration: assign the (single, legacy-derived) rotation
+  -- to this institution, exactly as the software would. Anchor 2026-01-05 (Mon).
+  insert into institution_rotation_assignments (institution_id, rotation_id, effective_from, anchor_week)
+  values (v_inst, '00000000-0000-4000-8000-000000000171'::uuid, date '2026-01-05', 1);
+  -- Explicit contracted service plan (all periods the legacy menu carried).
+  insert into institution_service_plans (institution_id, periods, effective_from)
+  values (v_inst, (select array_agg(distinct period order by period) from menus), date '2026-01-05');
 
   -- ---------------------------------------------------------------
   -- Nothing lost: every distinct legacy dish has a Meal and revision.

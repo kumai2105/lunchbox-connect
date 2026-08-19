@@ -88,5 +88,10 @@ comment on function publish_legacy_window(date, date) is
   'The window is finite and must be extended until the Calendar admin '
   'screen exists.';
 
--- Seed a wide window around the cutover so no screen is blank on day one.
-select publish_legacy_window(current_date - 60, current_date + 300);
+-- CORRECTION ORDER §46: a migration does NOT publish a calendar. Publishing
+-- dated Meal Services is an authorized operational action the Admin performs
+-- through the software for an explicit, approved window — never hundreds of
+-- future days seeded automatically at migration time. This migration therefore
+-- only DEFINES publish_legacy_window(); it does not call it. Downstream
+-- publishing happens via the Admin Calendar/publish flow (or, transitionally,
+-- remediation/04_publish_explicit.TEMPLATE.sql for a chosen window).

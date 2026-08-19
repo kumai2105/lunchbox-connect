@@ -28,6 +28,12 @@ begin
   cross join unnest(array['breakfast','snack','lunch']) p;
 
   perform backfill_legacy_menus();
+  -- Explicit Admin configuration (migrations no longer infer or auto-assign):
+  insert into institution_rotation_assignments (institution_id, rotation_id, effective_from, anchor_week)
+  values (v_inst, '00000000-0000-4000-8000-000000000171'::uuid, date '2026-01-05', 1);
+  insert into institution_service_plans (institution_id, periods, effective_from)
+  values (v_inst, (select array_agg(distinct period order by period) from menus), date '2026-01-05');
+  -- Explicit operational publication for a chosen window (not a migration default):
   perform publish_legacy_window(current_date - 7, current_date + 21);
 
   -- ---------------------------------------------------------------

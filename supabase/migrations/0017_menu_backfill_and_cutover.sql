@@ -108,35 +108,18 @@ begin
   join meals mm on mm.name = mn.dish_name
   on conflict (rotation_id, week_number, weekday, period) do nothing;
 
-  -- Anchor every institution to the same Monday at rotation week 1, so the
-  -- shared rotation stays in step across institutions exactly as the single
-  -- global menu did. 2026-01-05 is a Monday.
-  insert into institution_rotation_assignments (institution_id, rotation_id, effective_from, anchor_week)
-  select i.id, '00000000-0000-4000-8000-000000000171'::uuid, date '2026-01-05', 1
-  from institutions i
-  where not exists (
-    select 1 from institution_rotation_assignments a where a.institution_id = i.id
-  );
-
-  -- Service plans are derived from the periods each institution's rotation
-  -- actually carries, NOT assumed to be all four. An institution that never
-  -- had an afternoon snack must not acquire one from a migration.
-  insert into institution_service_plans (institution_id, periods, effective_from)
-  select i.id,
-         coalesce(
-           (select array_agg(distinct mn.period order by mn.period) from menus mn),
-           array['breakfast','snack','lunch']::app_period[]
-         ),
-         date '2026-01-05'
-  from institutions i
-  where not exists (
-    select 1 from institution_service_plans p where p.institution_id = i.id
-  );
+  -- IMPORTANT (correction order §47/§48): this function builds only the MEAL
+  -- LIBRARY and the rotation TEMPLATE from legacy menu data. It deliberately
+  -- does NOT create institution_rotation_assignments or
+  -- institution_service_plans. Which menu an institution uses, and which meal
+  -- periods it is contracted for, are BUSINESS agreements the Admin configures
+  -- explicitly through the software — never inferred from the master menu and
+  -- never auto-assigned to every institution by a migration.
 
   meals_created := (select count(*)::int from meals);
   slots_created := (select count(*)::int from rotation_slots
                      where rotation_id = '00000000-0000-4000-8000-000000000171'::uuid);
-  institutions_mapped := (select count(*)::int from institution_rotation_assignments);
+  institutions_mapped := 0;   -- this function never assigns institutions
   return next;
 end $fn$;
 
@@ -151,5 +134,13 @@ comment on function backfill_legacy_menus() is
   'once by migration 0017 and re-run by tests/sql/verify_menu_cutover.sql so '
   'the suite exercises the real migration logic rather than a copy of it.';
 
--- Run it once as part of this migration.
-select * from backfill_legacy_menus();
+-- Run the library/template migration ONLY when legacy menu rows actually
+-- exist. On a fresh deployment `menus` is empty, so there is nothing to
+-- migrate and no artifact rotation is created — the Admin builds meals and
+-- menus through the software instead.
+do $run$
+begin
+  if exists (select 1 from menus) then
+    perform backfill_legacy_menus();
+  end if;
+end $run$;
