@@ -436,6 +436,75 @@ export async function menuWeeks(): Promise<ApiResult<number[]>> {
   return { data: weeks.length > 0 ? weeks : [1, 2, 3, 4], error: null };
 }
 
+// ---------------------------------------- calendar exceptions (§7)
+export interface CalendarException {
+  id: string;
+  kind: 'closure' | 'override' | 'special_period';
+  date_from: string;
+  date_to: string;
+  period: AppPeriod | null;
+  meal_id: string | null;
+  meal_name: string | null;
+  rotation_id: string | null;
+  rotation_name: string | null;
+  reason: string | null;
+}
+
+export async function listCalendarExceptions(
+  institutionId: string,
+): Promise<ApiResult<CalendarException[]>> {
+  const { data, error } = await supabase
+    .from('calendar_exceptions')
+    .select('id,kind,date_from,date_to,period,meal_id,rotation_id,reason,meal:meals!meal_id(name),rotation:rotations!rotation_id(name)')
+    .eq('institution_id', institutionId)
+    .order('date_from', { ascending: false });
+  if (error) return err(error);
+  type Row = {
+    id: string; kind: CalendarException['kind']; date_from: string; date_to: string;
+    period: AppPeriod | null; meal_id: string | null; rotation_id: string | null; reason: string | null;
+    meal: { name: string } | null; rotation: { name: string } | null;
+  };
+  const rows = (data ?? []) as unknown as Row[];
+  return {
+    data: rows.map((r) => ({
+      id: r.id, kind: r.kind, date_from: r.date_from, date_to: r.date_to, period: r.period,
+      meal_id: r.meal_id, meal_name: r.meal?.name ?? null,
+      rotation_id: r.rotation_id, rotation_name: r.rotation?.name ?? null, reason: r.reason,
+    })),
+    error: null,
+  };
+}
+
+export async function addCalendarException(input: {
+  institutionId: string;
+  kind: 'closure' | 'override' | 'special_period';
+  dateFrom: string;
+  dateTo: string;
+  period?: AppPeriod | null;
+  mealId?: string | null;
+  rotationId?: string | null;
+  reason?: string | null;
+}): Promise<ApiResult<null>> {
+  const { error } = await supabase.from('calendar_exceptions').insert({
+    institution_id: input.institutionId,
+    kind: input.kind,
+    date_from: input.dateFrom,
+    date_to: input.dateTo,
+    period: input.period ?? null,
+    meal_id: input.kind === 'override' ? (input.mealId ?? null) : null,
+    rotation_id: input.kind === 'special_period' ? (input.rotationId ?? null) : null,
+    reason: input.reason ?? null,
+  });
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+export async function deleteCalendarException(id: string): Promise<ApiResult<null>> {
+  const { error } = await supabase.from('calendar_exceptions').delete().eq('id', id);
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
 // ---------------------------------------- institution service config (§7,§12,§47)
 // The Admin sets, per institution, the CONTRACTED meal periods (service plan)
 // and which menu (rotation) applies from when. Never inferred from the menu.

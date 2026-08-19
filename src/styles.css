@@ -1917,3 +1917,10 @@ tbody tr:last-child td {
   padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font-size: 13px;
 }
 .chip-x { border: none; background: transparent; color: var(--danger, #c0392b); cursor: pointer; font-size: 12px; }
+
+/* ---- calendar tab (§7) ------------------------------------------------- */
+.calendar-tab { display: flex; flex-direction: column; gap: 14px; max-width: 720px; }
+.calendar-tab select, .calendar-tab input[type="date"], .calendar-tab input[type="text"] {
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px;
+  background: #fff; color: var(--ink); width: 100%;
+}

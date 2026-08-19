@@ -26,13 +26,15 @@ import {
 } from '../components/ui';
 import { Icon } from '../components/icons';
 import InstitutionServiceTab from './InstitutionServiceTab';
+import InstitutionCalendarTab from './InstitutionCalendarTab';
 import { initials } from '../lib/format';
 import { statusLabel, statusPillClass } from '../lib/status';
 
-type Tab = 'overview' | 'service' | 'classes' | 'students' | 'staff';
+type Tab = 'overview' | 'service' | 'calendar' | 'classes' | 'students' | 'staff';
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'overview', label: 'Overview' },
   { key: 'service', label: 'Service' },
+  { key: 'calendar', label: 'Calendar' },
   { key: 'classes', label: 'Classes' },
   { key: 'students', label: 'Students' },
   { key: 'staff', label: 'Staff' },
@@ -210,6 +212,8 @@ export default function InstitutionDetailPage() {
       )}
 
       {tab === 'service' && id && <InstitutionServiceTab institutionId={id} />}
+
+      {tab === 'calendar' && id && <InstitutionCalendarTab institutionId={id} />}
 
       {tab === 'classes' && (
         <Card
