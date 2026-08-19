@@ -77,7 +77,6 @@ function MealPerformance() {
               <tr>
                 <th>Meal</th>
                 <th>Period</th>
-                <th>Week</th>
                 <th>Valid observations</th>
                 <th>Avg. consumption</th>
                 <th>Refusals</th>
@@ -93,7 +92,6 @@ function MealPerformance() {
                   <tr key={r.menu_item_id}>
                     <td className="cell-name">{r.dish_name}</td>
                     <td className="cell-sub">{r.period}</td>
-                    <td className="mono">{r.week_number}</td>
                     <td className="mono">
                       {r.valid_observations} / {r.total_observations}
                     </td>

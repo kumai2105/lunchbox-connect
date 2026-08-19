@@ -183,6 +183,27 @@ begin
   end if;
   raise notice 'PASS  wiring: record_serving_batch() persists meal_service_id on a fresh insert';
 
+  -- ---------------------------------------------------------------
+  -- §31 — MANAGEMENT ANALYTICS ONE SOURCE OF TRUTH.
+  -- A meal_service-based observation (the only kind that exists post-cutover)
+  -- must be visible in v_meal_performance. Before 0028 the view joined on the
+  -- legacy menu_item_id, so every observation recorded through the real path
+  -- was silently invisible to admin analytics — a second, stale truth.
+  -- The JWT above is a super_admin, which the view requires.
+  -- ---------------------------------------------------------------
+  select count(*) into n
+    from v_meal_performance vp
+   where vp.menu_item_id = (
+     select mr.meal_id
+       from meal_services ms
+       join meal_revisions mr on mr.id = ms.meal_revision_id
+      where ms.id = v_service)
+     and vp.total_observations > 0;
+  if n < 1 then
+    raise exception 'FAIL wiring: the wired meal is INVISIBLE to v_meal_performance (§31 stale-truth regression)';
+  end if;
+  raise notice 'PASS  wiring: meal_service-based observations reach v_meal_performance (one truth, §31)';
+
   raise notice '---------------------------------------------------------';
   raise notice 'ALL WIRING CHECKS PASSED — rolling back, no data retained.';
 end $$;

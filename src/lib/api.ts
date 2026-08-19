@@ -885,10 +885,15 @@ export interface ObservationFilters {
 export async function mealObservations(
   filters: ObservationFilters,
 ): Promise<ApiResult<ObservationRow[]>> {
+  // §31: group observations by the authoritative Meal (via
+  // meal_service -> meal_revision -> meal), NOT the legacy menu_item_id.
+  // meal_revision.meal_id is the stable meal identity, so the same meal served
+  // on different days aggregates as one — and post-cutover records (which have
+  // meal_service_id, not menu_item_id) are included.
   let q = supabase
     .from('serving_records')
     .select(
-      '*, menu:menus!menu_item_id(id,dish_name,period), student:students!inner(institution_id,class_id)',
+      '*, svc:meal_services!meal_service_id(period,rev:meal_revisions!meal_revision_id(name,meal_id)), student:students!inner(institution_id,class_id)',
     )
     .gte('serving_date', filters.from)
     .lte('serving_date', filters.to)
@@ -899,7 +904,22 @@ export async function mealObservations(
   if (filters.period) q = q.eq('period', filters.period);
   const { data, error } = await q;
   if (error) return err(error);
-  return { data: (data ?? []) as unknown as ObservationRow[], error: null };
+  type Raw = ServingRecord & {
+    svc: { period: AppPeriod; rev: { name: string; meal_id: string } | null } | null;
+    student: { institution_id: string; class_id: string | null } | null;
+  };
+  const rows = (data ?? []) as unknown as Raw[];
+  return {
+    data: rows.map((r) => ({
+      ...r,
+      // map into the stable meal identity so the page keys by MEAL, not service
+      menu: r.svc?.rev
+        ? { id: r.svc.rev.meal_id, dish_name: r.svc.rev.name, period: r.svc.period }
+        : null,
+      student: r.student,
+    })) as unknown as ObservationRow[],
+    error: null,
+  };
 }
 
 // ---------------------------------------------------------------- serving
