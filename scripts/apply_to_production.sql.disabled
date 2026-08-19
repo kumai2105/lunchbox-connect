@@ -1,3 +1,10 @@
+-- ⛔ DO NOT RUN. Superseded and withdrawn.
+-- This script made unapproved business-data decisions (rebuilt service
+-- plans from the menu, auto-assigned one rotation to every institution,
+-- mass-published ~2056 services) AND auto-committed. Replaced by the
+-- separated, review-gated scripts in remediation/. See remediation/README.md.
+-- Original content preserved below for audit only.
+
 -- =====================================================================
 -- LunchBox Connect — ONE-SHOT PRODUCTION FIX  (project llnofriwvnerntrbpehc)
 --
