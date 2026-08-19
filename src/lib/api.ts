@@ -101,7 +101,6 @@ export async function listClasses(): Promise<ApiResult<ClassWithMeta[]>> {
     institution_id: r.institution_id,
     name: r.name,
     grade: r.grade,
-    teacher_id: r.teacher_id,
     active: r.active,
     student_count: r.students.length > 0 ? r.students[0].count : 0,
   }));

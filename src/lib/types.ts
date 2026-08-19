@@ -67,7 +67,9 @@ export interface ClassRow {
   institution_id: string;
   name: string;
   grade: string | null;
-  teacher_id: string | null;
+  // NB: classes.teacher_id still exists in the database as a legacy
+  // primary-contact hint (migration 0025), but the application no longer
+  // reads it — classroom staffing is the class_staff membership set (§16).
   active: boolean;
 }
 
@@ -97,20 +99,6 @@ export interface MedicalNote {
 export interface StudentParentLink {
   student_id: string;
   user_id: string;
-}
-
-export interface MenuItem {
-  id: string;
-  week_number: number;
-  weekday: number; // 0=Mon..4=Fri
-  period: AppPeriod;
-  dish_name: string;
-  ingredients: unknown[];
-  allergens: unknown[];
-  nutrition: Record<string, number | string | null>;
-  portion: string | null;
-  source_status: string;
-  published: boolean;
 }
 
 export interface ServingRecord {
@@ -182,10 +170,8 @@ export interface ProductionDemandRow {
 // Meal-performance analytics row (docs/13 Decision 032, Super Admin only) —
 // derived-only, excludes the non-preference population from consumption stats.
 export interface MealPerformanceRow {
-  menu_item_id: string;
+  menu_item_id: string; // stable Meal id (v_meal_performance, migration 0028)
   dish_name: string;
-  week_number: number;
-  weekday: number;
   period: AppPeriod;
   total_observations: number;
   valid_observations: number;

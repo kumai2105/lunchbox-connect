@@ -323,8 +323,6 @@ export default function MealAnalyticsPage() {
                     const c = classifyMealPerformance({
                       menu_item_id: m.id,
                       dish_name: m.name,
-                      week_number: 0,
-                      weekday: 0,
                       period: 'lunch',
                       total_observations: m.agg.total,
                       valid_observations: m.agg.valid,

@@ -8,18 +8,24 @@
 -- Rebuild it to aggregate by the real Meal, via
 -- serving_records.meal_service_id -> meal_services -> meal_revisions -> meals.
 -- The same meal served on many days aggregates as one meal, matching the Meal
--- Analytics screen and Parent Insights (§30). Output columns are unchanged for
--- compatibility: menu_item_id now carries the stable meal id, and the
--- week_number/weekday columns are retired to 0 (a reusable meal is not tied to
--- a single calendar week/weekday any more).
+-- Analytics screen and Parent Insights (§30).
+--
+-- The legacy week_number/weekday output columns are DROPPED, not zeroed: a
+-- reusable meal is not tied to a single calendar week/weekday, and leaving
+-- them as always-0 compatibility columns would be exactly the kind of
+-- vestigial architecture this correction order removes. menu_item_id is kept
+-- as the row key but now carries the stable meal id. Dropping columns changes
+-- the function's return type, so the dependent view and the function are both
+-- dropped and recreated.
 -- =====================================================================
 
-create or replace function v_meal_performance_impl()
+drop view if exists v_meal_performance;
+drop function if exists v_meal_performance_impl();
+
+create function v_meal_performance_impl()
 returns table (
   menu_item_id uuid,
   dish_name text,
-  week_number int,
-  weekday smallint,
   period app_period,
   total_observations bigint,
   valid_observations bigint,
@@ -32,8 +38,6 @@ language sql stable security definer set search_path = public as $$
   select
     mm.id                          as menu_item_id,   -- stable MEAL id now
     mm.name                        as dish_name,
-    0                              as week_number,     -- retired: meal is reusable
-    0::smallint                    as weekday,         -- retired
     ms.period,
     count(sr.id) as total_observations,
     count(sr.id) filter (
@@ -54,3 +58,9 @@ language sql stable security definer set search_path = public as $$
   where exists (select 1 from app_users me where me.user_id = auth.uid() and me.role = 'super_admin')
   group by mm.id, mm.name, ms.period
 $$;
+
+create view v_meal_performance
+with (security_invoker = true) as
+select * from v_meal_performance_impl();
+
+grant select on v_meal_performance to authenticated;

@@ -245,9 +245,15 @@ export default function InstitutionDetailPage() {
                     <td>{c.grade ?? '—'}</td>
                     <td className="mono">{c.student_count}</td>
                     <td className="cell-sub">
-                      {c.teacher_id
-                        ? (staff.find((u) => u.user_id === c.teacher_id)?.full_name ?? 'Assigned')
-                        : 'Unassigned'}
+                      {(() => {
+                        // Real staffing is the class_staff membership set (§16),
+                        // not the single legacy teacher_id. A class may have
+                        // several permitted staff, or none.
+                        const names = memberships
+                          .filter((m) => m.class_id === c.id)
+                          .map((m) => staff.find((u) => u.user_id === m.user_id)?.full_name ?? 'Staff');
+                        return names.length > 0 ? names.join(', ') : 'Unassigned';
+                      })()}
                     </td>
                     <td>
                       <Link to={`/today?class=${c.id}`} className="btn ghost sm">
