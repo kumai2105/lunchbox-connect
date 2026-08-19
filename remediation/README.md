@@ -58,11 +58,14 @@ an open transaction so you can review the notices and then type `commit;` or
 
 1. **`00_diagnose.sql`** — confirm the state above (especially that the 2056
    services are unreferenced and that no real serving history was orphaned).
-2. **`05_revert_unapproved_changes.sql`** — undo the unapproved changes. In
-   psql: review the before/after, then `commit;`. Institutions are now
-   *unconfigured* — which is correct until their real agreements are entered.
-   The security fix, meal library, rotation template, legacy menu, and all
-   serving records are untouched.
+2. **`05_revert_unapproved_changes.sql`** — undo the unapproved changes.
+   **This has already been applied to production with your approval:**
+   plans=0, assignments=0, published=0, while meals=20, rotations=1, slots=20,
+   serving_records=4, menus=20 were preserved and the leak stayed closed.
+   Institutions are now *unconfigured* — correct until their real agreements
+   are entered. Re-running the diagnose confirms this; re-running `05` is a
+   no-op. The security fix, meal library, rotation template, legacy menu, and
+   all serving records are untouched.
 3. For each institution whose agreement you actually know: fill and run
    **`03`**, then **`04`** for an approved window (drafts first).
 4. Any institution whose service plan or rotation you cannot source from an
@@ -89,5 +92,6 @@ Mirror of current production (`leak closed, 0 test meals, 2 inferred plans,
   excluded despite the menu carrying one; **04 blocks** an unconfigured
   institution.
 
-Nothing in this folder was run against production. Run it yourself, in the
-order above, reviewing each step.
+Only the approved revert (`05`, and the already-live security fix `01`) has
+been run against production. The remaining templates (`02`/`03`/`04`) have
+not — run those yourself, in the order above, reviewing each step.
