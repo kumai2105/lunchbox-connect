@@ -7,6 +7,7 @@ import {
   BEHAVIOR_LABEL,
   LOW_INTAKE_REASON_LABEL,
   consumptionHumanLabel,
+  isNonPreferenceReason,
   isValidPreferenceObservation,
 } from '../../lib/mealAnalytics';
 import {
@@ -122,19 +123,32 @@ export default function ParentHome() {
                     These are controlled fields (not free text), so they are
                     shown directly from the same record; only free-text notes
                     require review before a parent sees them. */}
-                {rec && rec.served_status === 'served' && (rec.behavior || rec.low_intake_reason) && (
-                  <div className="tmc-meta tmc-result">
-                    {rec.behavior && BEHAVIOR_LABEL[rec.behavior]}
-                    {rec.behavior && rec.low_intake_reason && ' · '}
-                    {rec.low_intake_reason && LOW_INTAKE_REASON_LABEL[rec.low_intake_reason]}
-                  </div>
-                )}
+                {/* §3/§6: an eating outcome (behaviour, and a preference reason
+                    when intake was low). Absent / Unwell / Asleep are NOT eating
+                    outcomes — they surface as the status pill instead, so a
+                    parent never reads "Ate independently · Absent". */}
+                {rec &&
+                  rec.served_status === 'served' &&
+                  (rec.behavior ||
+                    (rec.low_intake_reason && !isNonPreferenceReason(rec.low_intake_reason))) && (
+                    <div className="tmc-meta tmc-result">
+                      {rec.behavior && BEHAVIOR_LABEL[rec.behavior]}
+                      {rec.behavior &&
+                        rec.low_intake_reason &&
+                        !isNonPreferenceReason(rec.low_intake_reason) &&
+                        ' · '}
+                      {rec.low_intake_reason &&
+                        !isNonPreferenceReason(rec.low_intake_reason) &&
+                        LOW_INTAKE_REASON_LABEL[rec.low_intake_reason]}
+                    </div>
+                  )}
                 {note && <div className="tmc-note">“{note.body}”</div>}
               </div>
               {rec ? (
                 <Pill
                   variant={
-                    rec.served_status === 'not_served'
+                    rec.served_status === 'not_served' ||
+                    isNonPreferenceReason(rec.low_intake_reason)
                       ? 'slate'
                       : tone === 'ok'
                         ? 'free'
@@ -145,7 +159,9 @@ export default function ParentHome() {
                 >
                   {rec.served_status === 'not_served'
                     ? 'Not served'
-                    : consumptionHumanLabel(rec.consumption_pct)}
+                    : isNonPreferenceReason(rec.low_intake_reason)
+                      ? LOW_INTAKE_REASON_LABEL[rec.low_intake_reason!]
+                      : consumptionHumanLabel(rec.consumption_pct)}
                 </Pill>
               ) : (
                 <Pill variant="slate">Upcoming</Pill>
@@ -178,11 +194,23 @@ export default function ParentHome() {
                       <div className="history-row" key={p}>
                         <span className="tmc-meta">{PERIOD_LABEL[p]}</span>
                         <span>{dayMeals[p]?.dish_name ?? '—'}</span>
-                        <Pill variant={toneFor(rec) === 'ok' ? 'free' : rec ? 'reduced' : 'slate'}>
+                        <Pill
+                          variant={
+                            rec && isNonPreferenceReason(rec.low_intake_reason)
+                              ? 'slate'
+                              : toneFor(rec) === 'ok'
+                                ? 'free'
+                                : rec
+                                  ? 'reduced'
+                                  : 'slate'
+                          }
+                        >
                           {rec
                             ? rec.served_status === 'not_served'
                               ? 'Not served'
-                              : consumptionHumanLabel(rec.consumption_pct)
+                              : isNonPreferenceReason(rec.low_intake_reason)
+                                ? LOW_INTAKE_REASON_LABEL[rec.low_intake_reason!]
+                                : consumptionHumanLabel(rec.consumption_pct)
                             : '—'}
                         </Pill>
                       </div>

@@ -73,7 +73,11 @@ export default function UsersPage() {
       institutionId: needsInstitution ? form.institutionId || null : null,
       kitchenId: needsKitchen ? form.kitchenId || null : null,
       phone: form.phone.trim() || null,
-      authenticate: false,
+      // §5: the account must actually be usable with its temporary password —
+      // confirm it so the user can sign in immediately (there is no email
+      // invitation flow; that remains BLOCKED_BY_SPEC). This matches the
+      // truthful copy in the modal and the other provisioning entry points.
+      authenticate: true,
     });
     setBusy(false);
     if (res.error) {

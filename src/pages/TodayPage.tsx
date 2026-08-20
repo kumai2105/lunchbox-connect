@@ -22,7 +22,7 @@ import type {
   ServingRecord,
   Student,
 } from '../lib/types';
-import { CONSUMPTION_VALUES } from '../lib/types';
+import { CONSUMPTION_VALUES, NON_PREFERENCE_LOW_INTAKE_REASONS } from '../lib/types';
 import {
   Avatar,
   Btn,
@@ -269,6 +269,21 @@ export default function TodayPage() {
     if (ok) goToNextUnrecorded(index);
   }
 
+  // §6: Absent / Unwell / Asleep are recorded in ONE tap, with no contradictory
+  // eating behaviour or consumption reading. The meal was served (available) but
+  // the child did not eat it for a non-preference reason, so it is excluded from
+  // intake analytics and never rendered to a parent as "Ate independently".
+  async function saveException(reason: LowIntakeReason) {
+    const ok = await save({
+      served_status: 'served',
+      consumption_pct: null,
+      behavior: null,
+      low_intake_reason: reason,
+      concern_observed: false,
+    });
+    if (ok) goToNextUnrecorded(index);
+  }
+
   async function saveExceptionNow() {
     const ok = await save({
       consumption_pct: draft.pct,
@@ -490,6 +505,22 @@ export default function TodayPage() {
               ))}
             </div>
 
+            {/* §6: one-tap exceptions — no % or behaviour required, and never
+                combined with an eating behaviour. Recorded as served-but-excluded. */}
+            <div className="chip-choice exception-row">
+              <span className="tmc-meta">Or mark:</span>
+              {NON_PREFERENCE_LOW_INTAKE_REASONS.map((r) => (
+                <button
+                  key={r}
+                  className={rec?.low_intake_reason === r ? 'selected' : ''}
+                  onClick={() => void saveException(r)}
+                  disabled={saving}
+                >
+                  {LOW_INTAKE_REASON_LABEL[r]}
+                </button>
+              ))}
+            </div>
+
             {draft.pct !== null && (
               <div className="chip-choice">
                 {(['ate_independently', 'needed_encouragement', 'refused'] as EatingBehavior[]).map(
@@ -508,7 +539,12 @@ export default function TodayPage() {
 
             {isLowIntake(draft.pct) && draft.behavior && (
               <div className="chip-choice">
-                {(Object.keys(LOW_INTAKE_REASON_LABEL) as LowIntakeReason[]).map((r) => (
+                {/* §6: only preference reasons here. Absent / Unwell / Asleep are
+                    NOT eating outcomes and live on the one-tap exception row above,
+                    so "0% → Ate independently → Absent" can no longer be formed. */}
+                {(Object.keys(LOW_INTAKE_REASON_LABEL) as LowIntakeReason[])
+                  .filter((r) => !NON_PREFERENCE_LOW_INTAKE_REASONS.includes(r))
+                  .map((r) => (
                   <button
                     key={r}
                     className={draft.reason === r ? 'selected' : ''}

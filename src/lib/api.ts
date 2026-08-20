@@ -14,6 +14,7 @@ import {
   type MealInput,
   type MealLibraryItem,
   type MealPerformanceRow,
+  type MealRevisionPerformanceRow,
   type ProductionDemandRow,
   type ServedStatus,
   type ServingNote,
@@ -875,6 +876,18 @@ export async function mealPerformance(): Promise<ApiResult<MealPerformanceRow[]>
     .order('avg_consumption_pct', { ascending: true, nullsFirst: false });
   if (error) return err(error);
   return { data: (data ?? []) as MealPerformanceRow[], error: null };
+}
+
+// Revision-level performance (integrity item 2): the same observations kept
+// split per meal revision, for before/after recipe evaluation.
+export async function mealRevisionPerformance(): Promise<ApiResult<MealRevisionPerformanceRow[]>> {
+  const { data, error } = await supabase
+    .from('v_meal_revision_performance')
+    .select('*')
+    .order('meal_name')
+    .order('revision_no');
+  if (error) return err(error);
+  return { data: (data ?? []) as MealRevisionPerformanceRow[], error: null };
 }
 
 // Raw Classroom Meal Records for analytics, joined to the Meal they were

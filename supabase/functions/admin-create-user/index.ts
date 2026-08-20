@@ -38,7 +38,11 @@ interface Payload {
   institutionId?: string | null;
   kitchenId?: string | null;
   phone?: string | null;
-  // when false, the account is created without confirming the email (invite-like)
+  // Confirms the email so the account can sign in immediately with the
+  // temporary password. The app's provisioning screens pass true (there is no
+  // email-invitation flow yet — that is BLOCKED_BY_SPEC). false would create an
+  // unconfirmed account that cannot authenticate under the default model, so it
+  // must not be presented to an Admin as "ready to use".
   authenticate?: boolean;
 }
 

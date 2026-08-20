@@ -88,15 +88,16 @@ begin
   values ('ZZ-W1', v_inst,'Wire','Child', v_class,'enrolled','ACTIVE_BILLABLE_TO_NURSERY')
     returning id into v_student;
 
+  -- Guarantee a published lunch service for TODAY so the classroom recording
+  -- path is exercised on any day of the week, and so the stored link matches
+  -- the serving date (0030 item 3 rejects a service for a different date).
+  insert into meal_services (institution_id, service_date, period, meal_revision_id, published, published_at)
+  select v_inst, current_date, 'lunch', mr.id, true, now()
+    from meal_revisions mr limit 1
+  on conflict (institution_id, service_date, period) do update set published = true;
+
   select id into v_service from meal_services
    where institution_id = v_inst and service_date = current_date and period = 'lunch';
-
-  if v_service is null then
-    raise notice 'NOTE  no service today (weekend); using the next weekday instead';
-    select id into v_service from meal_services
-     where institution_id = v_inst and period = 'lunch' and service_date > current_date
-     order by service_date limit 1;
-  end if;
 
   insert into serving_records (serving_date, class_id, student_id, period, served_status,
                                consumption_pct, behavior, concern_observed, meal_service_id,

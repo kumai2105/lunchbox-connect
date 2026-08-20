@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import ShellPage from './ShellPage';
-import { mealPerformance } from '../lib/api';
-import type { MealPerformanceRow } from '../lib/types';
+import { mealPerformance, mealRevisionPerformance } from '../lib/api';
+import type { MealPerformanceRow, MealRevisionPerformanceRow } from '../lib/types';
 import { Banner, Card, EmptyState, PageHead, Pill, Spinner } from '../components/ui';
 import { useRole } from '../lib/auth';
 import { classifyMealPerformance } from '../lib/mealAnalytics';
@@ -33,19 +33,35 @@ export default function ReportsPage() {
 
 function MealPerformance() {
   const [rows, setRows] = useState<MealPerformanceRow[] | null>(null);
+  const [revRows, setRevRows] = useState<MealRevisionPerformanceRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    void mealPerformance().then((res) => {
+    void Promise.all([mealPerformance(), mealRevisionPerformance()]).then(([res, rev]) => {
       if (!active) return;
-      if (res.error) setError(res.error);
+      if (res.error || rev.error) setError(res.error ?? rev.error);
       setRows(res.data ?? []);
+      setRevRows(rev.data ?? []);
     });
     return () => {
       active = false;
     };
   }, []);
+
+  // A meal is worth a revision breakdown only when more than one revision of it
+  // has actually been observed — that is exactly the before/after case.
+  const revisedMeals = new Set(
+    Object.entries(
+      (revRows ?? []).reduce<Record<string, Set<string>>>((acc, r) => {
+        (acc[r.meal_id] ??= new Set()).add(r.meal_revision_id);
+        return acc;
+      }, {}),
+    )
+      .filter(([, revs]) => revs.size > 1)
+      .map(([mealId]) => mealId),
+  );
+  const revisionBreakdown = (revRows ?? []).filter((r) => revisedMeals.has(r.meal_id));
 
   return (
     <div>
@@ -107,6 +123,49 @@ function MealPerformance() {
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        )}
+      </Card>
+
+      <Card
+        title="By recipe revision"
+        hint="before/after evaluation — only meals with more than one observed revision"
+      >
+        {!revRows ? (
+          <Spinner />
+        ) : revisionBreakdown.length === 0 ? (
+          <EmptyState text="No meal has been observed across more than one recipe revision yet." />
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Meal</th>
+                <th>Revision</th>
+                <th>Period</th>
+                <th>Valid observations</th>
+                <th>Avg. consumption</th>
+                <th>Refusals</th>
+              </tr>
+            </thead>
+            <tbody>
+              {revisionBreakdown.map((r) => (
+                <tr key={`${r.meal_revision_id}-${r.period}`}>
+                  <td className="cell-name">{r.meal_name}</td>
+                  <td className="mono">
+                    v{r.revision_no}
+                    {r.revision_name !== r.meal_name ? ` — ${r.revision_name}` : ''}
+                  </td>
+                  <td className="cell-sub">{r.period}</td>
+                  <td className="mono">
+                    {r.valid_observations} / {r.total_observations}
+                  </td>
+                  <td className="mono">
+                    {r.avg_consumption_pct !== null ? `${r.avg_consumption_pct}%` : '—'}
+                  </td>
+                  <td className="mono">{r.refusal_count}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}

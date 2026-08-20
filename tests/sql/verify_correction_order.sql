@@ -13,6 +13,7 @@ declare
   v_super uuid := '00000000-0000-0000-0000-0000000000a1';
   v_inst uuid; v_cls uuid; v_staff uuid; v_student uuid;
   v_rev uuid; v_meal uuid; v_service uuid; n int; v_link uuid;
+  v_inst2 uuid; v_service2 uuid; v_clsB uuid; v_studentB uuid;
 begin
   -- ---- fixture -------------------------------------------------------------
   insert into institutions (name, kind) values ('ZZ CO Nursery','nursery') returning id into v_inst;
@@ -116,7 +117,77 @@ begin
   if n <> 2 then raise exception 'FAIL item7: could not create students without a student_no (%)', n; end if;
   raise notice 'PASS item7: student_no is optional; two number-less students coexist';
 
+  -- ---- item 3: the RPC rejects a Meal Service that doesn't match -----------
+  -- (a) wrong period: hand the published LUNCH service to a BREAKFAST row.
+  begin
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_staff, 'role','authenticated')::text, true);
+    set local role authenticated;
+    perform record_serving_batch(
+      v_cls,
+      jsonb_build_array(jsonb_build_object(
+        'student_id', v_student, 'period','breakfast',
+        'served_status','served','consumption_pct','100',
+        'meal_service_id', v_service)),   -- lunch service used for breakfast
+      current_date);
+    reset role;
+    raise exception 'FAIL item3: a Meal Service from the wrong PERIOD was accepted';
+  exception when check_violation then
+    reset role;
+    raise notice 'PASS item3: a Meal Service from the wrong period is rejected';
+  end;
+
+  -- (b) foreign institution: a service published at ANOTHER institution.
+  insert into institutions (name, kind) values ('ZZ CO Foreign','nursery') returning id into v_inst2;
+  insert into meal_services (institution_id, service_date, period, meal_revision_id, published)
+    values (v_inst2, current_date, 'lunch', v_rev, true) returning id into v_service2;
+  begin
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_staff, 'role','authenticated')::text, true);
+    set local role authenticated;
+    perform record_serving_batch(
+      v_cls,
+      jsonb_build_array(jsonb_build_object(
+        'student_id', v_student, 'period','lunch',
+        'served_status','served','consumption_pct','100',
+        'meal_service_id', v_service2)),  -- another institution's service
+      current_date);
+    reset role;
+    raise exception 'FAIL item3: a foreign-institution Meal Service was accepted';
+  exception when check_violation then
+    reset role;
+    raise notice 'PASS item3: a foreign-institution Meal Service is rejected';
+  end;
+
+  -- ---- item 4: the RPC rejects recording a student under the wrong class ---
+  -- Staff is assigned to two classes; a Class B student may not be recorded
+  -- using Class A as the class id, even though the staff can reach both.
+  insert into classes (institution_id, name, grade) values (v_inst,'CO Class B','T')
+    returning id into v_clsB;
+  insert into students (student_no, institution_id, given_name, family_name, class_id,
+                        enrollment_status, operational_status)
+    values ('CO-B', v_inst,'Kid','B', v_clsB,'enrolled','ACTIVE_BILLABLE_TO_NURSERY')
+    returning id into v_studentB;
+  insert into class_staff (class_id, user_id) values (v_clsB, v_staff);
+  begin
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_staff, 'role','authenticated')::text, true);
+    set local role authenticated;
+    perform record_serving_batch(
+      v_cls,   -- Class A
+      jsonb_build_array(jsonb_build_object(
+        'student_id', v_studentB, 'period','lunch',   -- but a Class B student
+        'served_status','served','consumption_pct','100',
+        'meal_service_id', v_service)),
+      current_date);
+    reset role;
+    raise exception 'FAIL item4: a Class B student was recorded under Class A';
+  exception when check_violation then
+    reset role;
+    raise notice 'PASS item4: a student cannot be recorded under a class they are not in';
+  end;
+
   raise notice '---------------------------------------------------------';
-  raise notice 'CORRECTION ORDER (items 1/6/7): integrity verified.';
+  raise notice 'CORRECTION ORDER (items 1/3/4/6/7): integrity verified.';
 end $$;
 rollback;

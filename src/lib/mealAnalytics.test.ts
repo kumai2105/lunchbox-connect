@@ -45,6 +45,24 @@ describe('meal analytics (docs/13 Decision 032)', () => {
     expect(isNonPreferenceReason(undefined)).toBe(false);
   });
 
+  it('§6: an exception (Absent, no eating behaviour) is excluded and never a refusal', () => {
+    // The one-tap exception path records served + null behaviour + reason.
+    const rows: ObservationLike[] = [
+      obs({ consumption_pct: 100, behavior: 'ate_independently' }),
+      obs({ consumption_pct: null, behavior: null, low_intake_reason: 'absent' }),
+      obs({ consumption_pct: null, behavior: null, low_intake_reason: 'unwell' }),
+    ];
+    const s = aggregateObservations(rows);
+    expect(s.total).toBe(3);
+    expect(s.valid).toBe(1); // only the real eating observation counts
+    expect(s.excluded).toBe(2);
+    expect(s.refusals).toBe(0); // a null behaviour is never a refusal
+    expect(s.avgConsumption).toBe(100); // exceptions do not drag the average to 0
+    // the exception reasons are still reported for operational awareness
+    expect(s.reasons.absent).toBe(1);
+    expect(s.reasons.unwell).toBe(1);
+  });
+
   it('valid preference population excludes not_served and non-preference reasons (§42)', () => {
     expect(
       isValidPreferenceObservation({ served_status: 'not_served', low_intake_reason: null }),

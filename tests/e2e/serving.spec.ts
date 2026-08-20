@@ -58,6 +58,24 @@ test.describe('classroom serving screen (docs/13 Decision 032 — fast tablet wo
     await expect(firstChip.locator('.status-badge')).toHaveClass(/sb-xCircle/);
   });
 
+  test('§6: Absent/Unwell/Asleep record in one tap without an eating behaviour', async ({
+    page,
+  }) => {
+    const s = seeded();
+    await login(page, s.classroomEmail);
+    await page.goto(`/today?class=${s.classForServing}`);
+    await expect(page.locator('.focus-name')).toContainText('Serving');
+
+    // The exception row is always available and needs no % or behaviour first.
+    await expect(page.getByRole('button', { name: 'Absent' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Unwell' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sleeping' })).toBeVisible();
+
+    // One tap records it and advances — no contradictory behaviour is possible.
+    await page.getByRole('button', { name: 'Absent' }).click();
+    await expect(page.locator('.roster-chip').first().locator('.status-badge')).not.toHaveText('');
+  });
+
   test('a class with nothing published for the day cannot record consumption (§1/§2)', async ({
     page,
   }) => {

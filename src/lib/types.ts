@@ -170,6 +170,24 @@ export interface ProductionDemandRow {
 
 // Meal-performance analytics row (docs/13 Decision 032, Super Admin only) —
 // derived-only, excludes the non-preference population from consumption stats.
+// Revision-level meal performance (Decision 033 / integrity item 2) — the same
+// observations as MealPerformanceRow but kept split per meal revision, so a
+// recipe change can be evaluated before/after. Meal-level stays the default.
+export interface MealRevisionPerformanceRow {
+  meal_id: string;
+  meal_name: string;
+  meal_revision_id: string;
+  revision_no: number;
+  revision_name: string;
+  period: AppPeriod;
+  total_observations: number;
+  valid_observations: number;
+  avg_consumption_pct: number | null;
+  refusal_count: number;
+  encouragement_count: number;
+  did_not_like_count: number;
+}
+
 export interface MealPerformanceRow {
   menu_item_id: string; // stable Meal id (v_meal_performance, migration 0028)
   dish_name: string;
