@@ -2,11 +2,11 @@
 
 **Packaged:** 2026-08-20
 **Branch:** `claude/new-session-k5dd5u`
-**Release commit:** `a9c9e96`
-**Package identity:** the ZIP is named `lunchbox-connect-a9c9e96.zip`, and this
-manifest and `docs/VERIFICATION_FINAL.md` both reference `a9c9e96`. The manifest
+**Release commit:** `7072529`
+**Package identity:** the ZIP is named `lunchbox-connect-7072529.zip`, and this
+manifest and `docs/VERIFICATION_FINAL.md` both reference `7072529`. The manifest
 and the regenerated report are committed as a thin packaging layer on top of
-`a9c9e96` (that is the commit whose code they describe); the archive contains
+`7072529` (that is the commit whose code they describe); the archive contains
 that layer so the delivered docs are the current ones.
 
 ---
@@ -19,13 +19,14 @@ All gates were run immediately before packaging.
 | ---- | ------- | ------ |
 | Types | `pnpm typecheck` | **PASS** — no errors |
 | Lint | `pnpm lint` | **PASS** — no errors, no warnings |
-| Unit tests | `pnpm test:unit` | **PASS — 58/58** across 6 files |
-| Production build | `pnpm build` | **PASS** — 119 modules |
-| Database suites | `./tests/sql/run_verification.sh` | **PASS — 11 suites** (incl. the 146-check authorization matrix) |
+| Unit tests | `pnpm test:unit` | **PASS — 65/65** across 7 files |
+| Production build | `pnpm build` | **PASS** — 120 modules |
+| Database suites | `./tests/sql/run_verification.sh` | **PASS — 12 suites** (incl. the 146-check authorization matrix) |
 
 Unit files: `calendar.test.ts` (14), `mealAnalytics.test.ts` (16),
-`rbac.test.ts` (11), `authorization.consistency.test.ts` (8), `format.test.ts`
-(6), `status.test.ts` (3).
+`rbac.test.ts` (11), `format.test.ts` (10, incl. Asia/Dubai boundary),
+`authorization.consistency.test.ts` (8), `kitchen.test.ts` (3, revision
+grouping), `status.test.ts` (3).
 
 **Not run:** `pnpm test:e2e` (Playwright) — the suite needs egress to
 `*.supabase.co`, which this sandbox blocks. The specs are included, rewritten to
@@ -34,7 +35,7 @@ the current architecture, and runnable in an environment with that egress.
 ## 2. Database verification
 
 `./tests/sql/run_verification.sh` builds a PostgreSQL 16 cluster from nothing,
-applies `supabase/migrations/0001`–`0030` verbatim, and runs 11 suites. Each
+applies `supabase/migrations/0001`–`0031` verbatim, and runs 12 suites. Each
 suite is mutation-tested (deliberately broken to prove it can fail). Full report
 and the release decision: **`docs/VERIFICATION_FINAL.md`**.
 
@@ -47,11 +48,11 @@ Everything required to build and run the project, excluding only §5.
   (admin/nursery/kitchen incl. `StaffPage`, `MealLibraryPage`,
   `MenuBuilderPage`, `InstitutionServiceTab`, `InstitutionCalendarTab`),
   `pages/parent/` (mobile parent portal). The retired legacy `MenuPage` is gone.
-- **`supabase/`** — `migrations/0001`–`0030` (schema, RLS, resolution/publish
+- **`supabase/`** — `migrations/0001`–`0031` (schema, RLS, resolution/publish
   engine, meal library RPCs, class_staff, per-meal demand, analytics one-truth,
-  and the integrity pass 0029/0030); `functions/admin-create-user/`;
+  and the integrity pass 0029/0030/0031); `functions/admin-create-user/`;
   `config.toml`.
-- **`tests/`** — `sql/` (11 `verify_*.sql` suites + shim + actors + runner),
+- **`tests/`** — `sql/` (12 `verify_*.sql` suites + shim + actors + runner),
   `e2e/` (5 Playwright specs + fixtures + global-setup, on the current chain).
 - **`docs/`** — the spec pack, `VERIFICATION_FINAL.md`, `VERIFICATION_DECISION_033.md`.
 - **`remediation/`** — separated, review-gated production scripts + README.
@@ -92,7 +93,7 @@ pnpm typecheck && pnpm lint && pnpm test:unit && pnpm build
 ./tests/sql/run_verification.sh
 ```
 
-Migrations apply in numerical order, `0001` → `0030`. For production, follow
+Migrations apply in numerical order, `0001` → `0031`. For production, follow
 `scripts/PRODUCTION_APPLY.md` (schema first; service plans / rotation
 assignments / publishing are Admin-UI actions, never migration side effects).
 
