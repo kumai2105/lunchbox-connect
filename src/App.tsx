@@ -10,6 +10,7 @@ import InstitutionDetailPage from './pages/InstitutionDetailPage';
 import StudentsPage from './pages/StudentsPage';
 import StudentProfilePage from './pages/StudentProfilePage';
 import GuardiansPage from './pages/GuardiansPage';
+import InstitutionSchedulePage from './pages/InstitutionSchedulePage';
 import ClassesPage from './pages/ClassesPage';
 import StatusPage from './pages/StatusPage';
 import AuditPage from './pages/AuditPage';
@@ -107,6 +108,14 @@ export default function App() {
               element={
                 <Page page="students">
                   <StudentProfilePage />
+                </Page>
+              }
+            />
+            <Route
+              path="/schedule"
+              element={
+                <Page page="schedule">
+                  <InstitutionSchedulePage />
                 </Page>
               }
             />

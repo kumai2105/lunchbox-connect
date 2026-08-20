@@ -13,7 +13,7 @@ import { Banner, EmptyState, Spinner } from '../../components/ui';
 import { Icon, type IconName } from '../../components/icons';
 import { operationalDaysAgoISO, todayISO, weekEndISO } from '../../lib/format';
 import { ParentContext, type ParentCtx } from './context';
-import { createRequestGuard } from './shared';
+import { childDataReady, createRequestGuard } from './shared';
 
 const NAV: Array<{ to: string; label: string; icon: IconName; end?: boolean }> = [
   { to: '/parent', label: 'Home', icon: 'home', end: true },
@@ -40,10 +40,11 @@ export default function ParentShell() {
   const [meals, setMeals] = useState<DayMeal[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  // True while THIS child's data is in flight. The screens are not rendered at
-  // all during that window, so none of them can paint the previous child's
-  // records, photo, meals or notes under the newly selected child's name.
-  const [childLoading, setChildLoading] = useState(false);
+  // WHICH child the currently loaded dataset belongs to. Readiness is derived
+  // by comparing this against the selected child, so the immediate selection
+  // render — which happens before any effect runs — already knows the data on
+  // hand belongs to somebody else, and renders none of it.
+  const [loadedChildId, setLoadedChildId] = useState<string | null>(null);
   // Discards responses belonging to a child who is no longer selected: without
   // it a slow request for child A could land after child B's and overwrite it.
   const guard = useRef(createRequestGuard()).current;
@@ -71,9 +72,9 @@ export default function ParentShell() {
   async function loadChild(id: string) {
     const token = guard.next();
     const kid = (children ?? []).find((c) => c.id === id);
-    // Drop the outgoing child's data IMMEDIATELY rather than leaving it on
-    // screen until the new data arrives.
-    setChildLoading(true);
+    // Drop the outgoing child's data and mark nothing as loaded. Belt and
+    // braces alongside the derived readiness check below.
+    setLoadedChildId(null);
     setRecords([]);
     setNotes({});
     setMeals([]);
@@ -107,7 +108,9 @@ export default function ParentShell() {
     const map: Record<string, ServingNote> = {};
     (n.data ?? []).filter((x) => x.published_at).forEach((x) => (map[x.serving_record_id] = x));
     setNotes(map);
-    setChildLoading(false);
+    // Only NOW does this dataset belong to `id` — and only now may the screens
+    // render it.
+    setLoadedChildId(id);
   }
 
   useEffect(() => {
@@ -158,10 +161,10 @@ export default function ParentShell() {
 
         <div className="parent-body">
           {error && <Banner kind="err">{error}</Banner>}
-          {/* While a newly selected child is loading, show the spinner rather
-              than the previous child's data. Rendering the screens here would
-              let them paint child A's records under child B's name. */}
-          {childLoading ? <Spinner /> : <Outlet />}
+          {/* The screens render ONLY when the loaded dataset belongs to the
+              selected child. On the selection render those ids differ, so
+              child A's records can never appear under child B's name. */}
+          {childDataReady(loadedChildId, child?.id) ? <Outlet /> : <Spinner />}
         </div>
 
         <nav className="parent-nav">

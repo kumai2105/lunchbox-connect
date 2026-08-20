@@ -885,9 +885,13 @@ export async function mealsForDates(
 }
 
 // Links a Classroom observation to the exact dated service it was recorded
-// against, giving Production -> Meal -> revision traceability. Returns null
-// when nothing is published for that slot, and the caller must record the
-// observation anyway rather than inventing a service.
+// against, giving Production -> Meal -> revision traceability.
+//
+// Returns null when nothing is published for that slot. Since migration 0033 a
+// null here means the period is NOT APPLICABLE and cannot be recorded at all —
+// every new Classroom Meal Record, served or not, must anchor to a published
+// Meal Service. (The older comment said the caller should record anyway; that
+// is no longer true, and record_serving_batch refuses it.)
 export async function resolveMealServiceId(
   institutionId: string,
   serving_date: string,

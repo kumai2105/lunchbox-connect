@@ -257,8 +257,15 @@ begin
   end if;
   raise notice 'PASS  §67 a 75%% "tried" and a 0%% REFUSED remain distinct records';
 
-  -- §47 an ABSENT observation must not count as meal rejection
-  update serving_records set low_intake_reason = 'absent', consumption_pct = 0
+  -- §47 an ABSENT observation must not count as meal rejection.
+  --
+  -- 0035: the APPROVED exception form is behaviour-free and carries NO
+  -- consumption reading. This previously wrote `absent` together with 0%, which
+  -- is a contradiction — "the child was absent" and "the child ate none of it"
+  -- are different facts, and storing both is exactly what makes an absence look
+  -- like a rejection downstream. The constraint now refuses it.
+  update serving_records
+     set low_intake_reason = 'absent', consumption_pct = null, behavior = null
    where student_id = v_student3 and meal_service_id = v_service;
   select count(*) into n from serving_records
    where meal_service_id = v_service

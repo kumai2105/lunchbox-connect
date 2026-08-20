@@ -100,3 +100,23 @@ export function createRequestGuard(): {
     isCurrent: (token: number) => token === current,
   };
 }
+
+/**
+ * Whether the loaded dataset actually belongs to the child now selected.
+ *
+ * The request guard alone was not enough. Clicking another child only calls
+ * `setChildId(B)`, so React re-renders IMMEDIATELY with B selected while
+ * `records`, `notes`, `meals` and `photoUrl` still hold A's data — and the
+ * effect that would start B's load, and flip a loading flag, has not run yet.
+ * That single render painted child A's meals and notes under child B's name.
+ *
+ * Deriving readiness from the data itself removes the window entirely: the id
+ * the loaded dataset belongs to must equal the id currently selected. On the
+ * selection render those differ, so nothing child-specific is rendered at all.
+ */
+export function childDataReady(
+  loadedChildId: string | null,
+  selectedChildId: string | undefined,
+): boolean {
+  return !!selectedChildId && loadedChildId === selectedChildId;
+}

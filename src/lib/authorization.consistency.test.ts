@@ -126,7 +126,17 @@ describe('authorization consistency: nav vs rbac matrix', () => {
     // that does not exist — a Student delete cascades into operational
     // history, a Class delete nulls historical references, and an Institution
     // delete cascades a whole tenant.
-    const core: Resource[] = ['students', 'classes', 'institutions', 'users'];
+    // 0034/0035 extended this to every entity the database refuses to hard
+    // delete. Meals, Menus and Kitchens all carry `active` archive semantics.
+    const core: Resource[] = [
+      'students',
+      'classes',
+      'institutions',
+      'users',
+      'meals',
+      'menubuilder',
+      'kitchens',
+    ];
     const offenders: string[] = [];
     ALL_ROLES.forEach((role) => {
       core.forEach((resource) => {

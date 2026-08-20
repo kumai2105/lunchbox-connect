@@ -81,6 +81,16 @@ function mustOk(what: string, res: { error: { message: string } | null }): void 
   if (res.error) throw new Error(`[e2e] fixture step failed — ${what}: ${res.error.message}`);
 }
 
+/**
+ * A READ whose result later steps depend on. Unlike `must`, a null row is a
+ * legitimate answer here ("this fixture account does not exist yet") — only an
+ * ERROR is fatal, and it must not be swallowed.
+ */
+function mustQuery<T>(what: string, res: { data: T; error: { message: string } | null }): T {
+  if (res.error) throw new Error(`[e2e] fixture query failed — ${what}: ${res.error.message}`);
+  return res.data;
+}
+
 // Get-or-create a Meal + its revision by name; returns the revision id.
 async function ensureMeal(
   db: SupabaseClient,
@@ -92,37 +102,54 @@ async function ensureMeal(
     nutrition?: Record<string, unknown>;
   },
 ): Promise<string> {
-  const { data: existingMeal } = await db.from('meals').select('id').eq('name', name).maybeSingle();
-  let mealId = existingMeal?.id as string | undefined;
+  const existingMeal = mustQuery(
+    `look up meal ${name}`,
+    await db.from('meals').select('id').eq('name', name).maybeSingle(),
+  ) as { id: string } | null;
+  let mealId = existingMeal?.id;
   if (!mealId) {
-    const { data: createdMeal } = await db.from('meals').insert({ name }).select('id').single();
-    mealId = createdMeal!.id as string;
+    const createdMeal = must(
+      `create meal ${name}`,
+      await db.from('meals').insert({ name }).select('id').single(),
+    ) as { id: string };
+    mealId = createdMeal.id;
   }
-  const { data: existingRev } = await db
-    .from('meal_revisions')
-    .select('id')
-    .eq('meal_id', mealId)
-    .eq('revision_no', 1)
-    .maybeSingle();
-  let revId = existingRev?.id as string | undefined;
-  if (!revId) {
-    const { data: createdRev } = await db
+
+  const existingRev = mustQuery(
+    `look up revision 1 of ${name}`,
+    await db
       .from('meal_revisions')
-      .insert({
-        meal_id: mealId,
-        revision_no: 1,
-        name,
-        allergens: rev.allergens ?? [],
-        ingredients: rev.ingredients ?? [],
-        portion: rev.portion ?? null,
-        nutrition: rev.nutrition ?? {},
-      })
       .select('id')
-      .single();
-    revId = createdRev!.id as string;
+      .eq('meal_id', mealId)
+      .eq('revision_no', 1)
+      .maybeSingle(),
+  ) as { id: string } | null;
+  let revId = existingRev?.id;
+  if (!revId) {
+    const createdRev = must(
+      `create revision 1 of ${name}`,
+      await db
+        .from('meal_revisions')
+        .insert({
+          meal_id: mealId,
+          revision_no: 1,
+          name,
+          allergens: rev.allergens ?? [],
+          ingredients: rev.ingredients ?? [],
+          portion: rev.portion ?? null,
+          nutrition: rev.nutrition ?? {},
+        })
+        .select('id')
+        .single(),
+    ) as { id: string };
+    revId = createdRev.id;
   }
-  await db.from('meals').update({ current_revision_id: revId }).eq('id', mealId);
-  return revId!;
+
+  mustOk(
+    `point meal ${name} at its current revision`,
+    await db.from('meals').update({ current_revision_id: revId }).eq('id', mealId),
+  );
+  return revId;
 }
 
 export default async function globalSetup(): Promise<void> {
@@ -224,55 +251,111 @@ export default async function globalSetup(): Promise<void> {
     { role: 'driver', email: 'e2e.driver@lunchbox.app' },
   ];
 
-  for (const account of accounts) {
-    const { data: existing } = await db
-      .from('app_users')
-      .select('user_id')
-      .eq('email', account.email)
-      .maybeSingle();
+  // Only the genuinely INSTITUTION-SCOPED roles carry institution_id.
+  // Operations Manager, Finance/Owner, Viewer and Driver are NOT
+  // institution-scoped in the approved model — anchoring them to one out of
+  // convenience made the fixture disagree with the RBAC it is meant to prove.
+  // Kitchen is scoped to a Kitchen entity instead.
+  const INSTITUTION_SCOPED = ['school_admin', 'classroom_staff'];
+  const expectedScope = (role: string) => ({
+    institution_id: INSTITUTION_SCOPED.includes(role) ? institutionId : null,
+    kitchen_id: role === 'kitchen' ? kitchenId : null,
+  });
 
-    if (!existing) {
-      const created = await db.auth.admin.createUser({
-        email: account.email,
-        password: PASS,
-        email_confirm: true,
-        user_metadata: { full_name: account.role.replace('_', ' ').toUpperCase() },
-      });
-      if (created.error || !created.data.user) {
-        throw new Error(
-          `[e2e] fixture step failed — create auth user ${account.email}: ${created.error?.message ?? 'no user returned'}`,
+  for (const account of accounts) {
+    const existing = mustQuery(
+      `look up fixture account ${account.email}`,
+      await db
+        .from('app_users')
+        .select('user_id, role, institution_id, kitchen_id')
+        .eq('email', account.email)
+        .maybeSingle(),
+    ) as {
+      user_id: string;
+      role: string;
+      institution_id: string | null;
+      kitchen_id: string | null;
+    } | null;
+
+    const want = expectedScope(account.role);
+
+    if (existing) {
+      // RECONCILE rather than skip. A fixture account left behind by an older
+      // seed can carry the wrong role or scope (the Kitchen account, for
+      // instance, used to be created with no kitchen_id at all). Skipping it
+      // because "a row exists" is how a suite ends up asserting against a
+      // malformed actor and failing for the wrong reason.
+      //
+      // Only ever touches the namespaced e2e.*@lunchbox.app accounts this file
+      // owns — never a real account.
+      if (!account.email.startsWith('e2e.')) {
+        throw new Error(`[e2e] refusing to modify a non-fixture account: ${account.email}`);
+      }
+      const drifted =
+        existing.role !== account.role ||
+        existing.institution_id !== want.institution_id ||
+        existing.kitchen_id !== want.kitchen_id;
+      if (drifted) {
+        console.warn(
+          `[e2e] reconciling fixture account ${account.email}: ` +
+            `role ${existing.role}->${account.role}, ` +
+            `institution ${existing.institution_id}->${want.institution_id}, ` +
+            `kitchen ${existing.kitchen_id}->${want.kitchen_id}`,
+        );
+        mustOk(
+          `reconcile fixture account ${account.email}`,
+          await db
+            .from('app_users')
+            .update({ role: account.role, ...want })
+            .eq('user_id', existing.user_id),
         );
       }
+      continue;
+    }
 
-      // Only the genuinely INSTITUTION-SCOPED roles carry institution_id.
-      // Operations Manager, Finance/Owner, Viewer and Driver are NOT
-      // institution-scoped in the approved model — anchoring them to one out of
-      // convenience made the fixture disagree with the RBAC it is meant to
-      // prove. Kitchen is scoped to a Kitchen entity instead.
-      const INSTITUTION_SCOPED = ['school_admin', 'classroom_staff'];
-      mustOk(
-        `create app_users row for ${account.email}`,
-        await db.from('app_users').insert({
-          user_id: created.data.user.id,
-          role: account.role,
-          institution_id: INSTITUTION_SCOPED.includes(account.role) ? institutionId : null,
-          kitchen_id: account.role === 'kitchen' ? kitchenId : null,
-          full_name: account.role.replace('_', ' '),
-          email: account.email,
-        }),
+    const created = await db.auth.admin.createUser({
+      email: account.email,
+      password: PASS,
+      email_confirm: true,
+      user_metadata: { full_name: account.role.replace('_', ' ').toUpperCase() },
+    });
+    if (created.error || !created.data.user) {
+      throw new Error(
+        `[e2e] fixture step failed — create auth user ${account.email}: ${created.error?.message ?? 'no user returned'}`,
       );
     }
+
+    mustOk(
+      `create app_users row for ${account.email}`,
+      await db.from('app_users').insert({
+        user_id: created.data.user.id,
+        role: account.role,
+        ...want,
+        full_name: account.role.replace('_', ' '),
+        email: account.email,
+      }),
+    );
   }
 
-  const { data: users } = await db.from('app_users').select('user_id, role, email');
-  const byEmail = (email: string) => users!.find((u) => u.email === email)!;
+  const users = mustQuery(
+    'read back fixture accounts',
+    await db.from('app_users').select('user_id, role, email'),
+  ) as Array<{ user_id: string; role: string; email: string }> | null;
+  const byEmail = (email: string) => {
+    const row = (users ?? []).find((u) => u.email === email);
+    if (!row) throw new Error(`[e2e] fixture account missing after seeding: ${email}`);
+    return row;
+  };
   const classroomId = byEmail('e2e.classroom@lunchbox.app').user_id;
   const parentId = byEmail('e2e.parent@lunchbox.app').user_id;
 
   // classroom-staff assignment via class_staff (the retired teacher_id is gone)
-  await db
-    .from('class_staff')
-    .upsert({ class_id: classId, user_id: classroomId }, { onConflict: 'class_id,user_id' });
+  mustOk(
+    'assign classroom staff to the E2E class',
+    await db
+      .from('class_staff')
+      .upsert({ class_id: classId, user_id: classroomId }, { onConflict: 'class_id,user_id' }),
+  );
 
   // ---- students (operational_status is the eligibility gate) ----------------
   const students = [
@@ -281,32 +364,51 @@ export default async function globalSetup(): Promise<void> {
     { student_no: 'E2E-102', given_name: 'Serving', family_name: 'Two', class_id: classId, status: ELIGIBLE },
     { student_no: 'E2E-201', given_name: 'Portal', family_name: 'Kid', class_id: classId, status: ELIGIBLE },
   ];
-  const upsertStudent = (s: (typeof students)[number]) =>
-    db
-      .from('students')
-      .upsert(
-        {
-          student_no: s.student_no,
-          institution_id: institutionId,
-          given_name: s.given_name,
-          family_name: s.family_name,
-          class_id: s.class_id,
-          operational_status: s.status,
-          medical_notes: s.student_no === 'E2E-201' ? [{ id: 'n1', text: 'Dairy' }] : [],
-        },
-        { onConflict: 'student_no' },
-      )
-      .select('id')
-      .single();
+  /**
+   * Returns the student's ID — the ROW's id, not the response envelope.
+   *
+   * This previously returned the PostgREST `{ data, error }` response and every
+   * caller then read `.id` off it, which is `undefined`. Those undefined ids
+   * flowed into `student_parents`, `serving_records` and `.seeded.json`, so the
+   * guardian link and the parent-portal records were seeded against nothing.
+   * `tests/e2e` was outside every tsconfig, so a green typecheck never saw it;
+   * `pnpm typecheck` now includes this file.
+   */
+  const upsertStudent = async (s: (typeof students)[number]): Promise<string> => {
+    const row = must(
+      `upsert student ${s.student_no}`,
+      await db
+        .from('students')
+        .upsert(
+          {
+            student_no: s.student_no,
+            institution_id: institutionId,
+            given_name: s.given_name,
+            family_name: s.family_name,
+            class_id: s.class_id,
+            operational_status: s.status,
+            medical_notes: s.student_no === 'E2E-201' ? [{ id: 'n1', text: 'Dairy' }] : [],
+          },
+          { onConflict: 'student_no' },
+        )
+        .select('id')
+        .single(),
+    ) as { id: string };
+    if (!row.id) throw new Error(`[e2e] student ${s.student_no} upserted without an id`);
+    return row.id;
+  };
 
   const statusKid = await upsertStudent(students[0]!);
   const servingOne = await upsertStudent(students[1]!);
   await upsertStudent(students[2]!);
   const portalKid = await upsertStudent(students[3]!);
 
-  await db
-    .from('student_parents')
-    .upsert({ student_id: portalKid!.id, user_id: parentId }, { onConflict: 'user_id,student_id' });
+  mustOk(
+    'link the E2E parent to the portal child',
+    await db
+      .from('student_parents')
+      .upsert({ student_id: portalKid, user_id: parentId }, { onConflict: 'user_id,student_id' }),
+  );
 
   // ---- Meal library + dated, published Meal Services for TODAY --------------
   const oatsRev = await ensureMeal(db, 'E2E overnight oats', {
@@ -329,22 +431,25 @@ export default async function globalSetup(): Promise<void> {
     date: string,
     published: boolean,
   ): Promise<string> => {
-    const { data: service } = await db
-      .from('meal_services')
-      .upsert(
-        {
-          institution_id: institutionId,
-          service_date: date,
-          period,
-          meal_revision_id: revId,
-          published,
-          published_at: published ? new Date().toISOString() : null,
-        },
-        { onConflict: 'institution_id,service_date,period' },
-      )
-      .select('id')
-      .single();
-    return service!.id as string;
+    const service = must(
+      `publish meal service ${period} on ${date}`,
+      await db
+        .from('meal_services')
+        .upsert(
+          {
+            institution_id: institutionId,
+            service_date: date,
+            period,
+            meal_revision_id: revId,
+            published,
+            published_at: published ? new Date().toISOString() : null,
+          },
+          { onConflict: 'institution_id,service_date,period' },
+        )
+        .select('id')
+        .single(),
+    ) as { id: string };
+    return service.id;
   };
 
   const breakfastServiceId = await svc('breakfast', oatsRev, today, true);
@@ -356,7 +461,7 @@ export default async function globalSetup(): Promise<void> {
   // (0029: a served observation must carry its meal_service_id.)
   const results: Array<Record<string, unknown>> = [
     {
-      student_id: portalKid!.id,
+      student_id: portalKid,
       class_id: classId,
       period: 'breakfast',
       served_status: 'served',
@@ -368,7 +473,7 @@ export default async function globalSetup(): Promise<void> {
       serving_date: today,
     },
     {
-      student_id: portalKid!.id,
+      student_id: portalKid,
       class_id: classId,
       period: 'lunch',
       served_status: 'served',
@@ -381,23 +486,31 @@ export default async function globalSetup(): Promise<void> {
     },
   ];
   for (const row of results) {
-    await db.from('serving_records').upsert(row, { onConflict: 'student_id,serving_date,period' });
+    mustOk(
+      `seed classroom meal record (${String(row.period)})`,
+      await db.from('serving_records').upsert(row, { onConflict: 'student_id,serving_date,period' }),
+    );
   }
 
   const recId = async (period: string): Promise<string> => {
-    const { data } = await db
-      .from('serving_records')
-      .select('id')
-      .eq('student_id', portalKid!.id)
-      .eq('serving_date', today)
-      .eq('period', period)
-      .single();
-    return data!.id as string;
+    const row = must(
+      `read back the seeded ${period} classroom record`,
+      await db
+        .from('serving_records')
+        .select('id')
+        .eq('student_id', portalKid)
+        .eq('serving_date', today)
+        .eq('period', period)
+        .single(),
+    ) as { id: string };
+    return row.id;
   };
   const breakfastRecId = await recId('breakfast');
   const lunchRecId = await recId('lunch');
 
-  await db.from('serving_notes').upsert(
+  mustOk(
+    'seed serving notes (one published, one draft)',
+    await db.from('serving_notes').upsert(
     [
       {
         serving_record_id: breakfastRecId,
@@ -405,8 +518,9 @@ export default async function globalSetup(): Promise<void> {
         published_at: new Date().toISOString(),
       },
       { serving_record_id: lunchRecId, body: 'E2E draft — must stay invisible', published_at: null },
-    ],
-    { onConflict: 'serving_record_id' },
+      ],
+      { onConflict: 'serving_record_id' },
+    ),
   );
 
   // ---- deterministic references for the specs ------------------------------
@@ -422,10 +536,10 @@ export default async function globalSetup(): Promise<void> {
     classroomEmail: accounts[6]!.email,
     kitchenEmail: accounts[7]!.email,
     driverEmail: accounts[8]!.email,
-    statusKid: statusKid!.id,
-    servingOne: servingOne!.id,
+    statusKid: statusKid,
+    servingOne: servingOne,
     classForServing: classId,
-    portalKid: portalKid!.id,
+    portalKid: portalKid,
     breakfastServiceId,
     lunchServiceId,
   };

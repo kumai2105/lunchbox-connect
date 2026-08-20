@@ -409,7 +409,13 @@ export default function TodayPage() {
         // §1/§35: no published Meal Service for this institution today, so
         // there is nothing to record. A consumption observation is never
         // created against a meal that does not exist.
-        <EmptyState text={`No published Meal for ${todayISO()} — nothing to record for this class. Publish the day's menu from the institution's Service tab first.`} />
+        //
+        // Role-correct copy: Classroom Staff cannot reach the institution's
+        // Service tab, so telling them to publish from it is an instruction they
+        // have no way to follow. State the fact and name who can help.
+        <EmptyState
+          text={`No published Meal is available for ${todayISO()} — there is nothing to record for this class today. Contact your LunchBox Connect administrator.`}
+        />
       ) : !roster ? (
         <Spinner />
       ) : roster.length === 0 ? (

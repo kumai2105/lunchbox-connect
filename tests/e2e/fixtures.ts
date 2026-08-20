@@ -5,8 +5,13 @@ import type { Page } from 'playwright/test';
 
 export const PASS = process.env.E2E_PASSWORD ?? 'E2e-pass!12345';
 
+// Readiness must match global-setup's: without the ANON key the browser bundle
+// is not built against the seeded project, so the specs would drive a page
+// talking to a placeholder host and fail for the wrong reason.
 export const e2eReady = Boolean(
-  process.env.E2E_SUPABASE_URL && process.env.E2E_SUPABASE_SERVICE_ROLE_KEY,
+  process.env.E2E_SUPABASE_URL &&
+    process.env.E2E_SUPABASE_SERVICE_ROLE_KEY &&
+    process.env.E2E_SUPABASE_ANON_KEY,
 );
 
 export function seeded(): Record<string, string> {

@@ -46,3 +46,34 @@ test.describe('parent portal', () => {
     await expect(modal).toContainText('Dairy');
   });
 });
+
+/**
+ * Child switching must never show one child's data under another's name.
+ *
+ * The shell derives readiness from `loadedChildId === selectedChildId`, so the
+ * immediate selection render — before any effect runs — shows the spinner
+ * rather than the previous child's records. The invariant itself is unit-tested
+ * in src/pages/parent/shared.test.ts; this drives the real UI.
+ */
+test.describe('Parent child switching', () => {
+  test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
+
+  test("switching children never paints the previous child's data", async ({ page }) => {
+    const s = seeded();
+    await login(page, s.parentEmail);
+    await expect(page).toHaveURL(/\/parent/);
+
+    const switcher = page.locator('.child-switch button');
+    const count = await switcher.count();
+    test.skip(count < 2, 'fixture links a single child to the E2E parent');
+
+    const firstName = (await switcher.nth(0).innerText()).trim();
+    await switcher.nth(1).click();
+
+    // The heading must never show child B's name beside child A's records: the
+    // shell renders nothing child-specific until that child's data has landed.
+    await expect(page.locator('.parent-child-name')).not.toHaveText(
+      new RegExp(`^${firstName}`),
+    );
+  });
+});

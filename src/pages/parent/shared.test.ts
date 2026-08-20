@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createRequestGuard, toneFor } from './shared';
+import { childDataReady, createRequestGuard, toneFor } from './shared';
 import type { ServingRecord } from '../../lib/types';
 
 describe('parent child-switch request guard', () => {
@@ -20,6 +20,50 @@ describe('parent child-switch request guard', () => {
     guard.next();
     const latest = guard.next();
     expect(guard.isCurrent(latest)).toBe(true);
+  });
+});
+
+describe('parent child-switch readiness invariant (render path)', () => {
+  it('renders nothing child-specific on the immediate selection render', () => {
+    // The exact defect: clicking child B only sets the selected id. React
+    // re-renders straight away, still holding child A's loaded dataset, before
+    // any effect has run. Readiness must already be false at that instant.
+    const loadedForA = 'child-A';
+    expect(childDataReady(loadedForA, 'child-B')).toBe(false);
+  });
+
+  it('renders child data only once the loaded dataset belongs to that child', () => {
+    expect(childDataReady('child-B', 'child-B')).toBe(true);
+  });
+
+  it('renders nothing before the first load completes', () => {
+    expect(childDataReady(null, 'child-A')).toBe(false);
+  });
+
+  it('renders nothing when no child is selected yet', () => {
+    expect(childDataReady(null, undefined)).toBe(false);
+    expect(childDataReady('child-A', undefined)).toBe(false);
+  });
+
+  it('holds across a rapid A -> B -> A switch', () => {
+    // Selecting A again while B's data is loaded must not show B's meals.
+    expect(childDataReady('child-B', 'child-A')).toBe(false);
+    // ...and only becomes ready when A's own data has landed.
+    expect(childDataReady('child-A', 'child-A')).toBe(true);
+  });
+
+  it('combines with the request guard: a stale response cannot mark ready', () => {
+    // A's slow response returns after B was selected. The guard rejects it, so
+    // loadedChildId is never set to A, and readiness for B stays false until
+    // B's own data lands.
+    const guard = createRequestGuard();
+    const tokenA = guard.next();
+    const tokenB = guard.next();
+    const staleAccepted = guard.isCurrent(tokenA);
+    expect(staleAccepted).toBe(false);
+    const loadedChildId = staleAccepted ? 'child-A' : null;
+    expect(childDataReady(loadedChildId, 'child-B')).toBe(false);
+    expect(guard.isCurrent(tokenB)).toBe(true);
   });
 });
 

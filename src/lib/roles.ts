@@ -40,6 +40,7 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
     { page: 'dashboard', label: 'Dashboard', icon: 'home' },
     { page: 'students', label: 'Students', icon: 'users' },
     { page: 'guardians', label: 'Parents / guardians', icon: 'heart' },
+    { page: 'schedule', label: 'Published menu', icon: 'utensils' },
     { page: 'classes', label: 'Classes', icon: 'folder' },
     { page: 'staff', label: 'Staff', icon: 'user' },
     // §3/§4: Classroom recording and note publication by a Nursery Admin are

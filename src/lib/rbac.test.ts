@@ -54,6 +54,25 @@ describe('rbac matrix (9 role domains — docs/02)', () => {
     expect(can('school_admin', 'audit', 'view')).toBe(false);
   });
 
+  it('school_admin sees its own published schedule, read-only (Founder-approved)', () => {
+    // The approved addition: an Institution may SEE what is published for it.
+    expect(can('school_admin', 'schedule', 'view')).toBe(true);
+    // Read-only by construction — no authoring action exists on this resource.
+    for (const action of ['create', 'update', 'delete', 'publish'] as const) {
+      expect(can('school_admin', 'schedule', action)).toBe(false);
+    }
+    // Menu AUTHORSHIP stays with the Super Admin and is not granted here.
+    expect(can('school_admin', 'menubuilder', 'view')).toBe(false);
+    expect(can('school_admin', 'menubuilder', 'publish')).toBe(false);
+    expect(can('school_admin', 'meals', 'view')).toBe(false);
+  });
+
+  it('no other role gains the institution schedule resource', () => {
+    for (const role of ALL_ROLES) {
+      expect(can(role, 'schedule', 'view')).toBe(role === 'school_admin');
+    }
+  });
+
   it('school_admin cannot manage Kitchen accounts or entities (docs/13 Decision 031)', () => {
     // Kitchen belongs to the LunchBox Connect operational side, not the
     // Nursery/School — Nursery Admin has no capability over the kitchens

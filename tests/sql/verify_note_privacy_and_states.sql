@@ -11,6 +11,8 @@ declare
   v_inst uuid; v_cls uuid; v_staff uuid; v_parent uuid; v_student uuid;
   v_meal uuid; v_rev uuid; v_service uuid; v_rec uuid; v_note uuid;
   v_rot uuid; v_legacy uuid;
+  v_d1 uuid; v_d2 uuid; v_d3 uuid;
+  v_valid bigint; v_scored bigint; v_share_total numeric;
   n int; b boolean; t text;
 begin
   -- ---- fixture -----------------------------------------------------------
@@ -96,6 +98,143 @@ begin
   exception when check_violation then
     raise notice 'PASS s2e: the table constraint refuses an outcome-free SERVED row';
   end;
+
+  -- =================================================================
+  -- 0035 ITEM 3 — the COMPLETE approved record-state semantics.
+  -- Contradictory combinations must be refused; approved ones accepted.
+  -- =================================================================
+  -- helper: attempt one row through the RPC and report the verdict.
+  -- (inline rather than a function so the suite stays one transaction)
+
+  -- ---- NEGATIVES: contradictory states ----------------------------
+  -- 100% + ate_independently + absent  → an exception cannot carry a result
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub',v_staff,'role','authenticated')::text, true);
+    set local role authenticated;
+    perform record_serving_batch(v_cls,
+      jsonb_build_array(jsonb_build_object('student_id',v_student,'period','lunch',
+        'served_status','served','consumption_pct','100','behavior','ate_independently',
+        'low_intake_reason','absent')),
+      app_operational_date());
+    reset role;
+    raise exception 'FAIL n1: 100%% + ate_independently + absent was accepted';
+  exception when check_violation then
+    reset role;
+    raise notice 'PASS n1: 100%% + ate_independently + ABSENT is refused';
+  end;
+
+  -- 75% + unwell → an exception cannot carry a consumption reading
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub',v_staff,'role','authenticated')::text, true);
+    set local role authenticated;
+    perform record_serving_batch(v_cls,
+      jsonb_build_array(jsonb_build_object('student_id',v_student,'period','lunch',
+        'served_status','served','consumption_pct','75','low_intake_reason','unwell')),
+      app_operational_date());
+    reset role;
+    raise exception 'FAIL n2: 75%% + unwell was accepted';
+  exception when check_violation then
+    reset role;
+    raise notice 'PASS n2: 75%% + UNWELL is refused';
+  end;
+
+  -- 100% + did_not_like_it → a preference reason contradicts a full plate
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub',v_staff,'role','authenticated')::text, true);
+    set local role authenticated;
+    perform record_serving_batch(v_cls,
+      jsonb_build_array(jsonb_build_object('student_id',v_student,'period','lunch',
+        'served_status','served','consumption_pct','100','low_intake_reason','did_not_like_it')),
+      app_operational_date());
+    reset role;
+    raise exception 'FAIL n3: 100%% + did_not_like_it was accepted';
+  exception when check_violation then
+    reset role;
+    raise notice 'PASS n3: 100%% + DID_NOT_LIKE_IT is refused';
+  end;
+
+  -- NOT_SERVED + did_not_like_it → a not-served meal carries nothing
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub',v_staff,'role','authenticated')::text, true);
+    set local role authenticated;
+    perform record_serving_batch(v_cls,
+      jsonb_build_array(jsonb_build_object('student_id',v_student,'period','lunch',
+        'served_status','not_served','low_intake_reason','did_not_like_it')),
+      app_operational_date());
+    reset role;
+    raise exception 'FAIL n4: NOT_SERVED + did_not_like_it was accepted';
+  exception when check_violation then
+    reset role;
+    raise notice 'PASS n4: NOT_SERVED + DID_NOT_LIKE_IT is refused';
+  end;
+
+  -- 50% + distracted → a preference reason only applies at 0%/25%
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub',v_staff,'role','authenticated')::text, true);
+    set local role authenticated;
+    perform record_serving_batch(v_cls,
+      jsonb_build_array(jsonb_build_object('student_id',v_student,'period','lunch',
+        'served_status','served','consumption_pct','50','low_intake_reason','distracted')),
+      app_operational_date());
+    reset role;
+    raise exception 'FAIL n5: 50%% + distracted was accepted';
+  exception when check_violation then
+    reset role;
+    raise notice 'PASS n5: 50%% + DISTRACTED is refused (reasons explain LOW intake)';
+  end;
+
+  -- the raw path is guarded too
+  begin
+    insert into serving_records (serving_date, class_id, student_id, period, served_status,
+                                 consumption_pct, behavior, low_intake_reason, meal_service_id, recorded_by)
+      values (app_operational_date(), v_cls, v_student, 'snack','served',
+              100, 'ate_independently', 'absent', v_service, v_staff);
+    raise exception 'FAIL n6: the raw path accepted 100%% + absent';
+  exception when check_violation then
+    raise notice 'PASS n6: the table constraint refuses a contradictory state on the raw path';
+  end;
+
+  -- ---- POSITIVES: every approved state -----------------------------
+  perform set_config('request.jwt.claims', json_build_object('sub',v_staff,'role','authenticated')::text, true);
+  set local role authenticated;
+  -- normal full intake, no reason
+  select out_id into v_rec from record_serving_batch(v_cls,
+    jsonb_build_array(jsonb_build_object('student_id',v_student,'period','lunch',
+      'served_status','served','consumption_pct','100','behavior','ate_independently')),
+    app_operational_date());
+  -- low intake WITH a preference reason
+  perform record_serving_batch(v_cls,
+    jsonb_build_array(jsonb_build_object('student_id',v_student,'period','lunch',
+      'served_status','served','consumption_pct','25','behavior','needed_encouragement',
+      'low_intake_reason','did_not_like_it')),
+    app_operational_date());
+  -- low intake with NO reason: a reason is NOT mandatory (not invented)
+  perform record_serving_batch(v_cls,
+    jsonb_build_array(jsonb_build_object('student_id',v_student,'period','lunch',
+      'served_status','served','consumption_pct','0','behavior','refused')),
+    app_operational_date());
+  -- consumption with NO behaviour: no mandatory-behaviour rule is invented
+  perform record_serving_batch(v_cls,
+    jsonb_build_array(jsonb_build_object('student_id',v_student,'period','lunch',
+      'served_status','served','consumption_pct','50')),
+    app_operational_date());
+  -- each exception form
+  perform record_serving_batch(v_cls,
+    jsonb_build_array(jsonb_build_object('student_id',v_student,'period','lunch',
+      'served_status','served','low_intake_reason','unwell')),
+    app_operational_date());
+  perform record_serving_batch(v_cls,
+    jsonb_build_array(jsonb_build_object('student_id',v_student,'period','lunch',
+      'served_status','served','low_intake_reason','sleeping')),
+    app_operational_date());
+  -- not served
+  perform record_serving_batch(v_cls,
+    jsonb_build_array(jsonb_build_object('student_id',v_student,'period','lunch',
+      'served_status','not_served')),
+    app_operational_date());
+  reset role;
+  raise notice 'PASS p1: every approved state records — incl. low intake with no reason';
+  raise notice 'PASS p2: a low-intake reason and an eating behaviour both stay OPTIONAL';
 
   -- =================================================================
   -- ITEM 1 + 15 — the Parent free-text boundary, END TO END, on raw paths.
@@ -204,6 +343,64 @@ begin
     reset role;
     raise notice 'PASS s3: a Parent cannot set the concern flag';
   end;
+
+  -- =================================================================
+  -- 0035 ITEM 5 — the consumption distribution needs the SCORED denominator.
+  --
+  -- A valid, non-exception record can carry a BEHAVIOUR but no consumption
+  -- reading. It belongs to the behavioural metrics and to none of the
+  -- 100/75/50/25/0 buckets, so dividing the buckets by valid_observations made
+  -- the five shares sum to less than 100%.
+  -- =================================================================
+  -- three more children in the same class, all eligible
+  insert into students (student_no, institution_id, given_name, family_name, class_id, operational_status)
+    values ('NP-D1', v_inst,'Dist','One', v_cls,'ACTIVE_BILLABLE_TO_NURSERY') returning id into v_d1;
+  insert into students (student_no, institution_id, given_name, family_name, class_id, operational_status)
+    values ('NP-D2', v_inst,'Dist','Two', v_cls,'ACTIVE_BILLABLE_TO_NURSERY') returning id into v_d2;
+  insert into students (student_no, institution_id, given_name, family_name, class_id, operational_status)
+    values ('NP-D3', v_inst,'Dist','Three', v_cls,'ACTIVE_BILLABLE_TO_NURSERY') returning id into v_d3;
+
+  perform set_config('request.jwt.claims', json_build_object('sub',v_staff,'role','authenticated')::text, true);
+  set local role authenticated;
+  -- two SCORED rows...
+  perform record_serving_batch(v_cls,
+    jsonb_build_array(jsonb_build_object('student_id',v_d1,'period','lunch',
+      'served_status','served','consumption_pct','100','behavior','ate_independently')),
+    app_operational_date());
+  perform record_serving_batch(v_cls,
+    jsonb_build_array(jsonb_build_object('student_id',v_d2,'period','lunch',
+      'served_status','served','consumption_pct','50')),
+    app_operational_date());
+  -- ...and one BEHAVIOUR-ONLY valid row: no consumption reading at all.
+  perform record_serving_batch(v_cls,
+    jsonb_build_array(jsonb_build_object('student_id',v_d3,'period','lunch',
+      'served_status','served','behavior','needed_encouragement')),
+    app_operational_date());
+  reset role;
+
+  -- Read the analytics view as the Super Admin (its own RLS gate).
+  perform set_config('request.jwt.claims', json_build_object('sub',v_super,'role','authenticated')::text, true);
+  set local role authenticated;
+  select valid_observations, scored_observations,
+         coalesce(ate_all_share,0) + coalesce(ate_most_share,0) + coalesce(ate_half_share,0)
+           + coalesce(ate_some_share,0) + coalesce(ate_none_share,0)
+    into v_valid, v_scored, v_share_total
+    from v_meal_performance where dish_name = 'NP Meal' and period = 'lunch';
+  reset role;
+
+  if v_valid is null then raise exception 'FAIL d1: the meal did not appear in analytics'; end if;
+  -- The behaviour-only row counts as VALID but is not SCORED.
+  if v_scored >= v_valid then
+    raise exception 'FAIL d1: scored (%) should be fewer than valid (%) — the behaviour-only row is unscored',
+      v_scored, v_valid;
+  end if;
+  raise notice 'PASS d1: valid=% includes a behaviour-only row; scored=% excludes it', v_valid, v_scored;
+
+  -- THE POINT: the five bands describe the scored population exactly.
+  if v_share_total <> 100.0 then
+    raise exception 'FAIL d2: the five consumption shares total %%%, not 100%% of the scored population', v_share_total;
+  end if;
+  raise notice 'PASS d2: the 100/75/50/25/0 shares total 100%% of the SCORED population';
 
   -- =================================================================
   -- ITEM 4 — Menu resizing is atomic; a REJECTED shrink loses nothing.

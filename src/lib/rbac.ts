@@ -12,6 +12,7 @@ export type Resource =
   | 'institutions'
   | 'users'
   | 'guardians'
+  | 'schedule'
   | 'students'
   | 'classes'
   | 'staff'
@@ -85,11 +86,26 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
   review: {
     super_admin: ['view', 'publish'],
   },
+  // Migration 0034 removed authenticated hard DELETE from Meals and Menus:
+  // both carry `active` archive/deactivation semantics, and exact retention is
+  // NOT_YET_DEFINED. Advertising `delete` here promised an action the database
+  // refuses, so it is gone from the matrix too.
+  // Founder-approved: a Nursery/School Admin may SEE their own institution's
+  // published schedule. Read-only by construction — there is no create/update/
+  // publish action here, and the database serves only published rows for their
+  // own institution (meal_services_select). Menu authorship stays with the
+  // Super Admin under `menubuilder`.
+  schedule: {
+    // The institution's own view of its published menu. A Super Admin is not
+    // anchored to one institution and already authors the schedule in Menu
+    // Builder, so this resource belongs to the Nursery/School Admin.
+    school_admin: ['view'],
+  },
   meals: {
-    super_admin: ['view', 'create', 'update', 'delete'],
+    super_admin: ['view', 'create', 'update'],
   },
   menubuilder: {
-    super_admin: ['view', 'create', 'update', 'delete', 'publish'],
+    super_admin: ['view', 'create', 'update', 'publish'],
   },
   // §3: Classroom meal RECORDING by Nursery/School Admin is NOT_YET_DEFINED and
   // is not granted. Classroom Staff record within assigned classes; Super Admin
@@ -100,8 +116,9 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
   },
   kitchen: { super_admin: ['view'], kitchen: ['view'] },
   // Kitchen *entities* (docs/13 Decision 031) — Super Admin only, same as
-  // institutions. Not the production-demand screen above.
-  kitchens: { super_admin: ['view', 'create', 'update', 'delete'] },
+  // institutions. Not the production-demand screen above. Archive-only, as for
+  // Meals and Menus (0034).
+  kitchens: { super_admin: ['view', 'create', 'update'] },
   deliveries: { super_admin: ['view'], school_admin: ['view'], driver: ['view'] },
   reports: {
     super_admin: ['view'],

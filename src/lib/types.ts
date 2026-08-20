@@ -187,7 +187,14 @@ export interface MealRevisionPerformanceRow {
   revision_name: string;
   period: AppPeriod;
   total_observations: number;
+  /** Served, non-exception records — the population for behaviour metrics. */
   valid_observations: number;
+  /**
+   * Valid records that actually carry a percentage. A valid record can hold a
+   * behaviour and no consumption reading; it belongs to no consumption band, so
+   * the five bands below are shares of THIS number, not of valid_observations.
+   */
+  scored_observations: number;
   avg_consumption_pct: number | null;
   refusal_count: number;
   encouragement_count: number;
@@ -207,18 +214,25 @@ export interface MealPerformanceRow {
   dish_name: string;
   period: AppPeriod;
   total_observations: number;
+  /** Served, non-exception records — the population for behaviour metrics. */
   valid_observations: number;
+  /**
+   * Valid records that actually carry a percentage. A valid record can hold a
+   * behaviour and no consumption reading; it belongs to no consumption band, so
+   * the five bands below are shares of THIS number, not of valid_observations.
+   */
+  scored_observations: number;
   avg_consumption_pct: number | null;
   refusal_count: number;
   encouragement_count: number;
   did_not_like_count: number;
-  /** 100/75/50/25/0 distribution across the VALID population. */
+  /** 100/75/50/25/0 distribution across the SCORED population. */
   ate_all_count: number;
   ate_most_count: number;
   ate_half_count: number;
   ate_some_count: number;
   ate_none_count: number;
-  /** The same distribution as a percentage of valid observations. */
+  /** The same distribution as a percentage of SCORED observations (sums to 100%). */
   ate_all_share: number | null;
   ate_most_share: number | null;
   ate_half_share: number | null;

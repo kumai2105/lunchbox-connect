@@ -229,6 +229,53 @@ begin
   end if;
   raise notice 'PASS  §119 school admin sees 2 own students, 0 leaked';
 end $$;
+
+-- ---------------------------------------------------------------------
+-- Founder-approved addition: the Institution's READ-ONLY published schedule.
+--
+-- The new screen reads the existing authoritative published meal_services for
+-- the admin's OWN institution. These assertions prove the boundary it relies on
+-- at the database level — the page has no way to widen it.
+-- ---------------------------------------------------------------------
+do $$
+declare n int; leak int; drafts int; plans int;
+begin
+  -- own institution's published schedule IS visible
+  select count(*) into n from meal_services
+   where institution_id = 'bb000000-0000-0000-0000-000000000001' and published;
+  if n < 1 then
+    raise exception 'FAIL schedule: school admin cannot see their OWN published schedule (%)', n;
+  end if;
+
+  -- the other institution's schedule is NOT
+  select count(*) into leak from meal_services
+   where institution_id = 'bb000000-0000-0000-0000-000000000002';
+  if leak <> 0 then
+    raise exception 'FAIL schedule: school admin saw % row(s) of another institution''s schedule', leak;
+  end if;
+
+  -- drafts stay invisible, so an unpublished change can never surface here
+  select count(*) into drafts from meal_services where published = false;
+  if drafts <> 0 then
+    raise exception 'FAIL schedule: school admin saw % unpublished service(s)', drafts;
+  end if;
+
+  -- and the raw planning tables behind the schedule remain closed (0033)
+  select count(*) into plans from institution_service_plans;
+  if plans <> 0 then
+    raise exception 'FAIL schedule: school admin read % raw service plan row(s)', plans;
+  end if;
+  select count(*) into plans from institution_rotation_assignments;
+  if plans <> 0 then
+    raise exception 'FAIL schedule: school admin read % raw rotation assignment row(s)', plans;
+  end if;
+  select count(*) into plans from rotation_slots;
+  if plans <> 0 then
+    raise exception 'FAIL schedule: school admin read % raw Rotation template slot(s)', plans;
+  end if;
+
+  raise notice 'PASS  schedule: own published schedule visible; other institution, drafts and raw planning all invisible';
+end $$;
 reset role;
 
 -- =====================================================================
