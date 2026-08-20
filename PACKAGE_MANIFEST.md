@@ -2,11 +2,11 @@
 
 **Packaged:** 2026-08-20
 **Branch:** `claude/new-session-k5dd5u`
-**Release commit:** `ec9c969`
-**Package identity:** the ZIP is named `lunchbox-connect-ec9c969.zip`, and this
-manifest and `docs/VERIFICATION_FINAL.md` both reference `ec9c969`. The manifest
+**Release commit:** `d5645ff`
+**Package identity:** the ZIP is named `lunchbox-connect-d5645ff.zip`, and this
+manifest and `docs/VERIFICATION_FINAL.md` both reference `d5645ff`. The manifest
 and the regenerated report are committed as a thin packaging layer on top of
-`ec9c969` (that is the commit whose code they describe); the archive contains
+`d5645ff` (that is the commit whose code they describe); the archive contains
 that layer so the delivered docs are the current ones.
 
 ---
@@ -17,18 +17,18 @@ All gates were run immediately before packaging.
 
 | Gate | Command | Result |
 | ---- | ------- | ------ |
-| Types | `pnpm typecheck` | **PASS** — no errors |
+| Types | `pnpm typecheck` | **PASS** — no errors, now including `tests/e2e` |
 | Lint | `pnpm lint` | **PASS** — no errors, no warnings |
-| Unit tests | `pnpm test:unit` | **PASS — 83/83** across 8 files |
+| Unit tests | `pnpm test:unit` | **PASS — 91/91** across 8 files |
 | Production build | `pnpm build` | **PASS** — 120 modules |
-| Database suites | `./tests/sql/run_verification.sh` | **PASS — 13 suites** (incl. the 498-check authorization matrix) |
+| Database suites | `./tests/sql/run_verification.sh` | **PASS — 14 suites** (incl. the 498-check authorization matrix) |
 
-Unit files: `mealAnalytics.test.ts` (22, incl. the unscored-is-not-0% rule and
-the NOT_YET_DEFINED classification), `format.test.ts` (15, incl. the Asia/Dubai
-boundary and presentation), `calendar.test.ts` (14), `rbac.test.ts` (11),
-`authorization.consistency.test.ts` (9), `pages/parent/shared.test.ts` (6, NEW —
-the child-switch race guard and meal tone), `kitchen.test.ts` (3, revision
-grouping), `status.test.ts` (3).
+Unit files: `mealAnalytics.test.ts` (22), `format.test.ts` (15, Asia/Dubai
+boundary and presentation), `calendar.test.ts` (14), `rbac.test.ts` (13, incl.
+the read-only `schedule` resource), `pages/parent/shared.test.ts` (12, the
+child-switch selection/readiness invariant and the request guard),
+`authorization.consistency.test.ts` (9, archive-only entities),
+`kitchen.test.ts` (3), `status.test.ts` (3).
 
 **Not run:** `pnpm test:e2e` (Playwright) — the suite needs egress to
 `*.supabase.co`, which this sandbox blocks, and an approved NON-PRODUCTION
@@ -38,16 +38,18 @@ included, written to the current architecture, and runnable where both exist.
 ## 2. Database verification
 
 `./tests/sql/run_verification.sh` builds a PostgreSQL 16 cluster from nothing,
-applies `supabase/migrations/0001`–`0034` verbatim, and runs 13 suites. Each
+applies `supabase/migrations/0001`–`0035` verbatim, and runs 14 suites. Each
 suite is mutation-tested (deliberately broken to prove it can fail). This pass
-expands the authorization matrix from 401 to **498** checks and adds
-`verify_note_privacy_and_states` — the Parent free-text boundary proven end to
-end on RAW data paths, plus record-state validity, the concern flag, atomic Menu
-resizing and archive-only lifecycle.
+adds `verify_slot_resize_concurrency` — a REAL second session via dblink proving
+the `rotation_slots.week_number <= rotations.week_count` invariant holds under
+concurrent transactions — and extends `verify_note_privacy_and_states` with the
+complete record-state semantics (six contradictory-state negatives, the approved
+positives) and the corrected consumption denominator. 159 PASS assertions.
 
-Mutation evidence for the headline fix: restoring the table-wide
-`GRANT SELECT ON serving_records` re-opens the leak and fails the matrix for all
-11 roles. Full report and the release decision: **`docs/VERIFICATION_FINAL.md`**.
+Mutation evidence: removing the parent-row lock from `guard_rotation_slot_week()`
+fails the concurrency suite's slot-UPDATE case. (Its INSERT case does not
+discriminate — the foreign key's own lock already blocks there — and the report
+says so.) Full report and the release decision: **`docs/VERIFICATION_FINAL.md`**.
 
 ## 3. What is in the archive
 
@@ -57,15 +59,19 @@ Everything required to build and run the project, excluding only §5.
   (api, rbac, roles, auth, mealAnalytics, calendar, types, …), `pages/`
   (admin/nursery/kitchen incl. `StaffPage`, `MealLibraryPage`,
   `MenuBuilderPage`, `InstitutionServiceTab`, `InstitutionCalendarTab`),
-  `pages/parent/` (mobile parent portal). The retired legacy `MenuPage` is gone.
-- **`supabase/`** — `migrations/0001`–`0034` (schema, RLS, resolution/publish
+  `pages/parent/` (mobile parent portal), and `InstitutionSchedulePage` — the
+  Founder-approved READ-ONLY published-menu view for a Nursery/School Admin.
+  The retired legacy `MenuPage` is gone.
+- **`supabase/`** — `migrations/0001`–`0035` (schema, RLS, resolution/publish
   engine, meal library RPCs, class_staff, per-meal demand, analytics one-truth,
   the integrity pass 0029/0030/0031, the tenant-integrity + permission
-  correction 0032, the client-boundary lockdown 0033, and the note-privacy /
-  state-validity / atomicity pass 0034); `functions/admin-create-user/`;
+  correction 0032, the client-boundary lockdown 0033, the note-privacy /
+  state-validity / atomicity pass 0034, and the record-state-semantics +
+  slot/resize locking pass 0035); `functions/admin-create-user/`;
   `config.toml`.
-- **`tests/`** — `sql/` (13 `verify_*.sql` suites + shim + actors + runner),
-  `e2e/` (5 Playwright specs + fixtures + global-setup, on the current chain).
+- **`tests/`** — `sql/` (14 `verify_*.sql` suites + shim + actors + runner),
+  `e2e/` (6 Playwright specs + fixtures + global-setup, on the current chain,
+  type-checked by `tsconfig.e2e.json`).
 - **`docs/`** — the spec pack, `VERIFICATION_FINAL.md`, `VERIFICATION_DECISION_033.md`.
 - **`remediation/`** — separated, review-gated production scripts + README.
 - **Config / deploy** — `package.json`, `pnpm-lock.yaml`, `vite.config.ts`,
@@ -105,7 +111,7 @@ pnpm typecheck && pnpm lint && pnpm test:unit && pnpm build
 ./tests/sql/run_verification.sh
 ```
 
-Migrations apply in numerical order, `0001` → `0034`. For production, follow
+Migrations apply in numerical order, `0001` → `0035`. For production, follow
 `scripts/PRODUCTION_APPLY.md` (schema first, then deploy + verify the
 `admin-create-user` Edge Function; service plans / rotation assignments /
 publishing are Admin-UI actions, never migration side effects).
@@ -132,4 +138,5 @@ in this pass.
 > guessing which one wins. Migration `0034` **archives** every historical
 > `serving_records.note` value into `serving_record_note_archive` before
 > clearing the column: nothing is destroyed, and the archive is the record of
-> what was written.
+> what was written. Migration `0035` adds its record-state constraint as
+> `NOT VALID`, so pre-existing history is grandfathered and never rewritten.
