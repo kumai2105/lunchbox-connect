@@ -11,7 +11,7 @@ import type { ServingNote, ServingRecord, Student } from '../../lib/types';
 import type { DayMeal } from '../../lib/api';
 import { Banner, EmptyState, Spinner } from '../../components/ui';
 import { Icon, type IconName } from '../../components/icons';
-import { todayISO, weekEndISO } from '../../lib/format';
+import { operationalDaysAgoISO, todayISO, weekEndISO } from '../../lib/format';
 import { ParentContext, type ParentCtx } from './context';
 
 const NAV: Array<{ to: string; label: string; icon: IconName; end?: boolean }> = [
@@ -21,11 +21,7 @@ const NAV: Array<{ to: string; label: string; icon: IconName; end?: boolean }> =
   { to: '/parent/profile', label: 'Profile', icon: 'user' },
 ];
 
-function daysAgoISO(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
-}
+const daysAgoISO = operationalDaysAgoISO;
 
 /**
  * Parent portal shell (blueprint Parts 70-71). Mobile-first: bottom

@@ -310,7 +310,10 @@ Kitchen cannot create an independent authoritative Student-count system.
 
 LunchBox Connect must not inherit another project's stack by assumption.
 
-**Status:** ACTIVE
+**Status:** **SUPERSEDED by Decision 034.** The technical stack has since been
+approved (A1–A3) and implemented; it is no longer undefined. The original
+caution — do not inherit another project's stack by assumption — still holds,
+but the stack itself is now the approved one recorded in Decision 034.
 
 ---
 
@@ -512,6 +515,37 @@ Replacement:
 
 - Parent pays Institution.
 - Institution pays LunchBox Connect.
+
+---
+
+## Decision 034 — Technical Stack Approved (records A1–A3)
+
+**Date:** 2026-08-20
+
+**Decision:** The technical stack is APPROVED (A1–A3) and is the one the
+repository already implements. This decision RECORDS that approved stack so no
+canonical document still says it is undefined; it does not introduce a new
+choice. It supersedes Decision 024 and the `TECHNICAL_STACK = NOT_YET_DEFINED`
+statements in `00_SOURCE_OF_TRUTH.md §26` and `10_DEPLOYMENT_RUNBOOK.md §3`.
+
+`TECHNICAL_STACK`:
+
+- **Frontend:** TypeScript · React 18 + Vite (single-page app) · React Router.
+- **Backend:** Supabase — PostgreSQL, Auth (GoTrue), Storage, Edge Functions (Deno).
+- **Authorization:** PostgreSQL Row Level Security is the enforcement boundary,
+  mirrored by an app-level RBAC matrix; privileged writes go through
+  SECURITY DEFINER RPCs and BEFORE-write triggers.
+- **Migrations:** Supabase CLI SQL migrations (`supabase/migrations/0001`–`0031`).
+- **Deploy:** Cloudflare Workers serve the built frontend; the database is Supabase.
+- **Tooling:** pnpm · Vitest (unit) · Playwright (E2E) · ESLint · Prettier.
+- **Operational timezone (MVP):** Asia/Dubai (GST, UTC+4, no DST). Per-institution
+  timezones are `NOT_YET_DEFINED`.
+
+The Decision 024 caution still applies: the stack must not be assumed from
+another project. Items genuinely still undefined (see §Out-of-scope and the
+`BLOCKED_BY_SPEC` list) remain `NOT_YET_DEFINED`.
+
+**Status:** ACTIVE
 
 ---
 

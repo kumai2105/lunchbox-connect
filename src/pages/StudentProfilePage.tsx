@@ -190,11 +190,10 @@ export default function StudentProfilePage() {
             </h3>
             <div className="cell-sub">{student.student_no}</div>
             <div className="profile-pills">
+              {/* operational_status is the authoritative eligibility gate; the
+                  legacy enrollment_status is no longer presented as truth. */}
               <Pill variant={statusPillClass(student.operational_status)}>
                 {statusLabel(student.operational_status)}
-              </Pill>
-              <Pill variant={student.enrollment_status === 'enrolled' ? 'free' : 'na'}>
-                {student.enrollment_status}
               </Pill>
             </div>
             {canManage && (

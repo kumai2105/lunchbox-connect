@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { mealProductionDemand, type MealDemandRow } from '../lib/api';
+import { groupDemandByRevision } from '../lib/kitchen';
 import type { AppPeriod } from '../lib/types';
 import { Banner, Card, EmptyState, Field, PageHead, Pill, Spinner, StatCard } from '../components/ui';
 import { Icon, type IconName } from '../components/icons';
@@ -11,7 +12,6 @@ const PERIOD_META: Record<AppPeriod, { label: string; icon: IconName }> = {
   lunch: { label: 'Lunch', icon: 'utensils' },
   afternoon_snack: { label: 'Afternoon snack', icon: 'cookie' },
 };
-const PERIOD_ORDER: AppPeriod[] = ['breakfast', 'snack', 'lunch', 'afternoon_snack'];
 
 /**
  * Kitchen production demand (§33/§34/§35/§56). Demand is per PUBLISHED MEAL:
@@ -37,31 +37,11 @@ export default function KitchenPage() {
     };
   }, [date]);
 
-  // Aggregate by meal (a meal may be served at several institutions for the
-  // same period — the kitchen makes the total). §34.
-  const byMeal = useMemo(() => {
-    const map = new Map<
-      string,
-      { meal_name: string; period: AppPeriod; total: number; allergy: number; sites: MealDemandRow[] }
-    >();
-    for (const r of rows ?? []) {
-      const key = `${r.period}::${r.meal_name}`;
-      const e = map.get(key) ?? {
-        meal_name: r.meal_name,
-        period: r.period,
-        total: 0,
-        allergy: 0,
-        sites: [],
-      };
-      e.total += r.eligible_students;
-      e.allergy += r.allergy_flagged;
-      e.sites.push(r);
-      map.set(key, e);
-    }
-    return [...map.values()].sort(
-      (a, b) => PERIOD_ORDER.indexOf(a.period) - PERIOD_ORDER.indexOf(b.period),
-    );
-  }, [rows]);
+  // Aggregate by the exact MEAL REVISION being produced (§34). Two recipes/
+  // revisions that share a display name are separate production lines — same
+  // name does not mean same recipe. A revision made at several sites for the
+  // same period is one line with the summed headcount.
+  const byMeal = useMemo(() => groupDemandByRevision(rows ?? []), [rows]);
 
   const totalPortions = byMeal.reduce((s, m) => s + m.total, 0);
   const totalAllergy = byMeal.reduce((s, m) => s + m.allergy, 0);
@@ -121,7 +101,7 @@ export default function KitchenPage() {
             </thead>
             <tbody>
               {byMeal.map((m) => (
-                <tr key={`${m.period}-${m.meal_name}`}>
+                <tr key={`${m.period}-${m.meal_revision_id}`}>
                   <td className="cell-name">
                     <span className="period-cell">
                       <Icon name={PERIOD_META[m.period].icon} size={15} />{' '}

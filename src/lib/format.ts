@@ -36,8 +36,40 @@ export function weekLabel(week: number): string {
   return `Week ${week}`;
 }
 
+// ---------------------------------------------------------------------------
+// Canonical MVP operational date (item: UAE date handling).
+//
+// The market is Dubai/Sharjah. Gulf Standard Time is UTC+4 with no DST, so the
+// operational calendar date is the date part of the instant shifted +4h read in
+// UTC — deterministic and independent of the host machine's timezone. Between
+// 20:00 and 24:00 UTC this is already "tomorrow" in the nursery, which is
+// exactly the boundary a UTC `new Date().toISOString()` got wrong. Per-
+// institution timezones are intentionally NOT modelled yet.
+export const UAE_UTC_OFFSET_HOURS = 4;
+
+/** The Asia/Dubai calendar date for a given instant, as YYYY-MM-DD. */
+export function operationalDateFor(instant: Date): string {
+  return new Date(instant.getTime() + UAE_UTC_OFFSET_HOURS * 3_600_000)
+    .toISOString()
+    .slice(0, 10);
+}
+
+/** Today's operational (Asia/Dubai) date. */
+export function operationalToday(): string {
+  return operationalDateFor(new Date());
+}
+
+/** The operational date `n` days before today (Asia/Dubai). */
+export function operationalDaysAgoISO(n: number, base: Date = new Date()): string {
+  const d = new Date(base.getTime() + UAE_UTC_OFFSET_HOURS * 3_600_000);
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+// The whole app's "today" is the operational (Asia/Dubai) date, so the browser
+// and the database agree on the service day even after UTC midnight.
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return operationalToday();
 }
 
 // ISO week number for a date — used to resolve which menu week applies
@@ -63,24 +95,18 @@ export function isoWeek(d: Date): number {
   return Math.ceil(((+date - +yearStart) / 86400000 + 1) / 7);
 }
 
-/** Monday of the week containing `d`, as YYYY-MM-DD. */
-export function weekStartISO(d: Date = new Date()): string {
-  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
-  return toISO(x);
+/** Monday (operational/Asia/Dubai) of the week containing `base`, as YYYY-MM-DD. */
+export function weekStartISO(base: Date = new Date()): string {
+  const x = new Date(base.getTime() + UAE_UTC_OFFSET_HOURS * 3_600_000);
+  x.setUTCDate(x.getUTCDate() - ((x.getUTCDay() + 6) % 7));
+  return x.toISOString().slice(0, 10);
 }
 
-/** Sunday of the week containing `d`, as YYYY-MM-DD. */
-export function weekEndISO(d: Date = new Date()): string {
-  const x = new Date(`${weekStartISO(d)}T00:00:00`);
-  x.setDate(x.getDate() + 6);
-  return toISO(x);
-}
-
-function toISO(d: Date): string {
-  const m = `${d.getMonth() + 1}`.padStart(2, '0');
-  const day = `${d.getDate()}`.padStart(2, '0');
-  return `${d.getFullYear()}-${m}-${day}`;
+/** Sunday (operational/Asia/Dubai) of the week containing `base`, as YYYY-MM-DD. */
+export function weekEndISO(base: Date = new Date()): string {
+  const x = new Date(`${weekStartISO(base)}T00:00:00Z`);
+  x.setUTCDate(x.getUTCDate() + 6);
+  return x.toISOString().slice(0, 10);
 }
 
 // menus.weekday: 0=Mon..4=Fri. Date.getDay() is 0=Sun..6=Sat.

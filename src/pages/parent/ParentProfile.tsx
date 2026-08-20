@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParentData } from './context';
 import { getInstitution, listClasses, type ClassWithMeta } from '../../lib/api';
 import type { Institution } from '../../lib/types';
-import { Avatar, Banner, Btn, Card, Pill } from '../../components/ui';
+import { Avatar, Banner, Btn, Card } from '../../components/ui';
 import { Icon } from '../../components/icons';
 import { initials } from '../../lib/format';
 import { useAuth } from '../../lib/auth';
@@ -53,11 +53,8 @@ export default function ParentProfile() {
               {child.given_name} {child.family_name}
             </h3>
             <div className="cell-sub">{child.student_no}</div>
-            <div className="profile-pills">
-              <Pill variant={child.enrollment_status === 'enrolled' ? 'free' : 'na'}>
-                {child.enrollment_status}
-              </Pill>
-            </div>
+            {/* The legacy enrollment_status is not shown to families — it is not
+                the authoritative operational truth and could contradict it. */}
           </div>
         </div>
         <table>

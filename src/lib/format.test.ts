@@ -1,5 +1,42 @@
 import { describe, expect, it } from 'vitest';
-import { isoWeek, weekEndISO, weekStartISO } from './format';
+import {
+  isoWeek,
+  operationalDateFor,
+  operationalDaysAgoISO,
+  weekEndISO,
+  weekStartISO,
+} from './format';
+
+/**
+ * UAE operational date (Asia/Dubai = GST = UTC+4, no DST). The MVP market is
+ * Dubai/Sharjah, where a UTC calendar date is wrong between 20:00 and 24:00
+ * UTC (00:00-04:00 local). These pin the midnight boundary deterministically.
+ */
+describe('operational date (Asia/Dubai)', () => {
+  it('is UTC+4: 20:30 UTC is already the next calendar day in Dubai', () => {
+    // 2026-08-20T20:30Z = 2026-08-21T00:30 Dubai.
+    expect(operationalDateFor(new Date('2026-08-20T20:30:00Z'))).toBe('2026-08-21');
+    // UTC would say 2026-08-20 here — that is exactly the bug being fixed.
+    expect(new Date('2026-08-20T20:30:00Z').toISOString().slice(0, 10)).toBe('2026-08-20');
+  });
+
+  it('just before the boundary stays on the same day', () => {
+    // 2026-08-20T19:59Z = 2026-08-20T23:59 Dubai.
+    expect(operationalDateFor(new Date('2026-08-20T19:59:00Z'))).toBe('2026-08-20');
+  });
+
+  it('early-morning UTC is the same Dubai day', () => {
+    // 2026-08-20T00:00Z = 2026-08-20T04:00 Dubai.
+    expect(operationalDateFor(new Date('2026-08-20T00:00:00Z'))).toBe('2026-08-20');
+  });
+
+  it('operationalDaysAgoISO counts back Dubai calendar days across the boundary', () => {
+    const base = new Date('2026-08-20T20:30:00Z'); // Dubai 2026-08-21
+    expect(operationalDaysAgoISO(0, base)).toBe('2026-08-21');
+    expect(operationalDaysAgoISO(1, base)).toBe('2026-08-20');
+    expect(operationalDaysAgoISO(7, base)).toBe('2026-08-14');
+  });
+});
 
 /**
  * isoWeek previously divided by seven twice, so the week number advanced once

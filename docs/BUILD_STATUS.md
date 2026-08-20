@@ -43,8 +43,13 @@ README only. The full spec pack introduced corrections:
 
 ## Honest shells — BLOCKED_BY_SPEC (never invented)
 
-- Exact serving **outcome values** (provisional demo: full/partial/refused/absent)
+- **Structured serving outcome (APPROVED — Decision 032/033, no longer
+  provisional):** consumption_pct ∈ {0,25,50,75,100}, behaviour ∈
+  {ate_independently, needed_encouragement, refused}, low-intake reason, and a
+  one-tap Absent/Unwell/Asleep exception excluded from intake analytics.
 - Delivery / dispatch / driver state machines, handover evidence
+- Production-lock policy beyond the served-records boundary; email-delivered
+  account self-activation; per-institution timezones
 - Meal-package assignment and exact production formula
 - Institutional billing workflow (institution pays LunchBox — confirmed scope only)
 - Reporting KPIs / finance and viewer data scopes
@@ -59,20 +64,25 @@ README only. The full spec pack introduced corrections:
   checkout/payment/invoice/refund anywhere. (AT-020/021)
 - No live chat, loyalty, referrals, social, gamification, AI features. (AT-130+)
 
-## Open decision — the user must confirm
+## Technical stack — APPROVED (no longer an open decision)
 
-- **Technical stack.** `docs/00 §26` and the decision log mark the stack
-  `NOT_YET_DEFINED`. The build uses the React + Vite + Supabase + Cloudflare
-  stack from the earlier README — a sensible, already-implemented default, but
-  it is NOT formally approved. Pros in `docs/13` Decision 024 = not approved.
-  Confirm (or change) the stack as an active decision before release.
+The stack is **approved** (A1–A3) and recorded in `docs/13` **Decision 034**:
+TypeScript · React 18 + Vite (SPA) · Supabase (PostgreSQL, Auth, Storage, Edge
+Functions) · Row Level Security as the boundary · Supabase CLI migrations
+(`0001`–`0031`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
+Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
+`TECHNICAL_STACK = NOT_YET_DEFINED` statements are SUPERSEDED.
 
-## Verification evidence
+## Verification evidence (release candidate)
 
-- `pnpm typecheck` — clean
-- `pnpm lint` — clean
-- `pnpm test:unit` — RBAC (9 roles) + status domain green
-- `pnpm test:e2e` — 9-role logins, status workflow, serving, parent portal,
-  kitchen demand: written; BLOCKED_BY_ENVIRONMENT until live Supabase keys.
-- Release gate: runbook step 5 (static) + step 9 (live) evidence required
+- `pnpm typecheck` — clean · `pnpm lint` — clean (0 warnings)
+- `pnpm test:unit` — **65 tests** (RBAC, calendar, meal analytics incl.
+  meal-id/exception rules, kitchen revision grouping, operational-date boundary)
+- `./tests/sql/run_verification.sh` — **11 SQL suites** on a throwaway
+  PostgreSQL 16, incl. the 146-check authorization matrix and the raw-path
+  DB-boundary suite (RPC-only writes, note-publish authority, tenant/eligibility
+  triggers, meal-image storage visibility)
+- `pnpm test:e2e` — current-architecture specs written; BLOCKED_BY_ENVIRONMENT
+  until live Supabase egress is available
+- Full report: `docs/VERIFICATION_FINAL.md`
   before claiming completion.

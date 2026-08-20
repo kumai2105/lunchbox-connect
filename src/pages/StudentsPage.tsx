@@ -227,7 +227,6 @@ export default function StudentsPage() {
                 <th>Class</th>
                 <th>Operational status</th>
                 <th>Medical note</th>
-                <th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -303,19 +302,6 @@ export default function StudentsPage() {
                       ) : (
                         '—'
                       )}
-                    </td>
-                    <td>
-                      <span
-                        className={
-                          s.enrollment_status === 'enrolled'
-                            ? 'pill free'
-                            : s.enrollment_status === 'pending'
-                              ? 'pill reduced'
-                              : 'pill na'
-                        }
-                      >
-                        {s.enrollment_status}
-                      </span>
                     </td>
                   </tr>
                 );

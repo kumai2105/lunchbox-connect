@@ -43,9 +43,14 @@ Confirmed current state:
 
 ## 3. Technical Stack
 
-`TECHNICAL_STACK = NOT_YET_DEFINED`
+**SUPERSEDED — APPROVED. See Decision 034 in `13_DECISION_LOG.md`.** The stack is
+TypeScript · React 18 + Vite (SPA) · Supabase (PostgreSQL, Auth, Storage, Edge
+Functions) · Row Level Security · Supabase CLI migrations
+(`supabase/migrations/0001`–`0031`) · Cloudflare Workers deploy · pnpm · Vitest ·
+Playwright. Operational timezone (MVP): Asia/Dubai. The current, authoritative
+production apply order is `scripts/PRODUCTION_APPLY.md` in the repo root.
 
-Claude Code must not assume LunchBox Connect uses the technical architecture of The Eastern Charm or any other project.
+> _Historical (superseded):_ `TECHNICAL_STACK = NOT_YET_DEFINED`.
 
 ---
 

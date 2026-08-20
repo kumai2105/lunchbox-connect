@@ -7,31 +7,35 @@ this repository alone.
 
 ## Required evidence
 
-1. **Static checks (runbook step 5)**
+1. **Static checks**
    - `pnpm typecheck` — clean
-   - `pnpm lint` — clean
-   - `pnpm test:unit` — RBAC matrix and eligibility transitions pass
+   - `pnpm lint` — clean (0 warnings)
+   - `pnpm test:unit` — 65 tests pass (RBAC, calendar, meal analytics, kitchen
+     revision grouping, operational-date boundary)
+   - `pnpm build` — production build succeeds
 
-2. **Live boundary tests (runbook step 9)**
-   - `pnpm test:e2e` with seeded accounts — AT-030/031 specs pass:
-     - a parent cannot navigate to staff pages (routing + RLS)
-     - a super admin opens the command center and users screen
-     - the serving screen lists only the caller's scoped classes
-   - `tests/sql/notes_safety.sql` run against the live database:
-     - parent sees only published notes for own children (1 row)
-     - parent sees zero rows for other children
-     - staff of the institution sees both published and unpublished notes
+2. **Schema / RLS / RPC / trigger suite (no network required)**
+   - `./tests/sql/run_verification.sh` — all **11** `verify_*.sql` suites pass
+     on a throwaway PostgreSQL 16 built from `supabase/migrations/0001`–`0031`,
+     including the **146-check authorization matrix** and the **DB-boundary**
+     suite: raw `serving_records` writes are denied (RPC is the only path);
+     classroom staff cannot publish notes; only Super Admin changes
+     `operational_status` or moves a Student/Class institution; a Parent cannot
+     read an unrelated unpublished meal image.
 
-3. **RLS audit**
-   - `select * from v_rls_audit;` — every table listed with `rls_enabled = t`
-     and the expected policy counts.
+3. **Live boundary tests (where Supabase egress is available)**
+   - `pnpm test:e2e` with seeded accounts — the current specs pass:
+     `login.roles`, `rls`, `serving`, `parent-portal`, `status`.
 
-## Declared out of scope (spec gaps)
+## Declared out of scope (spec gaps, NOT_YET_DEFINED)
 
-Kitchen production math, dispatch/delivery states, report KPIs, the eligibility
-determination formula, and document file storage are NOT_YET_DEFINED in the
-spec pack and are delivered as isolated shells. They are not verified because
-they are not specified.
+Production-lock policy beyond the served-records boundary, email-delivered
+account self-activation, per-institution timezones, dispatch/delivery state
+machines, report KPIs, the structured StudentAllergy/StudentDietaryRestriction
+taxonomy, and multi-kitchen routing remain NOT_YET_DEFINED in the spec pack and
+are delivered as isolated shells — not verified because not specified.
+(Operational eligibility is defined: `operational_status =
+ACTIVE_BILLABLE_TO_NURSERY` is the authoritative gate.)
 
 ## Sign-off
 

@@ -3,11 +3,15 @@
 [![CI](https://github.com/Kumai2105/lunchbox-connect/actions/workflows/ci.yml/badge.svg)](https://github.com/Kumai2105/lunchbox-connect/actions)
 
 Institutional child-nutrition operations platform. One authoritative system
-across the chain: **Institution → Student → Eligibility → Classroom Serving →
-Parent Visibility**, with a central admin-managed 4-week menu.
+across the chain: **Institution → Student → Eligibility → Kitchen Production →
+Classroom Serving → Parent Visibility → Analytics**. Menus are reusable Meals
+arranged on an admin-configurable rotation (Menu Builder); four weeks is the
+current company configuration, not a fixed limit.
 
-Built to the approved specification pack (decisions A1–A3). Undefined business
-rules are **isolated, never invented** — see `docs/BUILD_STATUS.md`.
+Built to the approved specification pack (decisions A1–A3; technical stack
+recorded in Decision 034). Undefined business rules are **isolated, never
+invented** — see `docs/BUILD_STATUS.md`. The operational calendar date is
+Asia/Dubai (GST) for the MVP.
 
 ## Stack
 
@@ -22,7 +26,7 @@ pnpm · Vitest · Playwright · ESLint · Prettier
 pnpm install
 cp .env.example .env          # fill VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
 supabase link --project-ref <your-ref>
-supabase db push              # migrations 0001–0007
+supabase db push              # migrations 0001–0031
 pnpm dev                      # http://localhost:5173
 ```
 
@@ -47,9 +51,16 @@ Privileged steps that need your accounts (the tool cannot supply them):
 ```bash
 pnpm typecheck   # full-project TypeScript
 pnpm lint
-pnpm test:unit   # RBAC matrix + eligibility transitions (12 tests)
+pnpm test:unit   # RBAC, calendar, meal analytics, kitchen, operational date (65 tests)
 pnpm test:e2e    # live-boundary Playwright suite — needs the env below
+./tests/sql/run_verification.sh   # 11 SQL suites on a throwaway PostgreSQL 16
 ```
+
+`run_verification.sh` builds a PostgreSQL 16 cluster from nothing, applies
+`supabase/migrations/*.sql` verbatim, and runs every `tests/sql/verify_*.sql`
+suite (golden path, cross-portal RLS, the 146-check authorization matrix, menu
+cutover, downstream wiring, special period, class staff, kitchen demand,
+correction order, publish-future, and the raw-path DB-boundary suite).
 
 **CI (GitHub Actions, `.github/workflows/ci.yml`)**: every PR runs the gate
 (typecheck, lint, unit). The E2E job runs automatically on same-repo PRs when
@@ -70,31 +81,40 @@ pnpm test:e2e
 ```
 
 The global setup seeds its own namespaced users/data idempotently (never your
-real data) and writes `tests/e2e/.seeded.json` (gitignored). Specs:
+real data) on the current architecture — Meal → Menu → published Meal Service →
+class_staff → Classroom record → Parent result — and writes
+`tests/e2e/.seeded.json` (gitignored). Specs:
 
-- `login.roles.spec.ts` — the five approved roles sign in and land on their
-  scoped first page; the four spec-unnamed roles are boundary-tested (creating
-  one is impossible until the spec names it).
-- `eligibility.spec.ts` — school admin sets a determination + approves, and
-  routes a pending record to need-docs.
-- `serving.spec.ts` — teacher records an outcome; it persists across reload.
-- `parent-portal.spec.ts` — parent sees own child, today's outcomes, published
-  notes only, and the published menu; sending a note lands in the inbox store.
+- `login.roles.spec.ts` — the nine approved role domains sign in and land on
+  their scoped first page; the account-creation role list is verified.
+- `serving.spec.ts` — a teacher records an outcome that persists across reload;
+  the low-intake reason selector; and the one-tap Absent/Unwell/Asleep path.
+- `parent-portal.spec.ts` — a parent sees their child's structured result,
+  published notes only, and the published menu with meal detail.
+- `rls.spec.ts` — role isolation; a Nursery Admin reaches the Staff screen.
+- `status.spec.ts` — Super Admin sets eligibility (audited); per-meal kitchen
+  demand; classroom staff cannot reach the Status screen.
 
 ## Structure
 
 ```
 src/
-  lib/      supabase client, auth, roles, rbac matrix, eligibility rules, api layer
-  pages/    login, dashboard, institutions, students, classes, eligibility, menu, today, users, parent
+  lib/      supabase client, auth, roles, rbac matrix, mealAnalytics, calendar,
+            kitchen, format (operational date), api layer
+  pages/    login, dashboard, institutions (+service/calendar tabs), students,
+            classes, staff, meals (library), menu-builder, today, kitchen,
+            analytics, reports, review, status, users, audit, parent/*
   components/  layout + shared UI (design ported from the approved mockup)
 supabase/
-  migrations/ 0001–0007 (domains, tables, helpers, RLS, RPCs, views, audit)
-  functions/admin-create-user/  privileged account creation (super admin only)
+  migrations/ 0001–0031 (schema, RLS, resolution/publish engine, meal library,
+              class_staff, per-meal demand, analytics, DB-boundary integrity)
+  functions/admin-create-user/  privileged account creation (super/nursery admin)
 tests/
-  e2e/        RLS isolation acceptance specs (AT-030/031)
-  sql/        notes_safety.sql — parent-visibility acceptance test
-docs/         BUILD_STATUS.md (honest status per surface) · 14-RELEASE_GATE.md
+  e2e/        Playwright specs on the current architecture (+ global-setup)
+  sql/        run_verification.sh + 11 verify_*.sql suites (schema/RLS/RPC/triggers)
+docs/         BUILD_STATUS.md · 14-RELEASE_GATE.md · VERIFICATION_FINAL.md · spec-pack/
+scripts/      PRODUCTION_APPLY.md (authoritative apply order) · seed.sql
+remediation/  separated, review-gated production scripts
 worker/       Cloudflare Worker (wrangler.jsonc assets + SPA fallback)
 ```
 

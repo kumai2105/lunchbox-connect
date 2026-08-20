@@ -16,7 +16,7 @@ import {
   classifyMealPerformance,
   isValidPreferenceObservation,
 } from '../lib/mealAnalytics';
-import { todayISO } from '../lib/format';
+import { operationalDaysAgoISO, todayISO } from '../lib/format';
 
 const PERIODS: Array<{ value: AppPeriod | ''; label: string }> = [
   { value: '', label: 'All periods' },
@@ -32,19 +32,20 @@ const RANGES = [
   { days: 90, label: 'Last 90 days' },
 ];
 
+// Inclusive range ending today (operational/Asia/Dubai).
 function daysAgoISO(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - (days - 1));
-  return d.toISOString().slice(0, 10);
+  return operationalDaysAgoISO(days - 1);
 }
 
+// Enumerate calendar dates between two YYYY-MM-DD strings. Parsed as UTC so the
+// enumeration is independent of the host timezone (pure date arithmetic).
 function eachDay(from: string, to: string): string[] {
   const out: string[] = [];
-  const cur = new Date(`${from}T00:00:00`);
-  const end = new Date(`${to}T00:00:00`);
+  const cur = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
   while (cur <= end && out.length < 120) {
     out.push(cur.toISOString().slice(0, 10));
-    cur.setDate(cur.getDate() + 1);
+    cur.setUTCDate(cur.getUTCDate() + 1);
   }
   return out;
 }
@@ -412,8 +413,8 @@ export default function MealAnalyticsPage() {
             substitutes or modifies a Meal automatically.
           </Banner>
 
-          <Link to="/menu" className="btn ghost">
-            Open menu management
+          <Link to="/menu-builder" className="btn ghost">
+            Open Menu Builder
           </Link>
         </>
       )}

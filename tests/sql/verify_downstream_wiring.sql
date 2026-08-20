@@ -92,17 +92,17 @@ begin
   -- path is exercised on any day of the week, and so the stored link matches
   -- the serving date (0030 item 3 rejects a service for a different date).
   insert into meal_services (institution_id, service_date, period, meal_revision_id, published, published_at)
-  select v_inst, current_date, 'lunch', mr.id, true, now()
+  select v_inst, app_operational_date(), 'lunch', mr.id, true, now()
     from meal_revisions mr limit 1
   on conflict (institution_id, service_date, period) do update set published = true;
 
   select id into v_service from meal_services
-   where institution_id = v_inst and service_date = current_date and period = 'lunch';
+   where institution_id = v_inst and service_date = app_operational_date() and period = 'lunch';
 
   insert into serving_records (serving_date, class_id, student_id, period, served_status,
                                consumption_pct, behavior, concern_observed, meal_service_id,
                                recorded_by)
-  values (current_date, v_class, v_student, 'lunch','served', 50,'ate_independently', false,
+  values (app_operational_date(), v_class, v_student, 'lunch','served', 50,'ate_independently', false,
           v_service, (select user_id from app_users where role='super_admin' limit 1))
     returning id into v_rec;
 
@@ -143,7 +143,7 @@ begin
       'student_id', v_student, 'period', 'lunch',
       'served_status','served','consumption_pct','75'
     )),
-    current_date);
+    app_operational_date());
 
   select count(*) into n from serving_records
    where id = v_rec and meal_service_id is not null;
@@ -174,10 +174,10 @@ begin
       'served_status','served','consumption_pct','25',
       'meal_service_id', v_service
     )),
-    current_date);
+    app_operational_date());
 
   select count(*) into n from serving_records
-   where student_id = v_student and serving_date = current_date and period = 'lunch'
+   where student_id = v_student and serving_date = app_operational_date() and period = 'lunch'
      and meal_service_id = v_service;
   if n <> 1 then
     raise exception 'FAIL wiring: record_serving_batch() did NOT persist meal_service_id on insert';

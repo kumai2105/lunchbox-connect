@@ -104,7 +104,8 @@ export default function MenuBuilderPage() {
 
   async function changeWeeks(delta: number) {
     if (!selected) return;
-    const next = Math.max(1, selected.week_count + delta);
+    // 1..52 matches the rotations.week_count DB constraint.
+    const next = Math.min(52, Math.max(1, selected.week_count + delta));
     if (next === selected.week_count) return;
     const res = await setRotationWeekCount(selected.id, next);
     if (res.error) {
@@ -220,7 +221,7 @@ export default function MenuBuilderPage() {
                   <Btn size="sm" onClick={() => void changeWeeks(-1)} disabled={selected.week_count <= 1}>
                     − week
                   </Btn>
-                  <Btn size="sm" onClick={() => void changeWeeks(1)}>
+                  <Btn size="sm" onClick={() => void changeWeeks(1)} disabled={selected.week_count >= 52}>
                     + week
                   </Btn>
                   <Btn size="sm" variant="ghost" onClick={() => setIncludeWeekend((v) => !v)}>
@@ -309,14 +310,14 @@ export default function MenuBuilderPage() {
               <input
                 type="number"
                 min={1}
-                max={12}
+                max={52}
                 value={newWeeks}
-                onChange={(e) => setNewWeeks(Math.max(1, Number(e.target.value)))}
+                onChange={(e) => setNewWeeks(Math.min(52, Math.max(1, Number(e.target.value))))}
               />
             </Field>
             <p className="tmc-meta">
-              The current company standard is 4 weeks, but you can choose any duration and change it
-              later.
+              The current company standard is 4 weeks, but a menu can run any duration up to 52
+              weeks and be changed later — the duration is configuration, not a fixed limit.
             </p>
           </form>
         </Modal>

@@ -230,11 +230,15 @@ do $$
 declare i int;
 begin
   for i in 1..11 loop
+    -- 0031 item 1: direct table writes are revoked from authenticated for ALL
+    -- roles; record_serving_batch (SECURITY DEFINER) is the only write path.
+    -- So every raw INSERT is denied here regardless of role. RPC-path
+    -- authorization is proven in verify_correction_order / verify_db_boundary.
     perform zz_attempt(i, 'serving_records.insert(ownClassA)',
       'insert into serving_records(serving_date,class_id,student_id,period,served_status,meal_service_id,concern_observed,recorded_by)
        values (current_date,''b0000000-0000-0000-0000-000000000001'',''d0000000-0000-0000-0000-000000000001'',''lunch'',''served'',''f2000000-0000-0000-0000-000000000001'',false,'''||
        'e0000000-0000-0000-0000-0000000000'||lpad(i::text,2,'0')||''')',
-      case when i in (1,2,11) then 'ALLOWED' else 'DENIED' end);
+      'DENIED');
   end loop;
 end $$;
 

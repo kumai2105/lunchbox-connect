@@ -86,15 +86,9 @@ export default function MealLibraryPage() {
   }
 
   useEffect(() => {
-    let active = true;
-    void listMeals({ includeArchived: true }).then((res) => {
-      if (!active) return;
-      if (res.error) setError(res.error);
-      setRows(res.data ?? []);
-    });
-    return () => {
-      active = false;
-    };
+    // reload() also resolves signed thumbnail URLs, so existing meal images
+    // render on the FIRST load, not only after a later save/reload.
+    void reload();
   }, []);
 
   const visible = useMemo(() => {
@@ -126,6 +120,21 @@ export default function MealLibraryPage() {
     if (!draft) return;
     setBusy(true);
     setError(null);
+
+    // Upload the image FIRST (if a new one was chosen) so the whole edit is a
+    // SINGLE saveMeal call = one logical revision. The upload no longer needs a
+    // meal id, so there is no create-then-append double revision.
+    let imagePath = draft.image_path;
+    if (imgFile) {
+      const up = await uploadMealImage(imgFile);
+      if (up.error) {
+        setBusy(false);
+        setError(`Image upload failed: ${up.error}`);
+        return;
+      }
+      imagePath = up.data;
+    }
+
     const res = await saveMeal({
       id: draft.id,
       name: draft.name.trim(),
@@ -133,36 +142,13 @@ export default function MealLibraryPage() {
       allergens: toList(draft.allergens),
       nutrition: parseNutrition(draft.nutrition),
       portion: draft.portion.trim() || null,
-      image_path: draft.image_path,
+      image_path: imagePath,
     });
+    setBusy(false);
     if (res.error) {
-      setBusy(false);
       setError(res.error);
       return;
     }
-    const mealId = res.data!;
-    // If a new image was chosen, upload it and save a second revision that
-    // references it (upload needs the meal id).
-    if (imgFile) {
-      const up = await uploadMealImage(mealId, imgFile);
-      if (up.error) {
-        setBusy(false);
-        setError(`Meal saved, but image upload failed: ${up.error}`);
-        await reload();
-        setDraft(null);
-        return;
-      }
-      await saveMeal({
-        id: mealId,
-        name: draft.name.trim(),
-        ingredients: toList(draft.ingredients),
-        allergens: toList(draft.allergens),
-        nutrition: parseNutrition(draft.nutrition),
-        portion: draft.portion.trim() || null,
-        image_path: up.data,
-      });
-    }
-    setBusy(false);
     setDraft(null);
     setImgFile(null);
     await reload();

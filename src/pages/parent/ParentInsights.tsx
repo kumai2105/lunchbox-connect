@@ -8,6 +8,7 @@ import {
   groupPreferencesByMeal,
   isValidPreferenceObservation,
 } from '../../lib/mealAnalytics';
+import { operationalDaysAgoISO } from '../../lib/format';
 
 const RANGES = [
   { days: 7, label: '7 days' },
@@ -15,10 +16,9 @@ const RANGES = [
   { days: 30, label: '30 days' },
 ];
 
+// Inclusive range: `days` calendar days ending today (operational/Asia/Dubai).
 function daysAgoISO(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - (days - 1));
-  return d.toISOString().slice(0, 10);
+  return operationalDaysAgoISO(days - 1);
 }
 
 /**
@@ -44,9 +44,7 @@ export default function ParentInsights() {
     });
     const out: Array<{ label: string; value: number | null }> = [];
     for (let i = days - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
+      const key = operationalDaysAgoISO(i);
       const valid = (byDay.get(key) ?? []).filter((r) => isValidPreferenceObservation(r));
       out.push({
         label: i % Math.max(1, Math.round(days / 5)) === 0 ? key.slice(5) : '',

@@ -475,13 +475,19 @@ Test and development cleanup must remain clearly separated from production data.
 
 ## 21. Technical architecture
 
-The LunchBox Connect technical stack must come from the approved technical specification.
+**The technical stack IS formally defined and APPROVED — see Decision 034 in
+`docs/13_DECISION_LOG.md`** (TypeScript · React 18 + Vite SPA · Supabase —
+PostgreSQL, Auth, Storage, Edge Functions · Row Level Security as the boundary ·
+Supabase CLI migrations · Cloudflare Workers deploy · pnpm · Vitest · Playwright;
+operational timezone Asia/Dubai for the MVP). Build on this stack; do not treat
+it as undefined.
 
 Claude must not assume that LunchBox Connect uses the same architecture as another project.
 
 Experience or patterns from other projects may not override LunchBox Connect's own approved technical decisions.
 
-Until the technical architecture is formally defined, technical choices that would become permanent project architecture are `NOT_YET_DEFINED`.
+Only genuinely undecided items (per the `BLOCKED_BY_SPEC` list and
+`12_OUT_OF_SCOPE`) remain `NOT_YET_DEFINED`; the stack itself is not one of them.
 
 ---
 

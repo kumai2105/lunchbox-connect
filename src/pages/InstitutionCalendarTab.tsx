@@ -9,6 +9,7 @@ import {
   type RotationSummary,
 } from '../lib/api';
 import type { AppPeriod, MealLibraryItem } from '../lib/types';
+import { todayISO } from '../lib/format';
 import { Banner, Btn, Card, EmptyState, Field, Pill, Spinner } from '../components/ui';
 
 // Calendar exceptions (§7): closure / date-specific override / special period.
@@ -26,10 +27,6 @@ const KIND_LABEL: Record<CalendarException['kind'], string> = {
   override: 'Date-specific meal change',
   special_period: 'Special period / camp menu',
 };
-
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default function InstitutionCalendarTab({ institutionId }: { institutionId: string }) {
   const [rows, setRows] = useState<CalendarException[] | null>(null);

@@ -9,6 +9,7 @@ import {
   type RotationSummary,
 } from '../lib/api';
 import type { AppPeriod } from '../lib/types';
+import { todayISO } from '../lib/format';
 import { Banner, Btn, Card, Field, Pill, Spinner } from '../components/ui';
 
 // Institution service configuration (§7/§12/§20/§47). The Admin explicitly
@@ -20,10 +21,6 @@ const PERIOD_LABEL: Record<AppPeriod, string> = {
   lunch: 'Lunch',
   afternoon_snack: 'Afternoon snack',
 };
-
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default function InstitutionServiceTab({ institutionId }: { institutionId: string }) {
   const [cfg, setCfg] = useState<InstitutionServiceConfig | null>(null);

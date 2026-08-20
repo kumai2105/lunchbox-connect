@@ -32,7 +32,7 @@ begin
     values (v_meal, 1, 'CO Meal') returning id into v_rev;
   -- ONE published service today: LUNCH only. Breakfast is deliberately absent.
   insert into meal_services (institution_id, service_date, period, meal_revision_id, published)
-    values (v_inst, current_date, 'lunch', v_rev, true) returning id into v_service;
+    values (v_inst, app_operational_date(), 'lunch', v_rev, true) returning id into v_service;
 
   -- ---- item 1: served LUNCH with no service id auto-resolves the link ------
   perform set_config('request.jwt.claims',
@@ -43,11 +43,11 @@ begin
     jsonb_build_array(jsonb_build_object(
       'student_id', v_student, 'period','lunch',
       'served_status','served','consumption_pct','100')),
-    current_date);
+    app_operational_date());
   reset role;
 
   select meal_service_id into v_link from serving_records
-   where student_id = v_student and serving_date = current_date and period = 'lunch';
+   where student_id = v_student and serving_date = app_operational_date() and period = 'lunch';
   if v_link is distinct from v_service then
     raise exception 'FAIL item1: served lunch did not resolve to the published service (% vs %)', v_link, v_service;
   end if;
@@ -63,7 +63,7 @@ begin
       jsonb_build_array(jsonb_build_object(
         'student_id', v_student, 'period','breakfast',
         'served_status','served','consumption_pct','50')),
-      current_date);
+      app_operational_date());
     reset role;
     raise exception 'FAIL item1: served breakfast was recorded with NO published Meal Service';
   exception when check_violation then
@@ -80,7 +80,7 @@ begin
     jsonb_build_array(jsonb_build_object(
       'student_id', v_student, 'period','breakfast',
       'served_status','not_served')),
-    current_date);
+    app_operational_date());
   reset role;
   select count(*) into n from serving_records
    where student_id = v_student and period = 'breakfast' and served_status = 'not_served';
@@ -91,7 +91,7 @@ begin
   begin
     insert into serving_records (serving_date, class_id, student_id, period, served_status,
                                  consumption_pct, meal_service_id, recorded_by)
-      values (current_date, v_cls, v_student, 'snack', 'served', 75, null, v_super);
+      values (app_operational_date(), v_cls, v_student, 'snack', 'served', 75, null, v_super);
     raise exception 'FAIL item1: constraint let a served row through with a NULL service';
   exception when check_violation then
     raise notice 'PASS item1: table constraint refuses a served row with no Meal Service link';
@@ -129,7 +129,7 @@ begin
         'student_id', v_student, 'period','breakfast',
         'served_status','served','consumption_pct','100',
         'meal_service_id', v_service)),   -- lunch service used for breakfast
-      current_date);
+      app_operational_date());
     reset role;
     raise exception 'FAIL item3: a Meal Service from the wrong PERIOD was accepted';
   exception when check_violation then
@@ -140,7 +140,7 @@ begin
   -- (b) foreign institution: a service published at ANOTHER institution.
   insert into institutions (name, kind) values ('ZZ CO Foreign','nursery') returning id into v_inst2;
   insert into meal_services (institution_id, service_date, period, meal_revision_id, published)
-    values (v_inst2, current_date, 'lunch', v_rev, true) returning id into v_service2;
+    values (v_inst2, app_operational_date(), 'lunch', v_rev, true) returning id into v_service2;
   begin
     perform set_config('request.jwt.claims',
       json_build_object('sub', v_staff, 'role','authenticated')::text, true);
@@ -151,7 +151,7 @@ begin
         'student_id', v_student, 'period','lunch',
         'served_status','served','consumption_pct','100',
         'meal_service_id', v_service2)),  -- another institution's service
-      current_date);
+      app_operational_date());
     reset role;
     raise exception 'FAIL item3: a foreign-institution Meal Service was accepted';
   exception when check_violation then
@@ -179,7 +179,7 @@ begin
         'student_id', v_studentB, 'period','lunch',   -- but a Class B student
         'served_status','served','consumption_pct','100',
         'meal_service_id', v_service)),
-      current_date);
+      app_operational_date());
     reset role;
     raise exception 'FAIL item4: a Class B student was recorded under Class A';
   exception when check_violation then

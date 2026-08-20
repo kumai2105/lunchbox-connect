@@ -461,13 +461,20 @@ Historical direct-parent-payment wording must not be implemented in the MVP.
 
 ## 26. Technical Stack
 
-The LunchBox Connect technical stack has not yet been formally approved in the project source of truth.
+**SUPERSEDED — the technical stack is APPROVED. See Decision 034 in
+`13_DECISION_LOG.md`.** The earlier `TECHNICAL_STACK = NOT_YET_DEFINED`
+statement below is retained as history only and is no longer active.
 
-Therefore:
+Approved stack (A1–A3, Decision 034): TypeScript · React 18 + Vite (SPA) ·
+Supabase (PostgreSQL, Auth, Storage, Edge Functions) · Row Level Security as the
+authorization boundary · Supabase CLI migrations · Cloudflare Workers deploy ·
+pnpm · Vitest · Playwright · ESLint · Prettier. Operational timezone (MVP):
+Asia/Dubai. The original caution still holds — the stack must not be assumed
+from another project — but it is no longer undefined.
 
-`TECHNICAL_STACK = NOT_YET_DEFINED`
-
-Claude Code must not assume that LunchBox Connect uses the same technical architecture as The Eastern Charm or any other project.
+> _Historical (superseded):_ "The LunchBox Connect technical stack has not yet
+> been formally approved… `TECHNICAL_STACK = NOT_YET_DEFINED`… must not assume
+> the architecture of The Eastern Charm or any other project."
 
 ---
 

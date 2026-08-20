@@ -745,9 +745,13 @@ export async function setMealActive(id: string, active: boolean): Promise<ApiRes
   return { data: null, error: null };
 }
 
-export async function uploadMealImage(mealId: string, file: File): Promise<ApiResult<string>> {
+// Upload a meal image and return its storage path. Independent of any meal id
+// so it can run BEFORE the meal exists — the caller then saves the meal once
+// with this path, producing exactly one revision per intentional edit. Image
+// visibility is enforced by the storage RLS policy (path is not a secret).
+export async function uploadMealImage(file: File): Promise<ApiResult<string>> {
   const ext = file.name.split('.').pop() ?? 'jpg';
-  const path = `${mealId}/${crypto.randomUUID()}.${ext}`;
+  const path = `${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from('meal-images').upload(path, file, { upsert: true });
   if (error) return err(error);
   return { data: path, error: null };

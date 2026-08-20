@@ -288,7 +288,6 @@ export default function InstitutionDetailPage() {
                   <th>Student</th>
                   <th>Class</th>
                   <th>Operational status</th>
-                  <th>Enrollment</th>
                 </tr>
               </thead>
               <tbody>
@@ -309,7 +308,6 @@ export default function InstitutionDetailPage() {
                         {statusLabel(s.operational_status)}
                       </Pill>
                     </td>
-                    <td className="cell-sub">{s.enrollment_status}</td>
                   </tr>
                 ))}
               </tbody>
