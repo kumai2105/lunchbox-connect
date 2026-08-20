@@ -76,7 +76,7 @@ Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
 ## Verification evidence (release candidate)
 
 - `pnpm typecheck` — clean · `pnpm lint` — clean (0 warnings)
-- `pnpm test:unit` — **107 tests** (RBAC incl. the read-only Institution
+- `pnpm test:unit` — **110 tests** (RBAC incl. the read-only Institution
   schedule, calendar, meal analytics incl. the unscored-is-not-0% rule, kitchen
   revision grouping, operational date + Asia/Dubai presentation, the parent
   child-switch selection/readiness invariant, the four factual dashboard

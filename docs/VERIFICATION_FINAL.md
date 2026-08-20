@@ -2,11 +2,11 @@
 
 **Date:** 2026-08-20
 **Branch:** `claude/new-session-k5dd5u`
-**Release commit:** `0f63ec7` (*Closure sweep — two proven defects closed*),
-which sits on `54a03a2` (*Consolidated boundary closure + approved schedule
-corrections — 20 items*). This report and the package manifest are committed as
-a thin packaging layer on top of `0f63ec7`; the ZIP archives that layer and is
-named for `0f63ec7`.
+**Release commit:** `222d32b` (*Release-layer cleanup — assets binding,
+fail-closed deploy, stale doc lines*), which sits on `0f63ec7` (*Closure sweep*)
+and `54a03a2` (*Consolidated boundary closure — 20 items*). This report and the
+package manifest are committed as a thin packaging layer on top of `222d32b`;
+the ZIP archives that layer and is named for `222d32b`.
 **Method:** every result is **executed**, not inspected. Database checks ran
 against a real PostgreSQL 16 built from nothing with
 `supabase/migrations/0001`–`0037` applied verbatim; frontend logic ran in
@@ -101,7 +101,7 @@ deliberately to prove it can fail:**
 | Add a permissive `for all` policy to `audit_log` | `verify_db_boundary` **audit FAILS** — "a client session REWROTE an audit entry (1 rows)" |
 | Drop the `path: 'menu-builder'` override from the nav entry | `authorization.consistency.test.ts` **FAILS** — "super_admin -> /menubuilder" |
 
-### Frontend logic — 107/107 unit tests (10 files)
+### Frontend logic — 110/110 unit tests (11 files)
 
 `mealAnalytics` (22), `format` (15), `calendar` (14), `rbac` (13),
 `parent/shared` (12), `authorization.consistency` (11 — archive-only entities
@@ -112,7 +112,8 @@ the retired 5,000-row cap), `kitchen` (3), `status` (3).
 ### Build gates
 
 `pnpm typecheck` PASS — app **+ node + `tests/e2e`** · `pnpm lint` PASS
-(0 warnings) · `pnpm build` PASS.
+(0 warnings) · `pnpm build` PASS · `wrangler deploy --dry-run` PASS (config
+validation only — no upload, no deploy).
 
 ### E2E — 19 tests across 6 specs: 0 executed, 19 BLOCKED_BY_ENVIRONMENT
 
@@ -219,9 +220,57 @@ link for every role resolves to a route the router actually declares.
 
 ---
 
+## 4b. Release-layer cleanup (pass on top of the closure sweep)
+
+Three narrow items, all confirmed before being changed. No application logic,
+no migration, no spec rule touched.
+
+**1. The Cloudflare assets binding was missing — CONFIRMED.**
+`worker/worker.ts` calls `env.ASSETS.fetch(request)` for every path outside
+`/api/`, i.e. the whole site, but `wrangler.jsonc` declared the assets
+*directory* without the `binding` that actually exposes the asset server to the
+Worker. Proven twice offline before the fix: `wrangler types` generated an `Env`
+with no `ASSETS` member, and `wrangler deploy --dry-run` printed no bindings
+section at all. After the fix the same dry run prints `env.ASSETS  Assets`.
+Routing is untouched — `directory` and `not_found_handling:
+single-page-application` are unchanged, so direct asset delivery and SPA
+deep-link fallback behave exactly as before.
+
+Why the existing gate missed it: `worker.ts` declares its own local
+`interface Env { ASSETS: Fetcher }`, which **asserts** the binding rather than
+deriving it from the config. TypeScript believed the assertion; the runtime
+would not have. `src/lib/worker.config.test.ts` now cross-checks the two files.
+
+**2. An explicit production deploy could report success having shipped nothing
+— CONFIRMED.** Missing Cloudflare credentials emitted a `::warning::` and
+skipped the deploy step through an `if:` guard. A skipped step does not fail a
+job, so the release run finished green. Now a missing token or account id is a
+hard failure, the deploy step carries no `if:` guard so a wrangler failure fails
+the job, and a final `always()` step asserts the deploy actually reported
+success. Triggers are unchanged: an ordinary branch push still deploys nothing.
+
+**3. Two stale documentation lines — CONFIRMED.** `PACKAGE_MANIFEST` still
+instructed applying `0001 → 0036`; the stack is `0001`–`0037`. `14-RELEASE_GATE`
+listed five E2E specs and omitted `schedule` entirely, so a verifier could have
+signed off without ever noticing the read-only published-menu surface was
+untested. Historical passages naming `0036` as a specific migration are accurate
+and were deliberately left alone.
+
+| Mutation | Result |
+| -------- | ------ |
+| Delete `"binding": "ASSETS"` from `wrangler.jsonc` | `worker.config.test.ts` **FAILS** — `expected [ 'ASSETS' ] to deeply equal []` |
+
+Item 2 is a CI-workflow change and is not unit-testable here; it was validated
+by parsing the workflow and confirming the deploy step carries no `if:` guard,
+no `continue-on-error`, and that the triggers remain `workflow_dispatch` + `v*`.
+
+---
+
 ## 5. BLOCKED_BY_ENVIRONMENT
 
-- **All 19 Playwright tests.** Specs, fixtures and the bundle-build wiring are
+- **All 19 Playwright tests** — 6 specs: `login.roles` (2), `serving` (4),
+  `parent-portal` (3), `rls` (4), `schedule` (3), `status` (3). **0 executed,
+  19 blocked, 0 skipped for any other reason.** Specs, fixtures and the bundle-build wiring are
   in place and type-checked, but execution needs an approved non-production
   Supabase project and egress to it. This sandbox has neither, and production is
   refused by the seeder, by `build:e2e` and by CI. No external environment was

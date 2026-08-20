@@ -10,7 +10,7 @@ this repository alone.
 1. **Static checks**
    - `pnpm typecheck` — clean
    - `pnpm lint` — clean (0 warnings)
-   - `pnpm test:unit` — 107 tests pass (RBAC incl. the read-only Institution
+   - `pnpm test:unit` — 110 tests pass (RBAC incl. the read-only Institution
      schedule, calendar, meal analytics, kitchen revision grouping, operational
      date and Asia/Dubai presentation, the parent child-switch readiness
      invariant, the four factual dashboard completion states, exhaustive

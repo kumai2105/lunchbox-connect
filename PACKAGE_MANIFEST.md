@@ -2,12 +2,17 @@
 
 **Packaged:** 2026-08-20
 **Branch:** `claude/new-session-k5dd5u`
-**Release commit:** `0f63ec7`
-**Package identity:** the ZIP is named `lunchbox-connect-0f63ec7.zip`, and this
-manifest and `docs/VERIFICATION_FINAL.md` both reference `0f63ec7`. The manifest
+**Release commit:** `222d32b`
+**Package identity:** the ZIP is named `lunchbox-connect-222d32b.zip`, and this
+manifest and `docs/VERIFICATION_FINAL.md` both reference `222d32b`. The manifest
 and the regenerated report are committed as a thin packaging layer on top of
-`0f63ec7` (that is the commit whose code they describe); the archive contains
+`222d32b` (that is the commit whose code they describe); the archive contains
 that layer so the delivered docs are the current ones.
+
+The identity moved from `0f63ec7` because the release-layer pass changed the
+EXECUTABLE tree — the Cloudflare assets binding and the deploy workflow — not
+just documentation. A configuration change that decides whether the site serves
+at all is a code change, so it gets its own hash.
 
 ---
 
@@ -19,8 +24,9 @@ All gates were run immediately before packaging.
 | ---- | ------- | ------ |
 | Types | `pnpm typecheck` | **PASS** — app + node + `tests/e2e`, no errors |
 | Lint | `pnpm lint` | **PASS** — no errors, no warnings |
-| Unit tests | `pnpm test:unit` | **PASS — 107/107** across 10 files |
+| Unit tests | `pnpm test:unit` | **PASS — 110/110** across 11 files |
 | Production build | `pnpm build` | **PASS** |
+| Worker config | `wrangler deploy --dry-run` | **PASS** — prints `env.ASSETS  Assets`; no upload, no deploy |
 | Database suites | `./tests/sql/run_verification.sh` | **PASS — 16 suites**, 182 named assertions + the 520-check authorization matrix |
 
 Unit files: `mealAnalytics.test.ts` (22), `format.test.ts` (15, Asia/Dubai
@@ -32,7 +38,9 @@ nav-link/route reachability check that catches a sidebar link pointing at a
 route the router never declares),
 `completion.test.ts` (9, the four factual dashboard states + the
 scored-observation-weighted average), `pagination.test.ts` (5, exhaustive
-analytics paging past 5,000 rows), `kitchen.test.ts` (3), `status.test.ts` (3).
+analytics paging past 5,000 rows), `kitchen.test.ts` (3), `status.test.ts` (3), `worker.config.test.ts` (3 — the
+Worker's runtime bindings must be DECLARED in `wrangler.jsonc`, not merely
+asserted by the Worker's own local `interface Env`).
 
 **Not run:** `pnpm test:e2e` (Playwright, 6 specs / 19 tests) —
 BLOCKED_BY_ENVIRONMENT. The suite needs egress to `*.supabase.co`, which this

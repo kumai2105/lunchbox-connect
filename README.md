@@ -51,7 +51,7 @@ Privileged steps that need your accounts (the tool cannot supply them):
 ```bash
 pnpm typecheck   # full-project TypeScript
 pnpm lint
-pnpm test:unit   # RBAC, calendar, meal analytics, kitchen, operational date (107 tests)
+pnpm test:unit   # RBAC, calendar, meal analytics, kitchen, operational date (110 tests)
 pnpm test:e2e    # live-boundary Playwright suite — needs the env below
 ./tests/sql/run_verification.sh   # 16 SQL suites on a throwaway PostgreSQL 16
 ```
