@@ -435,7 +435,15 @@ Confirmed structured fields on the Classroom Meal Record (one row per Student ×
 - **low_intake_reason** (shown when intake is low, i.e. 0% or 25%): `NOT_HUNGRY` / `DID_NOT_LIKE_IT` / `DISTRACTED` / `SLEEPING` / `ABSENT` / `UNWELL` / `OTHER`. Whether it is mandatory at 0%/25% is left to implementation; the data model and UI must support it either way.
 - **concern_observed**: boolean (`NO_CONCERN` / `CONCERN_OBSERVED`). Only surfaces a note field when true.
 - **note**: existing internal free-text field (`serving_notes`) — unrestricted text still never auto-publishes to Parents (Decision 018 unchanged).
-- **menu_item_id**: the specific Menu row this observation was recorded against, resolved via the same week/weekday/period lookup the Parent menu view already uses. Gives Production→Meal traceability without inventing a Menu-versioning system.
+- **menu_item_id**: ~~the specific Menu row this observation was recorded against, resolved via the same week/weekday/period lookup the Parent menu view already uses.~~
+  **SUPERSEDED for new operations.** Classroom observation traceability now runs
+  `meal_service_id → meal_revision_id → meal_id`: the dated, published Meal Service the
+  observation was recorded against, and through it the exact Meal Revision served. That is
+  what makes a historical record still show January's recipe after March's edit, which the
+  week/weekday/period lookup could not express.
+  Every NEW Classroom Meal Record must carry `meal_service_id` (migrations 0029/0033); the
+  `menu_item_id` column is **retained for pre-cutover records** and must not be deleted —
+  it is the only link those historical rows have. No new operation writes it.
 
 **Absence/exception handling is mandatory, not decorative:** `ABSENT`, `UNWELL`, `SLEEPING`, and `NOT_SERVED` must never count as evidence of Meal dislike in any analytics or Parent-facing summary. Meal-preference metrics are computed over the valid observation population only (served, and not one of those exception reasons).
 
@@ -487,6 +495,26 @@ Confirmed structured fields on the Classroom Meal Record (one row per Student ×
 - **Expected and actual are different facts.** Expected demand, produced, packed, dispatched and received quantities are stored separately; a shortfall never rewrites the expected figure. Variance is derived.
 - **Late absence never rewrites history.** A classroom absence recorded during the meal period does not retroactively reduce the production demand the Kitchen already worked to.
 - **Class context is historical.** Moving a Student to another Class does not move their past Classroom Meal Records into it.
+
+### Republishing a future Meal Service (approved)
+
+Publication alone does not freeze a Meal Service. A **future, unserved** published service
+may deliberately re-resolve — a later Override, Closure or Menu correction is applied by
+republishing, and the dated rows move with it. A service that **carries serving history**
+is immutable: its Meal truth, and the revision its observations were filed against, never
+change. The boundary between those two states is serialized in the database (migration
+0036): the publisher locks the service before testing for history, and Classroom recording
+locks it before creating the first observation, so a republish can neither swap the
+revision under an in-flight observation nor orphan it.
+
+### The Institution's published schedule (Founder-approved)
+
+A Nursery/School Admin may **see** their own institution's published dated schedule —
+today's applicable periods and the published week — read from the same authoritative
+`meal_services` rows the Kitchen and Parent portals consume. It is strictly read-only:
+no create, edit or publish action exists for that role, and the raw Rotation templates,
+Service Plans and Calendar configuration behind the schedule remain Super-Admin-only at the
+database boundary (migration 0036). Menu authorship stays with the Super Admin.
 
 ### Analytics distinction (reinforces Decision 032)
 

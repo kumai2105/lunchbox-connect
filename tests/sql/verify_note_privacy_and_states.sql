@@ -8,10 +8,12 @@ begin;
 do $$
 declare
   v_super uuid := '00000000-0000-0000-0000-0000000000a1';
-  v_inst uuid; v_cls uuid; v_staff uuid; v_parent uuid; v_student uuid;
+  v_inst uuid; v_cls uuid; v_staff uuid; v_parent uuid; v_student uuid; v_admin uuid;
   v_meal uuid; v_rev uuid; v_service uuid; v_rec uuid; v_note uuid;
   v_rot uuid; v_legacy uuid;
   v_d1 uuid; v_d2 uuid; v_d3 uuid;
+  v_parent2 uuid; v_parent3 uuid; v_cls3 uuid; v_student2 uuid; v_inst2 uuid;
+  v_note2 uuid; v_rec2 uuid; v_gkid uuid; v_refusals bigint; v_absents bigint;
   v_valid bigint; v_scored bigint; v_share_total numeric;
   n int; b boolean; t text;
 begin
@@ -23,6 +25,9 @@ begin
     (v_staff,'classroom_staff','NP Staff','np.staff@t.test',v_inst);
   insert into app_users (user_id, role, full_name, email) values
     (v_parent,'parent','NP Parent','np.parent@t.test');
+  insert into auth.users (email) values ('np.admin@t.test') returning id into v_admin;
+  insert into app_users (user_id, role, full_name, email, institution_id) values
+    (v_admin,'school_admin','NP Admin','np.admin@t.test',v_inst);
   insert into classes (institution_id, name, grade) values (v_inst,'NP Class','T') returning id into v_cls;
   insert into students (student_no, institution_id, given_name, family_name, class_id, operational_status)
     values ('NP-1', v_inst,'Kid','NP', v_cls,'ACTIVE_BILLABLE_TO_NURSERY') returning id into v_student;
@@ -500,6 +505,134 @@ begin
   delete from rotation_slots where rotation_id = v_rot;
   reset role;
   raise notice 'PASS s14: clearing a Menu slot (a real configuration action) still works';
+
+  -- =================================================================
+  -- 0036 ITEM 6 — a School Admin sees the IDENTITY of a Parent already
+  -- linked to one of its OWN students, and nothing more.
+  -- =================================================================
+  -- a Parent linked to a child in the OTHER institution
+  insert into institutions (name, kind) values ('ZZ NP Other','nursery') returning id into v_inst2;
+  insert into auth.users (email) values ('np.parent2@t.test') returning id into v_parent2;
+  insert into app_users (user_id, role, full_name, email) values
+    (v_parent2,'parent','NP Foreign Parent','np.parent2@t.test');
+  insert into classes (institution_id, name, grade) values (v_inst2,'NP Other Class','T') returning id into v_cls3;
+  insert into students (student_no, institution_id, given_name, family_name, class_id, operational_status)
+    values ('NP-F1', v_inst2,'Foreign','Kid', v_cls3,'ACTIVE_BILLABLE_TO_NURSERY') returning id into v_student2;
+  insert into student_parents (student_id, user_id) values (v_student2, v_parent2);
+  -- an UNLINKED parent
+  insert into auth.users (email) values ('np.parent3@t.test') returning id into v_parent3;
+  insert into app_users (user_id, role, full_name, email) values
+    (v_parent3,'parent','NP Unlinked Parent','np.parent3@t.test');
+
+  perform set_config('request.jwt.claims', json_build_object('sub',v_admin,'role','authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into n from app_users where user_id = v_parent;      -- linked to OWN student
+  if n <> 1 then reset role; raise exception 'FAIL i6a: School Admin cannot see the linked Parent identity (%)', n; end if;
+  select count(*) into n from app_users where user_id = v_parent2;     -- other institution
+  if n <> 0 then reset role; raise exception 'FAIL i6b: School Admin saw another institution''s Parent (%)', n; end if;
+  select count(*) into n from app_users where user_id = v_parent3;     -- unlinked
+  if n <> 0 then reset role; raise exception 'FAIL i6c: School Admin saw an UNLINKED Parent (%)', n; end if;
+  select count(*) into n from app_users where role = 'parent';         -- no directory
+  reset role;
+  if n <> 1 then raise exception 'FAIL i6d: School Admin read % parent rows — that is a directory', n; end if;
+  raise notice 'PASS i6: School Admin sees ONLY the Parent linked to its own Student (no directory)';
+
+  -- The Parent still sees only themselves.
+  perform set_config('request.jwt.claims', json_build_object('sub',v_parent,'role','authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into n from app_users;
+  reset role;
+  if n <> 1 then raise exception 'FAIL i6e: a Parent read % account rows', n; end if;
+  raise notice 'PASS i6: a Parent still sees only their own account';
+
+  -- =================================================================
+  -- 0036 ITEM 9 — unpublished Classroom free text is not readable by a
+  -- School Admin. A REAL unpublished note exists at this point.
+  -- =================================================================
+  -- against a DIFFERENT record: v_rec already carries the published note from
+  -- the earlier free-text boundary test, and one note per record is enforced.
+  select id into v_rec2 from serving_records where student_id = v_d1 limit 1;
+  perform set_config('request.jwt.claims', json_build_object('sub',v_staff,'role','authenticated')::text, true);
+  set local role authenticated;
+  insert into serving_notes (serving_record_id, body) values (v_rec2, 'INTERNAL: item 9 probe')
+    returning id into v_note2;
+  reset role;
+
+  -- control: the assigned Classroom Staff CAN read their own internal note
+  perform set_config('request.jwt.claims', json_build_object('sub',v_staff,'role','authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into n from serving_notes where id = v_note2;
+  reset role;
+  if n <> 1 then raise exception 'FAIL i9a: assigned Classroom Staff lost access to their internal note (%)', n; end if;
+  raise notice 'PASS i9: assigned Classroom Staff still read internal notes for their children';
+
+  -- the School Admin may NOT
+  perform set_config('request.jwt.claims', json_build_object('sub',v_admin,'role','authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into n from serving_notes where id = v_note2;
+  reset role;
+  if n <> 0 then raise exception 'FAIL i9b: School Admin read an UNPUBLISHED classroom note (%)', n; end if;
+  raise notice 'PASS i9: School Admin cannot read unpublished Classroom free text';
+
+  -- nor may the Parent, until it is published
+  perform set_config('request.jwt.claims', json_build_object('sub',v_parent,'role','authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into n from serving_notes where id = v_note2;
+  reset role;
+  if n <> 0 then raise exception 'FAIL i9c: Parent read an unpublished note (%)', n; end if;
+  raise notice 'PASS i9: Parent still sees published text only';
+
+  -- =================================================================
+  -- 0036 ITEM 15 — a grandfathered ABSENT+REFUSED row is never counted as
+  -- a refusal. The state constraints are NOT VALID, so such a row can exist.
+  -- =================================================================
+  -- Such a row CANNOT be written today — 0035's constraint refuses it, which is
+  -- exactly why it must be simulated rather than inserted. The constraint is
+  -- NOT VALID, so it never examined rows that already existed; this drops it,
+  -- writes the row a pre-constraint release would have left behind, and puts it
+  -- back. That reproduces the real production condition faithfully.
+  insert into students (student_no, institution_id, given_name, family_name, class_id, operational_status)
+    values ('NP-G1', v_inst,'Grand','Fathered', v_cls,'ACTIVE_BILLABLE_TO_NURSERY') returning id into v_gkid;
+
+  alter table serving_records drop constraint serving_records_state_semantics;
+  insert into serving_records (serving_date, class_id, student_id, period, served_status,
+                               consumption_pct, behavior, low_intake_reason, meal_service_id, recorded_by)
+    values (app_operational_date(), v_cls, v_gkid, 'lunch', 'served',
+            null, 'refused', 'absent', v_service, v_staff);
+  alter table serving_records add constraint serving_records_state_semantics check (
+    case
+      when served_status = 'not_served' then
+        consumption_pct is null and behavior is null and low_intake_reason is null
+      when coalesce(low_intake_reason::text, '') in ('absent', 'unwell', 'sleeping') then
+        consumption_pct is null and behavior is null
+      when low_intake_reason is not null then
+        consumption_pct in (0, 25)
+      else true
+    end
+  ) not valid;
+  raise notice 'PASS i15: a pre-constraint ABSENT+REFUSED row was reproduced (constraint is NOT VALID)';
+
+  perform set_config('request.jwt.claims', json_build_object('sub',v_super,'role','authenticated')::text, true);
+  set local role authenticated;
+  select refusal_count, exception_absent into v_refusals, v_absents
+    from v_meal_performance where dish_name = 'NP Meal' and period = 'lunch';
+  reset role;
+  if v_absents < 1 then raise exception 'FAIL i15a: the grandfathered ABSENT row was not counted as an exception'; end if;
+  if v_refusals <> 0 then
+    raise exception 'FAIL i15b: a grandfathered ABSENT+REFUSED row inflated refusals to %', v_refusals;
+  end if;
+  raise notice 'PASS i15: a grandfathered ABSENT+REFUSED row counts as an exception, never a refusal';
+
+  -- the revision-level view must agree
+  perform set_config('request.jwt.claims', json_build_object('sub',v_super,'role','authenticated')::text, true);
+  set local role authenticated;
+  select coalesce(sum(refusal_count),0) into v_refusals
+    from v_meal_revision_performance where meal_name = 'NP Meal';
+  reset role;
+  if v_refusals <> 0 then
+    raise exception 'FAIL i15c: revision-level analytics counted the exception as a refusal (%)', v_refusals;
+  end if;
+  raise notice 'PASS i15: revision-level analytics agree — exceptions are not preference evidence';
 
   raise notice '---------------------------------------------------------';
   raise notice 'NOTE PRIVACY / STATES: parent free-text boundary, record states,';

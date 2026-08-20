@@ -415,13 +415,21 @@ begin
     reset role;
     raise notice 'PASS b3: School Admin cannot link a guardian';
   end;
-  perform set_config('request.jwt.claims', json_build_object('sub',v_admin,'role','authenticated')::text, true);
-  set local role authenticated;
-  delete from student_parents where student_id = v_student and user_id = v_parent;
-  get diagnostics n = row_count;
-  reset role;
-  if n <> 0 then raise exception 'FAIL b3: School Admin unlinked a guardian (% rows)', n; end if;
-  raise notice 'PASS b3: School Admin cannot unlink a guardian';
+  -- 0036 item 5: UNLINK is now denied to EVERY client (the grant is revoked),
+  -- because removal semantics are NOT_YET_DEFINED. The refusal is a privilege
+  -- error rather than a zero-row filter — the stronger of the two boundaries.
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub',v_admin,'role','authenticated')::text, true);
+    set local role authenticated;
+    delete from student_parents where student_id = v_student and user_id = v_parent;
+    get diagnostics n = row_count;
+    reset role;
+    if n <> 0 then raise exception 'FAIL b3: School Admin unlinked a guardian (% rows)', n; end if;
+    raise notice 'PASS b3: School Admin cannot unlink a guardian';
+  exception when insufficient_privilege then
+    reset role;
+    raise notice 'PASS b3: guardian unlink is refused outright (NOT_YET_DEFINED)';
+  end;
 
   -- b4 — no client hard-deletes core historical entities. The DELETE grant
   -- itself is withdrawn, so the attempt is refused outright rather than

@@ -394,7 +394,13 @@ end $$;
 --
 -- The Parent-association workflow is NOT_YET_DEFINED. The frontend makes a
 -- School Admin read-only; the database must agree on the raw path. Only the
--- currently implemented Super Admin link action remains.
+-- currently implemented Super Admin LINK action remains.
+--
+-- 0036 item 5: UNLINK is removed for every client, Super Admin included. What
+-- an unlink means — for the Parent's historical visibility, for reversibility,
+-- for what is retained — is NOT_YET_DEFINED, so no client performs it. The
+-- DELETE grant is revoked, so the attempt is refused outright rather than
+-- filtered to zero rows.
 -- =====================================================================
 do $$
 declare i int;
@@ -404,9 +410,9 @@ begin
       'insert into student_parents(student_id,user_id)
        values (''d0000000-0000-0000-0000-000000000002'',''e0000000-0000-0000-0000-000000000005'')',
       case when i = 1 then 'ALLOWED' else 'DENIED' end);
-    perform zz_rows(i, 'student_parents.DELETE (unlink) rows',
+    perform zz_attempt(i, 'student_parents.DELETE (unlink — NOT_YET_DEFINED)',
       'delete from student_parents where student_id=''d0000000-0000-0000-0000-000000000001''',
-      case when i = 1 then 1 else 0 end);
+      'DENIED');
   end loop;
 end $$;
 
@@ -432,9 +438,12 @@ begin
   for i in 1..11 loop
     v_uid := 'e0000000-0000-0000-0000-0000000000'||lpad(i::text,2,'0');
     perform set_config('request.jwt.claims', json_build_object('sub',v_uid,'role','authenticated')::text, true);
-    -- Only Super Admin (1) and the institution's own School Admin (2) may read
-    -- planning rows. Parent (5) and Classroom Staff (11) must see none.
-    expect := case when i in (1,2) then 1 else 0 end;
+    -- 0036 item 1: raw PLANNING data is SUPER ADMIN ONLY (1). The approved
+    -- boundary gives a Nursery/School Admin (2) its own PUBLISHED dated
+    -- schedule — not the Rotation templates, Service Plans or Calendar
+    -- configuration behind it. This previously expected School Admin to see
+    -- them, which codified the defect.
+    expect := case when i = 1 then 1 else 0 end;
 
     execute 'set local role authenticated';
     select count(*) into n from institution_service_plans;
@@ -589,6 +598,61 @@ begin
   for i in 2..10 loop
     perform zz_attempt(i, 'set_concern_observed RPC (unauthorized role)',
       'select set_concern_observed((select id from serving_records limit 1), true)', 'DENIED');
+  end loop;
+end $$;
+
+-- =====================================================================
+-- 0036 boundary closure — the paths this migration shut, attacked from
+-- every role, plus the linked-Parent identity the School Admin needs.
+-- =====================================================================
+
+-- Kitchen master data is not readable by every signed-in account.
+--
+-- NOTE the shape: RLS filters ROWS, it does not raise a privilege error, so a
+-- visibility boundary must be asserted by COUNTING rows, not by whether the
+-- statement succeeded. The fixture seeds a Kitchen, so a zero here means
+-- "refused" and never "the table was empty".
+do $$
+declare i int; n int; v_uid text; expect int;
+begin
+  for i in 1..11 loop
+    v_uid := 'e0000000-0000-0000-0000-0000000000'||lpad(i::text,2,'0');
+    perform set_config('request.jwt.claims', json_build_object('sub',v_uid,'role','authenticated')::text, true);
+    execute 'set local role authenticated';
+    select count(*) into n from kitchens;
+    execute 'reset role';
+    -- 1 = super_admin, who administers Kitchens and sees them ALL (the fixture
+    -- Kitchen plus any already present). 9 = the kitchen account, which sees
+    -- EXACTLY its own one. Everyone else: none.
+    insert into matrix_result values (
+      (select role::text from app_users where user_id=v_uid::uuid),
+      'kitchens.SELECT count (master data)',
+      case
+        when i = 1 and n >= 1 then 'PASS  sees all ('||n||')'
+        when i = 9 and n = 1 then 'PASS  sees own only (1)'
+        when i not in (1, 9) and n = 0 then 'PASS  sees 0'
+        else 'FAIL  sees '||n
+      end);
+  end loop;
+end $$;
+
+-- Production Demand: Super Admin and Kitchen only. Institution access is
+-- NOT_YET_DEFINED, so a School Admin gets nothing back.
+do $$
+declare i int; n int; v_uid text; expect int;
+begin
+  for i in 1..11 loop
+    v_uid := 'e0000000-0000-0000-0000-0000000000'||lpad(i::text,2,'0');
+    perform set_config('request.jwt.claims', json_build_object('sub',v_uid,'role','authenticated')::text, true);
+    execute 'set local role authenticated';
+    select count(*) into n from meal_production_demand(current_date);
+    execute 'reset role';
+    expect := case when i in (1, 9) then 1 else 0 end;
+    insert into matrix_result values (
+      (select role::text from app_users where user_id=v_uid::uuid),
+      'meal_production_demand() rows',
+      case when (n > 0) = (expect > 0) then 'PASS  rows '||n
+           else 'FAIL  rows '||n||' expected '||(case when expect>0 then '>0' else '0' end) end);
   end loop;
 end $$;
 

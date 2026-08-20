@@ -80,6 +80,36 @@ insert into meal_revisions (id, meal_id, revision_no, name, ingredients, portion
 update meals set current_revision_id = 'a2000000-0000-0000-0000-000000000001'
   where id = 'a1000000-0000-0000-0000-000000000001';
 
+-- RAW PLANNING FIXTURE — seeded so that every "sees 0 planning rows" assertion
+-- below is a genuine refusal and not an empty table. A Rotation with a slot, an
+-- effective-dated Service Plan, a Rotation assignment and a Calendar exception
+-- all exist for institution one.
+insert into rotations (id, name, week_count, active) values
+  ('a4000000-0000-0000-0000-000000000001','ZZ Cross Rotation', 1, true);
+insert into rotation_slots (rotation_id, week_number, weekday, period, meal_id) values
+  ('a4000000-0000-0000-0000-000000000001', 1, 0, 'lunch', 'a1000000-0000-0000-0000-000000000001');
+insert into institution_service_plans (institution_id, periods, effective_from) values
+  ('bb000000-0000-0000-0000-000000000001', array['lunch']::app_period[], current_date - 30);
+insert into institution_rotation_assignments (institution_id, rotation_id, anchor_week, effective_from) values
+  ('bb000000-0000-0000-0000-000000000001','a4000000-0000-0000-0000-000000000001', 1, current_date - 30);
+insert into calendar_exceptions (institution_id, kind, date_from, date_to, reason) values
+  ('bb000000-0000-0000-0000-000000000001', 'closure', current_date + 5, current_date + 5, 'ZZ Cross closure');
+
+-- Control: the rows really are there when read WITHOUT RLS (as the owner).
+do $$
+declare n int;
+begin
+  select count(*) into n from institution_service_plans;
+  if n < 1 then raise exception 'FIXTURE: no service plan seeded — planning zeros would be vacuous'; end if;
+  select count(*) into n from institution_rotation_assignments;
+  if n < 1 then raise exception 'FIXTURE: no rotation assignment seeded'; end if;
+  select count(*) into n from calendar_exceptions;
+  if n < 1 then raise exception 'FIXTURE: no calendar exception seeded'; end if;
+  select count(*) into n from rotation_slots;
+  if n < 1 then raise exception 'FIXTURE: no rotation slot seeded'; end if;
+  raise notice 'PASS  fixture: raw planning rows exist, so every planning zero below is a refusal';
+end $$;
+
 -- Both institutions get a PUBLISHED lunch today; institution one also gets
 -- an UNPUBLISHED (draft) service, which no downstream role may ever see.
 insert into meal_services (id, institution_id, service_date, period, meal_revision_id, published, published_at) values

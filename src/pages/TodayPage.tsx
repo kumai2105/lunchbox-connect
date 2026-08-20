@@ -247,6 +247,25 @@ export default function TodayPage() {
     }
   }
 
+  /**
+   * Saves a LOW-intake result with no reason at all.
+   *
+   * A low-intake reason is OPTIONAL in the approved rules, but the screen only
+   * ever saved from `selectReason`, so after "0% → Refused" the staff member
+   * had no way forward except to pick a reason they may not have. That made an
+   * optional field mandatory in practice — and invited a guessed reason, which
+   * is worse than none. Reason chips remain available as quick context.
+   */
+  async function saveWithoutReason() {
+    const ok = await save({
+      consumption_pct: draft.pct,
+      behavior: draft.behavior,
+      low_intake_reason: null,
+      concern_observed: draft.concern,
+    });
+    if (ok) goToNextUnrecorded(index);
+  }
+
   async function selectReason(reason: LowIntakeReason) {
     const nextDraft = { ...draft, reason };
     setDraft(nextDraft);
@@ -362,7 +381,9 @@ export default function TodayPage() {
   }
 
   const rec = student ? byStudent[student.id] : undefined;
-  const allergyNote = student?.medical_notes?.map((m) => m.text).join(' · ');
+  // INTERIM free-text safety notes (0029). NOT an allergy record: the
+  // structured child Allergy/Dietary model is BLOCKED_BY_SPEC (§42).
+  const safetyNote = student?.medical_notes?.map((m) => m.text).join(' · ');
 
   return (
     <div>
@@ -484,9 +505,9 @@ export default function TodayPage() {
               {student.given_name} {student.family_name}
             </div>
             <div className="focus-sub">{student.student_no}</div>
-            {allergyNote && (
-              <div className="focus-allergy">
-                <Icon name="alertTriangle" size={13} /> {allergyNote}
+            {safetyNote && (
+              <div className="focus-safety-note">
+                <Icon name="alertTriangle" size={13} /> {safetyNote}
               </div>
             )}
 
@@ -560,6 +581,10 @@ export default function TodayPage() {
                     {LOW_INTAKE_REASON_LABEL[r]}
                   </button>
                 ))}
+                {/* The reason is OPTIONAL: this is the way through without one. */}
+                <button className="brand" onClick={() => void saveWithoutReason()} disabled={saving}>
+                  {saving ? 'Saving…' : 'Save · no reason'}
+                </button>
               </div>
             )}
 

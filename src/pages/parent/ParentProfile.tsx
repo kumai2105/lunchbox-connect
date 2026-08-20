@@ -80,9 +80,9 @@ export default function ParentProfile() {
             No interim safety notes are recorded for {child.given_name}.
           </div>
         ) : (
-          <div className="allergy-list">
+          <div className="safety-note-list">
             {notes.map((n) => (
-              <div className="allergy-item" key={n.id}>
+              <div className="safety-note-item" key={n.id}>
                 <Icon name="alertTriangle" size={16} />
                 <span>{n.text}</span>
               </div>

@@ -13,6 +13,14 @@ name: Deploy to Cloudflare
 # path.
 on:
   workflow_dispatch:
+    inputs:
+      backend_ready_migration:
+        description: >-
+          Highest migration version ALREADY APPLIED to production (e.g. 0036).
+          Attests that PRODUCTION_APPLY.md steps 1-5 are complete for this
+          release. The deploy refuses to run without it.
+        required: true
+        type: string
   push:
     tags: ['v*']
 
@@ -53,6 +61,42 @@ jobs:
 
       - name: Unit tests
         run: pnpm test:unit
+
+      # ---- BACKEND READINESS GATE (item 20) -------------------------------
+      #
+      # A v* tag or a manual run could previously ship a frontend against an
+      # older backend. The architecture couples
+      #     database schema  ->  admin-create-user Edge Function  ->  frontend
+      # because the bundle calls RPCs, tables and a function that must already
+      # exist. A release is a SEQUENCE, not a single button.
+      #
+      # This step refuses to continue unless the operator has confirmed, for
+      # THIS release, that steps 1-5 of scripts/PRODUCTION_APPLY.md are done:
+      #   1. inspect the production migration ledger
+      #   2. preflight migration blockers
+      #   3. apply only the missing approved migrations
+      #   4. deploy/configure admin-create-user
+      #   5. verify backend / Auth / Edge Function readiness
+      #
+      # It is a human attestation naming the applied migration, not an
+      # automatic production mutation: nothing here touches production data,
+      # and seeded production E2E is deliberately NOT part of the gate.
+      - name: Backend readiness gate
+        env:
+          # Set per release: the highest migration version applied to production.
+          BACKEND_READY_MIGRATION: ${{ inputs.backend_ready_migration || vars.BACKEND_READY_MIGRATION }}
+        run: |
+          LATEST=$(ls supabase/migrations/*.sql | sed 's#.*/##' | sort | tail -1 | cut -d_ -f1)
+          echo "Frontend in this release expects migrations through: $LATEST"
+          if [ -z "$BACKEND_READY_MIGRATION" ]; then
+            echo "::error::Backend readiness not attested. Follow scripts/PRODUCTION_APPLY.md steps 1-5, then set BACKEND_READY_MIGRATION (repository variable, or the workflow_dispatch input) to the highest migration version applied to production — e.g. $LATEST. Refusing to deploy a frontend against an unverified backend."
+            exit 1
+          fi
+          if [ "$BACKEND_READY_MIGRATION" \< "$LATEST" ]; then
+            echo "::error::Production is attested at migration $BACKEND_READY_MIGRATION but this frontend expects $LATEST. Apply the missing migrations and redeploy the Edge Function first (scripts/PRODUCTION_APPLY.md). Refusing to deploy."
+            exit 1
+          fi
+          echo "Backend attested at $BACKEND_READY_MIGRATION (>= $LATEST required). Proceeding."
 
       - name: Build the frontend
         env:

@@ -247,8 +247,14 @@ export default function StudentProfilePage() {
             <tr>
               <td className="cell-sub">Institution</td>
               <td className="cell-name">
+                {/* Only link where the role may actually open the Institution
+                    page; otherwise show the name as plain fact. */}
                 {institution ? (
-                  <Link to={`/institutions/${institution.id}`}>{institution.name}</Link>
+                  can(role, 'institutions', 'view') ? (
+                    <Link to={`/institutions/${institution.id}`}>{institution.name}</Link>
+                  ) : (
+                    institution.name
+                  )
                 ) : (
                   '—'
                 )}
@@ -302,15 +308,25 @@ export default function StudentProfilePage() {
         title="Guardians"
         hint="parent access derives from these links"
         actions={
-          canManage ? (
+          // "Manage" only where guardian mutation is actually permitted.
+          // A School Admin has read-only guardian visibility, so the link is
+          // labelled for what it does: view.
+          can(role, 'guardians', 'view') ? (
             <Link to="/guardians" className="btn ghost">
-              Manage links <Icon name="arrowRight" size={14} />
+              {can(role, 'guardians', 'create') ? 'Manage links' : 'View guardian links'}{' '}
+              <Icon name="arrowRight" size={14} />
             </Link>
           ) : undefined
         }
       >
         {guardians.length === 0 ? (
-          <EmptyState text="No guardian accounts are linked to this student yet — until one is, no parent can see this child." />
+          <EmptyState
+            text={
+              can(role, 'guardians', 'create')
+                ? 'No guardian accounts are linked to this student yet — until one is, no parent can see this child.'
+                : 'No guardian accounts are linked to this student yet — until one is, no parent can see this child. Linking is handled by LunchBox Connect.'
+            }
+          />
         ) : (
           <table>
             <thead>

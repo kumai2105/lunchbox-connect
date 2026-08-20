@@ -84,6 +84,15 @@ export default function InstitutionSchedulePage() {
   );
   const todayPeriods = PERIOD_ORDER.filter((p) => todayMeals[p]);
 
+  // The WEEK's columns are the periods this institution actually publishes in
+  // the displayed week — not the fixed four. A three-meal nursery was being
+  // given a permanently empty Afternoon snack column, which reads as a service
+  // it failed to provide rather than one it never contracted for.
+  const weekPeriods = useMemo(() => {
+    const seen = new Set<AppPeriod>((meals ?? []).map((m) => m.period));
+    return PERIOD_ORDER.filter((p) => seen.has(p));
+  }, [meals]);
+
   if (!meals) return <Spinner />;
 
   return (
@@ -172,7 +181,7 @@ export default function InstitutionSchedulePage() {
             <thead>
               <tr>
                 <th>Date</th>
-                {PERIOD_ORDER.map((p) => (
+                {weekPeriods.map((p) => (
                   <th key={p}>{PERIOD_META[p].label}</th>
                 ))}
               </tr>
@@ -183,7 +192,7 @@ export default function InstitutionSchedulePage() {
                   <td className="cell-name">
                     {formatOperationalDate(date, { weekday: 'short', day: 'numeric', month: 'short' })}
                   </td>
-                  {PERIOD_ORDER.map((p) => {
+                  {weekPeriods.map((p) => {
                     const m = periods[p];
                     return (
                       <td key={p}>

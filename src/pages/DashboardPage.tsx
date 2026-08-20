@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { dashboardSummary, mealPerformance, productionDemand } from '../lib/api';
+import { dashboardSummary, mealPerformance } from '../lib/api';
 import type {
   DashboardInstitutionRow,
   MealPerformanceRow,
-  ProductionDemandRow,
 } from '../lib/types';
 import {
   Banner,
@@ -17,24 +16,34 @@ import {
   StatusDot,
 } from '../components/ui';
 import { useRole } from '../lib/auth';
+import {
+  COMPLETION_DOT,
+  COMPLETION_LABEL,
+  completionState,
+  institutionsNeedingAttention,
+  totalActiveStudents,
+  weightedAverageConsumption,
+} from '../lib/completion';
 import { can } from '../lib/rbac';
 import { classifyMealPerformance } from '../lib/mealAnalytics';
 
 export default function DashboardPage() {
   const role = useRole();
   const [rows, setRows] = useState<DashboardInstitutionRow[] | null>(null);
-  const [demand, setDemand] = useState<ProductionDemandRow[]>([]);
   const [meals, setMeals] = useState<MealPerformanceRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     void (async () => {
-      const [d, p] = await Promise.all([dashboardSummary(), productionDemand()]);
+      // Production Demand is NOT an authorized read for every dashboard role
+      // (Institution access is NOT_YET_DEFINED), and the eligible-student count
+      // it was fetched for is already a factual column of the dashboard read
+      // model. One authorized query, no unauthorized one.
+      const d = await dashboardSummary();
       if (!active) return;
-      if (d.error || p.error) setError(d.error ?? p.error);
+      if (d.error) setError(d.error);
       setRows(d.data ?? []);
-      setDemand(p.data ?? []);
       // v_meal_performance is Super Admin only at the RLS layer — fetching it
       // as any other role would just come back empty, so skip the request.
       if (role === 'super_admin') {
@@ -52,21 +61,16 @@ export default function DashboardPage() {
 
   const activeStudents = rows.reduce((sum, r) => sum + r.active_students, 0);
   const mealsToday = rows.reduce((sum, r) => sum + r.meals_today, 0);
-  const eligibleStudents = demand.reduce((sum, r) => sum + r.eligible_students, 0);
-  const silentInstitutions = rows.filter((r) => r.active_students > 0 && r.meals_today === 0);
+  const eligibleStudents = totalActiveStudents(rows);
+  // Only institutions that genuinely OWE records today. A closed one owes none.
+  const needsAttention = institutionsNeedingAttention(rows);
 
-  // Weighted across every recorded meal so one low-volume dish can't skew the
-  // headline number the way a plain average of averages would.
+  // Weighted by the population each average actually describes — SCORED
+  // observations. avg_consumption_pct never included a behaviour-only record,
+  // so weighting it by valid_observations counted people who did not vote.
+  const avgConsumption = weightedAverageConsumption(meals);
+  // Refusal IS a property of the valid population, so it keeps that denominator.
   const totalValidObs = meals.reduce((sum, m) => sum + m.valid_observations, 0);
-  const avgConsumption =
-    totalValidObs > 0
-      ? Math.round(
-          meals
-            .filter((m) => m.avg_consumption_pct !== null)
-            .reduce((sum, m) => sum + (m.avg_consumption_pct as number) * m.valid_observations, 0) /
-            totalValidObs,
-        )
-      : null;
   const totalRefusals = meals.reduce((sum, m) => sum + m.refusal_count, 0);
   const refusalRate =
     totalValidObs > 0 ? Math.round((totalRefusals / totalValidObs) * 1000) / 10 : null;
@@ -174,22 +178,17 @@ export default function DashboardPage() {
                     <td className="col-secondary">
                       {/* Undefined when nothing is published/expected today —
                           shown as "—", never a divide-by-zero or a >100% ratio. */}
-                      <span className={rate === null ? 'pill na' : mealsTodayPill(rate)}>
-                        {rate === null ? '—' : `${rate}%`}
-                      </span>
+                      {/* The exact ratio. The old 80%/60% colour bands were an
+                          invented judgement about what counts as "good". */}
+                      <span className="pill na">{rate === null ? '—' : `${rate}%`}</span>
                     </td>
                     <td>
-                      {r.active_students > 0 && r.meals_today === 0 ? (
-                        <span>
-                          <StatusDot color="amber" />
-                          No outcomes recorded yet
-                        </span>
-                      ) : (
-                        <span>
-                          <StatusDot color={r.meals_today > 0 ? 'green' : 'gray'} />
-                          {r.meals_today > 0 ? 'Serving' : 'Empty roster'}
-                        </span>
-                      )}
+                      {/* Four exact states, no threshold. A day with nothing
+                          published is COMPLETE at 0 of 0, not a failure. */}
+                      <span>
+                        <StatusDot color={COMPLETION_DOT[completionState(r)]} />
+                        {COMPLETION_LABEL[completionState(r)]}
+                      </span>
                     </td>
                   </tr>
                 );
@@ -243,13 +242,16 @@ export default function DashboardPage() {
 
       <Card title="Today's attention" hint="derived — nothing invented">
         <div style={{ padding: '4px 18px' }}>
-          {silentInstitutions.length === 0 ? (
-            <div className="center-box">No silent institutions today.</div>
+          {needsAttention.length === 0 ? (
+            <div className="center-box">
+              Nothing outstanding — every institution with meals scheduled today has started
+              recording.
+            </div>
           ) : (
-            silentInstitutions.map((r) => (
+            needsAttention.map((r) => (
               <Banner key={r.institution_id} kind="warn">
-                <b>{r.name}</b> — {r.active_students} active students, 0 meal outcomes recorded
-                today.
+                <b>{r.name}</b> — {r.expected_today} applicable records expected today, none
+                recorded yet.
               </Banner>
             ))
           )}
@@ -259,8 +261,3 @@ export default function DashboardPage() {
   );
 }
 
-function mealsTodayPill(rate: number): string {
-  if (rate >= 80) return 'pill free';
-  if (rate >= 60) return 'pill reduced';
-  return 'pill red';
-}

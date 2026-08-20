@@ -1,5 +1,5 @@
 import { expect, test } from 'playwright/test';
-import { e2eReady, login, seeded } from './fixtures';
+import { adminDb, e2eReady, login, seeded } from './fixtures';
 
 test.describe('classroom serving screen (docs/13 Decision 032 — fast tablet workflow)', () => {
   test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
@@ -76,15 +76,52 @@ test.describe('classroom serving screen (docs/13 Decision 032 — fast tablet wo
     await expect(page.locator('.roster-chip').first().locator('.status-badge')).not.toHaveText('');
   });
 
-  test('a class with nothing published for the day cannot record consumption (§1/§2)', async ({
+  test('a period with NO published Meal cannot be recorded — UI, controls and RPC', async ({
     page,
   }) => {
     const s = seeded();
-    await login(page, s.superAdminEmail);
-    // A far-future date has no published service, so the register is blocked.
-    await page.goto(`/today?class=${s.classForServing}`);
-    // (The seed only publishes today; navigating the date is a manual check —
-    // here we assert the honest empty state text exists in the component.)
-    await expect(page.getByRole('heading', { name: /Today/ })).toBeVisible();
+    // The seed publishes BREAKFAST and LUNCH for today at this institution, and
+    // deliberately nothing for the afternoon snack. That period is the negative
+    // condition. (This test previously only asserted the Today page loaded,
+    // which the page does whether or not anything is published.)
+    await login(page, s.classroomEmail);
+    await page.goto(`/today?class=${s.classForServing}&period=afternoon_snack`);
+
+    // 1. The UI says so plainly, in role-correct terms.
+    await expect(page.getByText(/No published Meal is available/i)).toBeVisible();
+
+    // 2. No recording control is offered for that period.
+    for (const label of [/^100%$/, /^75%$/, /^50%$/, /^25%$/, /^0%$/, /Not served/i]) {
+      await expect(page.getByRole('button', { name: label })).toHaveCount(0);
+    }
+
+    // 3. A DIRECT RPC call is refused by the database, not merely hidden.
+    const rpc = await page.evaluate(async () => {
+      const w = window as unknown as {
+        __sb?: { rpc: (fn: string, args: unknown) => Promise<{ error: { message: string } | null }> };
+      };
+      if (!w.__sb) return { skipped: true as const };
+      const res = await w.__sb.rpc('record_serving_batch', {
+        p_class: null,
+        p_rows: [],
+        p_date: null,
+      });
+      return { skipped: false as const, error: res.error?.message ?? null };
+    });
+    // The page does not expose its Supabase client, so the direct-write proof
+    // lives in SQL where it can attack the real boundary:
+    // tests/sql/verify_correction_order.sql asserts that recording a period
+    // with nothing published raises check_violation, and
+    // verify_db_boundary.sql asserts raw serving_records INSERT is revoked.
+    expect(rpc.skipped || rpc.error !== null).toBeTruthy();
+
+    // 4. Nothing was created for that period.
+    const db = adminDb();
+    const { data } = await db
+      .from('serving_records')
+      .select('id')
+      .eq('class_id', s.classForServing)
+      .eq('period', 'afternoon_snack');
+    expect(data ?? []).toHaveLength(0);
   });
 });

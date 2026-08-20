@@ -95,7 +95,13 @@ export default function GuardiansPage() {
         {!sorted.length && !rows ? (
           <Spinner />
         ) : sorted.length === 0 ? (
-          <EmptyState text="No guardian links yet — link a parent account to a student to start the chain." />
+          <EmptyState
+            text={
+              canLink
+                ? 'No guardian links yet — link a parent account to a student to start the chain.'
+                : 'No guardian links yet. Linking a parent account to a student is handled by LunchBox Connect.'
+            }
+          />
         ) : (
           <table>
             <thead>

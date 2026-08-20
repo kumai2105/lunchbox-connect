@@ -196,9 +196,15 @@ export default function ClassesPage() {
                     )}
                   </td>
                   <td>
+                    {/* Only a role that may RECORD gets a link into the
+                        classroom register. A School Admin has no classroom
+                        recording permission (NOT_YET_DEFINED), so offering the
+                        link promised an action the route would refuse. */}
+                    {can(role, 'today', 'record') && (
                     <a className="btn ghost sm" href={`/today?class=${c.id}`}>
                       Open Today →
                     </a>
+                    )}
                   </td>
                 </tr>
               ))}

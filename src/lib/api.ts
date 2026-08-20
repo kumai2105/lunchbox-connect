@@ -949,6 +949,32 @@ export interface ObservationFilters {
   period?: AppPeriod | null;
 }
 
+/**
+ * Reads EVERY page of a filtered query, with no silent correctness cap.
+ *
+ * Analytics aggregates are computed from the rows a query returns, so a fixed
+ * `.limit(n)` does not "show the first n" — it silently reports wrong totals
+ * for any window larger than n. This pages until the server returns a short
+ * page, so the dataset is complete before any aggregate is declared.
+ *
+ * The caller MUST supply a stable total order (a unique tiebreaker), or rows
+ * can shift between requests and be dropped or duplicated across boundaries.
+ */
+export async function fetchAllPages<T>(
+  pageSize: number,
+  fetchPage: (from: number, to: number) => Promise<{ data: T[] | null; error: string | null }>,
+): Promise<ApiResult<T[]>> {
+  const all: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const page = await fetchPage(from, from + pageSize - 1);
+    if (page.error) return { data: null, error: page.error };
+    const batch = page.data ?? [];
+    all.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+  return { data: all, error: null };
+}
+
 export async function mealObservations(
   filters: ObservationFilters,
 ): Promise<ApiResult<ObservationRow[]>> {
@@ -957,20 +983,32 @@ export async function mealObservations(
   // meal_revision.meal_id is the stable meal identity, so the same meal served
   // on different days aggregates as one — and post-cutover records (which have
   // meal_service_id, not menu_item_id) are included.
-  let q = supabase
-    .from('serving_records')
-    .select(
-      `${SERVING_RECORD_COLUMNS}, svc:meal_services!meal_service_id(period,rev:meal_revisions!meal_revision_id(name,meal_id)), student:students!inner(institution_id,class_id)`,
-    )
-    .gte('serving_date', filters.from)
-    .lte('serving_date', filters.to)
-    .order('serving_date', { ascending: false })
-    .limit(5000);
-  if (filters.institutionId) q = q.eq('student.institution_id', filters.institutionId);
-  if (filters.classId) q = q.eq('class_id', filters.classId);
-  if (filters.period) q = q.eq('period', filters.period);
-  const { data, error } = await q;
-  if (error) return err(error);
+  // EXHAUSTIVE pagination — there is no silent correctness cap. This used to
+  // end with `.limit(5000)`, so a window with more observations than that
+  // produced wrong-but-plausible KPIs with no error and no warning.
+  const PAGE = 1000;
+  const paged = await fetchAllPages<unknown>(PAGE, async (from, to) => {
+    let q = supabase
+      .from('serving_records')
+      .select(
+        `${SERVING_RECORD_COLUMNS}, svc:meal_services!meal_service_id(period,rev:meal_revisions!meal_revision_id(name,meal_id)), student:students!inner(institution_id,class_id)`,
+      )
+      .gte('serving_date', filters.from)
+      .lte('serving_date', filters.to)
+      // A STABLE total order: ordering by serving_date alone leaves ties in an
+      // arbitrary order between requests, which drops or duplicates rows across
+      // page boundaries. The id breaks every tie deterministically.
+      .order('serving_date', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to);
+    if (filters.institutionId) q = q.eq('student.institution_id', filters.institutionId);
+    if (filters.classId) q = q.eq('class_id', filters.classId);
+    if (filters.period) q = q.eq('period', filters.period);
+    const res = await q;
+    return { data: res.data as unknown[] | null, error: res.error ? res.error.message : null };
+  });
+  if (paged.error) return { data: null, error: paged.error };
+  const data = paged.data;
   type Raw = ServingRecord & {
     svc: { period: AppPeriod; rev: { name: string; meal_id: string } | null } | null;
     student: { institution_id: string; class_id: string | null } | null;

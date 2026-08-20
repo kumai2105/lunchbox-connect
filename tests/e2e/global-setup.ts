@@ -363,6 +363,11 @@ export default async function globalSetup(): Promise<void> {
     { student_no: 'E2E-101', given_name: 'Serving', family_name: 'One', class_id: classId, status: ELIGIBLE },
     { student_no: 'E2E-102', given_name: 'Serving', family_name: 'Two', class_id: classId, status: ELIGIBLE },
     { student_no: 'E2E-201', given_name: 'Portal', family_name: 'Kid', class_id: classId, status: ELIGIBLE },
+    // A SECOND authorized child for the same Parent, deliberately different in
+    // every way the portal renders: name, meal outcomes, and the meal served.
+    // The child-switch regression cannot be honest with only one child — it
+    // would skip, which is how that browser test came to prove nothing.
+    { student_no: 'E2E-202', given_name: 'Second', family_name: 'Child', class_id: classId, status: ELIGIBLE },
   ];
   /**
    * Returns the student's ID — the ROW's id, not the response envelope.
@@ -402,12 +407,19 @@ export default async function globalSetup(): Promise<void> {
   const servingOne = await upsertStudent(students[1]!);
   await upsertStudent(students[2]!);
   const portalKid = await upsertStudent(students[3]!);
+  const portalKidB = await upsertStudent(students[4]!);
 
   mustOk(
     'link the E2E parent to the portal child',
     await db
       .from('student_parents')
       .upsert({ student_id: portalKid, user_id: parentId }, { onConflict: 'user_id,student_id' }),
+  );
+  mustOk(
+    'link the E2E parent to the SECOND portal child',
+    await db
+      .from('student_parents')
+      .upsert({ student_id: portalKidB, user_id: parentId }, { onConflict: 'user_id,student_id' }),
   );
 
   // ---- Meal library + dated, published Meal Services for TODAY --------------
@@ -485,6 +497,21 @@ export default async function globalSetup(): Promise<void> {
       serving_date: today,
     },
   ];
+  // Child B's outcomes are deliberately the OPPOSITE of child A's, on a
+  // different meal, so a spec can tell instantly whose data is on screen.
+  results.push({
+    student_id: portalKidB,
+    class_id: classId,
+    period: 'breakfast',
+    served_status: 'served',
+    consumption_pct: 0,
+    behavior: 'refused',
+    low_intake_reason: 'did_not_like_it',
+    meal_service_id: breakfastServiceId,
+    recorded_by: classroomId,
+    serving_date: today,
+  });
+
   for (const row of results) {
     mustOk(
       `seed classroom meal record (${String(row.period)})`,
@@ -540,6 +567,7 @@ export default async function globalSetup(): Promise<void> {
     servingOne: servingOne,
     classForServing: classId,
     portalKid: portalKid,
+    portalKidB: portalKidB,
     breakfastServiceId,
     lunchServiceId,
   };

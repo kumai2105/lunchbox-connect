@@ -226,7 +226,7 @@ export default function StudentsPage() {
                 <th>Institution</th>
                 <th>Class</th>
                 <th>Operational status</th>
-                <th>Medical note</th>
+                <th>Safety notes (interim)</th>
               </tr>
             </thead>
             <tbody>

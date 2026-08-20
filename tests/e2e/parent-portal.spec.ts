@@ -63,17 +63,50 @@ test.describe('Parent child switching', () => {
     await login(page, s.parentEmail);
     await expect(page).toHaveURL(/\/parent/);
 
+    // The fixture links TWO children to this Parent with deliberately opposite
+    // outcomes, so there is no reason to skip and no ambiguity about whose data
+    // is on screen. (This test used to skip when fewer than two were linked —
+    // which was always — so it proved nothing.)
     const switcher = page.locator('.child-switch button');
-    const count = await switcher.count();
-    test.skip(count < 2, 'fixture links a single child to the E2E parent');
+    await expect(switcher).toHaveCount(2);
 
-    const firstName = (await switcher.nth(0).innerText()).trim();
+    // Child A: ate everything at breakfast. Child B: refused it.
+    await expect(page.locator('.parent-child-name')).toContainText('Portal');
+    await expect(page.getByText('Ate all').first()).toBeVisible();
+
     await switcher.nth(1).click();
 
-    // The heading must never show child B's name beside child A's records: the
-    // shell renders nothing child-specific until that child's data has landed.
-    await expect(page.locator('.parent-child-name')).not.toHaveText(
-      new RegExp(`^${firstName}`),
-    );
+    // The name and the data must change TOGETHER. Child B's screen must never
+    // show child A's result, not even for one render.
+    await expect(page.locator('.parent-child-name')).toContainText('Second');
+    await expect(page.getByText('Refused').first()).toBeVisible();
+    await expect(page.getByText('Ate all')).toHaveCount(0);
+
+    // ...and back again, with A's data restored and B's gone.
+    await switcher.nth(0).click();
+    await expect(page.locator('.parent-child-name')).toContainText('Portal');
+    await expect(page.getByText('Ate all').first()).toBeVisible();
+  });
+
+  test('a delayed response for the previous child cannot overwrite the current one', async ({
+    page,
+  }) => {
+    const s = seeded();
+    await login(page, s.parentEmail);
+    const switcher = page.locator('.child-switch button');
+    await expect(switcher).toHaveCount(2);
+
+    // Delay every serving_records read so child A's response is still in flight
+    // when child B is selected. The request guard must discard it.
+    await page.route('**/rest/v1/serving_records*', async (route) => {
+      await new Promise((r) => setTimeout(r, 1200));
+      await route.continue();
+    });
+
+    await switcher.nth(1).click();     // B, while A's slow read is outstanding
+    await page.waitForTimeout(2500);   // long enough for A's response to land
+
+    await expect(page.locator('.parent-child-name')).toContainText('Second');
+    await expect(page.getByText('Ate all')).toHaveCount(0);
   });
 });
