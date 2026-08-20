@@ -36,8 +36,15 @@ this repository alone.
      rewritten or deleted from any client session.
 
 3. **Live boundary tests (where Supabase egress is available)**
-   - `pnpm test:e2e` with seeded accounts — the current specs pass:
-     `login.roles`, `rls`, `serving`, `parent-portal`, `status`.
+   - `pnpm test:e2e` with seeded accounts — **6 specs, 19 tests**, all of which
+     must pass: `login.roles` (2), `serving` (4), `parent-portal` (3), `rls` (4),
+     `schedule` (3), `status` (3). This list previously omitted `schedule`
+     entirely, so a verifier reading it would have signed off on five of the six
+     specs and never noticed the read-only published-menu surface was untested.
+   - Until an approved non-production Supabase project and egress to it exist,
+     all 19 are BLOCKED_BY_ENVIRONMENT and **must not be recorded as PASS**.
+     Seeding the production project is refused by the seeder, by `build:e2e`
+     and by CI.
 
 ## Declared out of scope (spec gaps, NOT_YET_DEFINED)
 

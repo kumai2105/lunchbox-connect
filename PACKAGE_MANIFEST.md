@@ -137,7 +137,7 @@ pnpm typecheck && pnpm lint && pnpm test:unit && pnpm build
 ./tests/sql/run_verification.sh
 ```
 
-Migrations apply in numerical order, `0001` → `0036`. For production, follow
+Migrations apply in numerical order, `0001` → `0037`. For production, follow
 `scripts/PRODUCTION_APPLY.md` (schema first, then deploy + verify the
 `admin-create-user` Edge Function; service plans / rotation assignments /
 publishing are Admin-UI actions, never migration side effects). The frontend

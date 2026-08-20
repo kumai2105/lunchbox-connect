@@ -107,25 +107,59 @@ jobs:
           VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxsbm9mcml3dm5lcm50cmJwZWhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNDUwNjAsImV4cCI6MjEwMjYyMTA2MH0.aE04Weq-Yu2ElnjxZS-JUIGDdC33tArSReeSjYhObYo
         run: pnpm build
 
-      - name: Check Cloudflare secrets are configured
-        # `secrets` cannot appear in ANY if: expression (job or step —
-        # GitHub rejects both at parse time). Read it only inside a run:
-        # script via env:, then expose a plain step output for if: to use.
-        id: cf-check
+      # ---- DEPLOY CREDENTIALS: FAIL CLOSED ---------------------------------
+      #
+      # This step used to emit `::warning::` and set `ready=false`, and the
+      # deploy step below was gated on `if: ready == 'true'`. A skipped step
+      # does not fail a job — so a release run with no Cloudflare credentials
+      # finished GREEN having deployed nothing. On an explicit production
+      # release action, a green check that shipped nothing is worse than a red
+      # one: it is a false statement about the state of production.
+      #
+      # A missing credential is now a hard failure. Note this changes nothing
+      # about WHEN the workflow runs: the triggers above are still an explicit
+      # `workflow_dispatch` or a `v*` tag, so an ordinary branch push still
+      # deploys nothing at all.
+      #
+      # `secrets` cannot appear in ANY if: expression (job or step — GitHub
+      # rejects both at parse time), so they are read inside a run: script via
+      # env:. Only presence is ever printed; the values are never echoed.
+      - name: Require Cloudflare deploy credentials
         env:
           CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          if [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCOUNT" ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID repo secrets are not set yet — skipping deploy."
+          missing=0
+          if [ -z "$CF_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN is not set. This is an explicit production release; refusing to report success without deploying. Add the repository secret and re-run."
+            missing=1
           fi
+          if [ -z "$CF_ACCOUNT" ]; then
+            echo "::error::CLOUDFLARE_ACCOUNT_ID is not set. This is an explicit production release; refusing to report success without deploying. Add the repository secret and re-run."
+            missing=1
+          fi
+          [ "$missing" -eq 0 ] || exit 1
+          echo "Cloudflare credentials present. Proceeding to deploy."
 
+      # No `if:` guard. The step always runs, so a wrangler failure fails the
+      # job instead of being quietly stepped over.
       - name: Deploy to Cloudflare Workers
-        if: steps.cf-check.outputs.ready == 'true'
+        id: deploy
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Belt and braces: assert the deploy actually EXECUTED and succeeded, so
+      # that re-introducing an `if:` on the step above cannot silently restore
+      # the "green run that shipped nothing" behaviour this workflow just lost.
+      - name: Confirm the deploy actually ran
+        if: always()
+        env:
+          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+        run: |
+          if [ "$DEPLOY_OUTCOME" != "success" ]; then
+            echo "::error::The Cloudflare deploy step did not succeed (outcome: '${DEPLOY_OUTCOME:-skipped}'). A successful run of this workflow MUST mean the frontend was deployed."
+            exit 1
+          fi
+          echo "Frontend deploy step executed and succeeded."
