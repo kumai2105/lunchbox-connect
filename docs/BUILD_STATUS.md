@@ -69,21 +69,24 @@ README only. The full spec pack introduced corrections:
 The stack is **approved** (A1–A3) and recorded in `docs/13` **Decision 034**:
 TypeScript · React 18 + Vite (SPA) · Supabase (PostgreSQL, Auth, Storage, Edge
 Functions) · Row Level Security as the boundary · Supabase CLI migrations
-(`0001`–`0034`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
+(`0001`–`0037`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
 Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
 `TECHNICAL_STACK = NOT_YET_DEFINED` statements are SUPERSEDED.
 
 ## Verification evidence (release candidate)
 
 - `pnpm typecheck` — clean · `pnpm lint` — clean (0 warnings)
-- `pnpm test:unit` — **83 tests** (RBAC, calendar, meal analytics incl.
-  meal-id/exception rules and the unscored-is-not-0% rule, kitchen revision
-  grouping, operational date + Asia/Dubai presentation, parent child-switch
-  race guard)
-- `./tests/sql/run_verification.sh` — **13 SQL suites** on a throwaway
-  PostgreSQL 16, incl. the 498-check authorization matrix and the raw-path
+- `pnpm test:unit` — **107 tests** (RBAC incl. the read-only Institution
+  schedule, calendar, meal analytics incl. the unscored-is-not-0% rule, kitchen
+  revision grouping, operational date + Asia/Dubai presentation, the parent
+  child-switch selection/readiness invariant, the four factual dashboard
+  completion states, exhaustive analytics pagination past 5,000 rows, and the
+  nav-link/route reachability check)
+- `./tests/sql/run_verification.sh` — **16 SQL suites** (182 assertions) on a throwaway
+  PostgreSQL 16, incl. the 520-check authorization matrix and the raw-path
   DB-boundary suite (RPC-only writes, note-publish authority, tenant/eligibility
-  triggers, meal-image storage visibility)
+  triggers, meal-image storage visibility, meal-image historical immutability,
+  and audit-log tamper resistance)
 - `pnpm test:e2e` — current-architecture specs written; BLOCKED_BY_ENVIRONMENT
   until an APPROVED NON-PRODUCTION Supabase target and egress to it exist
   (production is refused outright by both the seeder and CI)

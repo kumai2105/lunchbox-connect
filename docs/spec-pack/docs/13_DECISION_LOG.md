@@ -564,7 +564,7 @@ statements in `00_SOURCE_OF_TRUTH.md §26` and `10_DEPLOYMENT_RUNBOOK.md §3`.
 - **Authorization:** PostgreSQL Row Level Security is the enforcement boundary,
   mirrored by an app-level RBAC matrix; privileged writes go through
   SECURITY DEFINER RPCs and BEFORE-write triggers.
-- **Migrations:** Supabase CLI SQL migrations (`supabase/migrations/0001`–`0031`).
+- **Migrations:** Supabase CLI SQL migrations (`supabase/migrations/0001`–`0037`).
 - **Deploy:** Cloudflare Workers serve the built frontend; the database is Supabase.
 - **Tooling:** pnpm · Vitest (unit) · Playwright (E2E) · ESLint · Prettier.
 - **Operational timezone (MVP):** Asia/Dubai (GST, UTC+4, no DST). Per-institution
@@ -573,6 +573,43 @@ statements in `00_SOURCE_OF_TRUTH.md §26` and `10_DEPLOYMENT_RUNBOOK.md §3`.
 The Decision 024 caution still applies: the stack must not be assumed from
 another project. Items genuinely still undefined (see §Out-of-scope and the
 `BLOCKED_BY_SPEC` list) remain `NOT_YET_DEFINED`.
+
+**Status:** ACTIVE
+
+---
+
+## Decision 035 — A Meal image, once attached to a Meal Revision, is history
+
+**Date:** 2026-08-20
+
+**Decision:** A Meal Revision is already immutable — saving a Meal produces a
+NEW revision rather than editing the old one — because a past published Meal
+Service must keep describing what was actually served. That rule was enforced on
+the row and not on the picture the row points at: the meal-image storage policy
+allowed the Super Admin to delete or overwrite any object in the bucket.
+
+Reproduced before this decision was recorded: deleting the object succeeded
+while the historical revision kept its reference, so every past Meal Service
+using that meal — and every Parent looking at what their child was served —
+resolved to nothing. Overwriting is the quieter failure: the reference survives
+and the picture silently becomes a different meal.
+
+**Rule:** a storage object referenced by any `meal_revisions.image_path` may no
+longer be deleted or overwritten by any client, including the Super Admin. An
+object no revision references is **not** history and stays removable, so an
+upload abandoned before the Meal was saved can still be cleaned up.
+
+**Not decided here:** retention, archival and deletion policy for referenced
+meal images remains `NOT_YET_DEFINED`. This decision does not invent one; it
+records the safe default that history is kept until a policy exists.
+
+**Scope note:** the `student-photos` bucket is deliberately unaffected. A
+student photo is current identity rather than a record of a past event, and
+`students.photo_path` is a live pointer — replacing it falsifies no historical
+record.
+
+**Implemented by:** migration `0037`; asserted in `tests/sql/verify_db_boundary.sql`
+(including a control proving the bucket is reference-guarded, not frozen).
 
 **Status:** ACTIVE
 

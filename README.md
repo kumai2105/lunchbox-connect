@@ -26,7 +26,7 @@ pnpm · Vitest · Playwright · ESLint · Prettier
 pnpm install
 cp .env.example .env          # fill VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
 supabase link --project-ref <your-ref>
-supabase db push              # migrations 0001–0034
+supabase db push              # migrations 0001–0037
 pnpm dev                      # http://localhost:5173
 ```
 
@@ -51,16 +51,18 @@ Privileged steps that need your accounts (the tool cannot supply them):
 ```bash
 pnpm typecheck   # full-project TypeScript
 pnpm lint
-pnpm test:unit   # RBAC, calendar, meal analytics, kitchen, operational date (83 tests)
+pnpm test:unit   # RBAC, calendar, meal analytics, kitchen, operational date (107 tests)
 pnpm test:e2e    # live-boundary Playwright suite — needs the env below
-./tests/sql/run_verification.sh   # 13 SQL suites on a throwaway PostgreSQL 16
+./tests/sql/run_verification.sh   # 16 SQL suites on a throwaway PostgreSQL 16
 ```
 
 `run_verification.sh` builds a PostgreSQL 16 cluster from nothing, applies
 `supabase/migrations/*.sql` verbatim, and runs every `tests/sql/verify_*.sql`
-suite (golden path, cross-portal RLS, the 498-check authorization matrix, menu
+suite (golden path, cross-portal RLS, the 520-check authorization matrix, menu
 cutover, downstream wiring, special period, class staff, kitchen demand,
-correction order, publish-future, and the raw-path DB-boundary suite).
+correction order, publish-future, note privacy and record states, slot-resize
+and publish/record concurrency via real second sessions, analytics volume past
+the retired 5,000-row cap, and the raw-path DB-boundary suite).
 
 **CI (GitHub Actions, `.github/workflows/ci.yml`)**: every PR runs the gate
 (typecheck, lint, unit). The E2E job runs automatically on same-repo PRs when
@@ -111,12 +113,14 @@ src/
             analytics, reports, review, status, users, audit, parent/*
   components/  layout + shared UI (design ported from the approved mockup)
 supabase/
-  migrations/ 0001–0034 (schema, RLS, resolution/publish engine, meal library,
-              class_staff, per-meal demand, analytics, DB-boundary integrity)
+  migrations/ 0001–0037 (schema, RLS, resolution/publish engine, meal library,
+              class_staff, per-meal demand, analytics, DB-boundary integrity,
+              historical immutability of referenced meal images)
   functions/admin-create-user/  privileged account creation (super/nursery admin)
 tests/
   e2e/        Playwright specs on the current architecture (+ global-setup)
-  sql/        run_verification.sh + 13 verify_*.sql suites (schema/RLS/RPC/triggers)
+  sql/        run_verification.sh + 16 verify_*.sql suites (schema/RLS/RPC/triggers)
+              — 182 named assertions + the 520-check authorization matrix
 docs/         BUILD_STATUS.md · 14-RELEASE_GATE.md · VERIFICATION_FINAL.md · spec-pack/
 scripts/      PRODUCTION_APPLY.md (authoritative apply order) · seed.sql
 remediation/  separated, review-gated production scripts

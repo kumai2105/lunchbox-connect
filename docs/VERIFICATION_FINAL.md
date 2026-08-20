@@ -1,14 +1,15 @@
-# LunchBox Connect — Final Verification (bounded correction + approved menu view)
+# LunchBox Connect — Final Verification (consolidated boundary closure)
 
 **Date:** 2026-08-20
 **Branch:** `claude/new-session-k5dd5u`
-**Release commit:** `d5645ff` (*Bounded correction pass + approved Institution
-published-menu view — 8 items*). This report and the package manifest are
-committed as a thin packaging layer on top of that commit; the ZIP archives that
-layer and is named for `d5645ff`.
+**Release commit:** `0f63ec7` (*Closure sweep — two proven defects closed*),
+which sits on `54a03a2` (*Consolidated boundary closure + approved schedule
+corrections — 20 items*). This report and the package manifest are committed as
+a thin packaging layer on top of `0f63ec7`; the ZIP archives that layer and is
+named for `0f63ec7`.
 **Method:** every result is **executed**, not inspected. Database checks ran
 against a real PostgreSQL 16 built from nothing with
-`supabase/migrations/0001`–`0035` applied verbatim; frontend logic ran in
+`supabase/migrations/0001`–`0037` applied verbatim; frontend logic ran in
 Vitest; the production bundle was built and type-checked.
 
 Reproduce: `./tests/sql/run_verification.sh` then
@@ -22,121 +23,226 @@ Reproduce: `./tests/sql/run_verification.sh` then
 behaviour undefined in the spec, not invented · `BLOCKED_BY_ENVIRONMENT`
 cannot execute here.
 
+**FAIL count: 0.** Browser E2E execution is `BLOCKED_BY_ENVIRONMENT` and is not
+reported as PASS anywhere in this document.
+
 ---
 
 ## 1. Decision
 
-Seven corrections against `ec9c969`, plus one Founder-approved read-only
-addition. The previously corrected areas were not reopened or redesigned.
+Twenty corrections against the frozen `d5645ff` candidate, plus a closure sweep
+that found and closed two further proven defects (section 4).
+Previously corrected areas were not reopened or redesigned.
 
-The headline finding is item 1, and it is worth stating plainly: the E2E
-fixture's `upsertStudent()` returned the PostgREST `{ data, error }` envelope
-while every caller read `.id` off it. That is `undefined`, and those undefined
-ids flowed into `student_parents`, `serving_records` and `.seeded.json` — so the
-guardian link and the entire parent-portal fixture were seeded against nothing.
-It survived because **`tests/e2e` was outside every tsconfig**: the green
-typecheck this project reported never looked at that file. Adding
-`tsconfig.e2e.json` to `pnpm typecheck` flags all seven call sites immediately,
-which is the durable half of the fix.
+The common thread across items 1, 7, 8 and 9 is one mistake repeated: a
+permission the canonical spec leaves `NOT_YET_DEFINED` had been *granted*
+because a helper already existed that happened to include the role.
+`app_can_manage_institution()` pulled the School Admin into raw planning;
+`app_is_staff()` pulled it into unpublished Classroom free text; "any row in
+`app_users`" pulled every signed-in account into the Kitchen master table. An
+undefined permission is now denied in each case.
 
-Two further notes recorded rather than smoothed over:
+Two findings worth stating plainly, because both were mine to catch and the
+tests caught them:
 
-- `verify_golden_path` had itself written `low_intake_reason = 'absent'`
-  together with `consumption_pct = 0` — a contradiction (an absence is not
-  "ate none"). The new item-3 constraint correctly refuses it, so the **test**
-  was wrong and is corrected.
-- The item-4 concurrency suite's INSERT case does **not** discriminate: a child
-  insert already takes `FOR KEY SHARE` on the parent through the foreign key,
-  which alone blocks against the resize. Removing the trigger's lock still
-  passes it. The slot-**UPDATE** case (no FK re-check, so no FK lock) does
-  discriminate and fails without the lock — that is the one carrying the proof.
+- **The first version of the publish/record race test was a false pass.** The
+  remote session had no JWT, so `record_serving_batch` refused it on
+  authorization — and a `when others` handler read that refusal as "it blocked".
+  It now sets real claims and accepts *only* a statement timeout (57014) as
+  evidence of waiting.
+- **Half the concurrency evidence does not discriminate, and the report says
+  so.** In `verify_publish_record_race`, cases r2 and r3 are satisfied by the
+  foreign key alone (a child insert takes `FOR KEY SHARE`, and a parent DELETE
+  conflicts with it). Only **r4** isolates the publisher's own lock, because
+  changing `meal_revision_id` needs just `FOR NO KEY UPDATE`, which the FK does
+  not block. r4 fails when the lock is removed; r2/r3 do not. The same applies
+  to `verify_slot_resize_concurrency`: c2 is FK-satisfied, c3 is the proof.
 
-**Live production database: NOT modified in this pass.** Migrations `0021`–`0035`
-are not applied to production. Nothing was pushed.
+**Live production database: NOT modified.** Migrations `0021`–`0037` are not
+applied to production. Nothing was pushed.
 
 ---
 
-## 2. What was executed and passed
+## 2. Executed results
 
-### Database — 14 suites, all PASS, mutation-tested non-vacuous
+### Database — 16 suites, 182 PASS assertions
 
-| Suite | Scope | Checks |
-| ----- | ----- | ------ |
-| `verify_fresh_deploy` | migrations-only DB builds; infers nothing | 6/6 |
-| `verify_golden_path` | Institution→…→Analytics end to end | 15/15 |
-| `verify_rls_cross_portal` | every portal re-reads one record under its own RLS, **+ the new Institution schedule boundary** | 17/17 |
-| `verify_menu_cutover` | legacy menu → rotation engine; seven-week-freeze | 10/10 |
-| `verify_downstream_wiring` | Kitchen/Parent read published services; §31 one-truth | 9/9 |
-| `verify_authorization_matrix` | roles × write-sensitive tables, UPDATE/DELETE/read paths | **498/498** |
-| `verify_special_period` | multi-week special-period resolution | 1/1 |
-| `verify_class_staff` | multi-staff-per-class scope | 3/3 |
-| `verify_kitchen_demand` | per-meal production quantities | 2/2 |
-| `verify_correction_order` | served/not-served both need a published service | 12/12 |
-| `verify_publish_future` | future override applies, closure removes, history immutable | 3/3 |
-| `verify_db_boundary` | raw-path integrity, referenced-side and client-boundary attacks | 38/38 |
-| `verify_note_privacy_and_states` | Parent free-text boundary end to end, **+ the 6 contradictory-state negatives, the approved-state positives, and the scored denominator** | 33/33 |
-| `verify_slot_resize_concurrency` | **NEW** — a real second session (dblink) proves the slot/week_count invariant holds under concurrency | 5/5 |
+| Suite | Assertions |
+| ----- | ---------- |
+| `verify_fresh_deploy` | 6 |
+| `verify_golden_path` | 14 |
+| `verify_rls_cross_portal` | 18 |
+| `verify_menu_cutover` | 9 |
+| `verify_downstream_wiring` | 8 |
+| `verify_authorization_matrix` | **520 checks** (reported as one aggregate) |
+| `verify_special_period` | 1 |
+| `verify_class_staff` | 3 |
+| `verify_kitchen_demand` | 2 |
+| `verify_correction_order` | 12 |
+| `verify_publish_future` | 3 |
+| `verify_db_boundary` | 51 |
+| `verify_note_privacy_and_states` | 40 |
+| `verify_slot_resize_concurrency` | 5 |
+| `verify_publish_record_race` | **NEW** — 7 |
+| `verify_analytics_volume` | **NEW** — 3 |
 
-159 `PASS` assertions in total.
+**Authorization matrix: 520 checks, all PASS** (was 498; coverage grew, the
+number was not a target).
 
-**Mutation evidence.**
-- Removing the parent-row lock from `guard_rotation_slot_week()` fails
-  `verify_slot_resize_concurrency` c3 (`a slot UPDATE validated its week against
-  a week_count another transaction was changing`).
-- Restoring the table-wide `GRANT SELECT ON serving_records` (from the previous
-  pass) still fails the matrix for all 11 roles.
+**Mutation evidence — each newly added security/integrity assertion was broken
+deliberately to prove it can fail:**
 
-### Frontend logic — unit suite, 91/91 PASS (8 files)
+| Mutation | Result |
+| -------- | ------ |
+| Remove `FOR UPDATE` from `publish_meal_services`'s history check | `verify_publish_record_race` **r4 FAILS** |
+| Remove the parent-row lock from `guard_rotation_slot_week()` | `verify_slot_resize_concurrency` **c3 FAILS** |
+| Restore the table-wide `GRANT SELECT ON serving_records` | matrix **FAILS for all 11 roles** |
+| Restore 0024's blanket `for all` meal-images policy | `verify_db_boundary` **item0037 FAILS** — "a Super Admin DELETED a meal image still referenced by a meal revision (1 rows)" |
+| Add a permissive `for all` policy to `audit_log` | `verify_db_boundary` **audit FAILS** — "a client session REWROTE an audit entry (1 rows)" |
+| Drop the `path: 'menu-builder'` override from the nav entry | `authorization.consistency.test.ts` **FAILS** — "super_admin -> /menubuilder" |
 
-`mealAnalytics` (22), `format` (15), `calendar` (14), `rbac` (13, incl. the new
-read-only `schedule` resource and that no other role gains it),
-`parent/shared` (12, incl. the **selection/readiness invariant** — not only the
-request-token helper), `authorization.consistency` (9, now covering meals /
-menubuilder / kitchens as archive-only), `kitchen` (3), `status` (3).
+### Frontend logic — 107/107 unit tests (10 files)
 
-### Build gates — all PASS
+`mealAnalytics` (22), `format` (15), `calendar` (14), `rbac` (13),
+`parent/shared` (12), `authorization.consistency` (11 — archive-only entities
+plus the new nav-link/route reachability check), `completion` (**new**, 9
+— the four factual states and scored-weighting), `pagination` (**new**, 5 — past
+the retired 5,000-row cap), `kitchen` (3), `status` (3).
 
-`pnpm typecheck` PASS — **now including `tests/e2e`** · `pnpm lint` PASS
+### Build gates
+
+`pnpm typecheck` PASS — app **+ node + `tests/e2e`** · `pnpm lint` PASS
 (0 warnings) · `pnpm build` PASS.
 
----
+### E2E — 19 tests across 6 specs: 0 executed, 19 BLOCKED_BY_ENVIRONMENT
 
-## 3. This pass — 8 items, resolution + evidence
-
-| # | Item | Resolution | Evidence |
-| - | ---- | ---------- | -------- |
-| 1 | E2E fixture returned the response envelope, not the row; E2E was unchecked | `upsertStudent()` returns a validated row id; every fixture mutation and dependent query checks its error; account seeding reconciles role/institution/kitchen drift and refuses non-`e2e.*` accounts; `tsconfig.e2e.json` added to `pnpm typecheck` | the new gate flagged all 7 sites before the fix |
-| 2 | Child B could paint child A's data on the selection render | Readiness derived from `loadedChildId === selectedChildId`; the async guard retained | `parent/shared.test.ts` — the selection-render case, the rapid A→B→A case, and guard+readiness combined |
-| 3 | Contradictory record states still reachable | NOT_SERVED carries nothing; exceptions behaviour-free; preference reasons only at 0%/25%; no mandatory reason or behaviour invented. RPC **and** table constraint | `n1`–`n6` negatives (incl. all four the order named), `p1`/`p2` positives |
-| 4 | Slot writes could validate against a stale `week_count` | Trigger takes the parent row lock, matching the resize | `verify_slot_resize_concurrency` c1–c3; c3 mutation-proven |
-| 5 | Five consumption bands divided by the wrong denominator | New `scored_observations`; bands divide by it, behaviour/reason metrics keep `valid_observations` | `d1`/`d2` — behaviour-only row excluded, shares total exactly 100% |
-| 6 | Classroom told to publish from a screen it cannot open | Neutral role-correct copy naming the administrator | TodayPage |
-| 7 | **Founder-approved**: Institution published-menu view | Read-only `/schedule` for School Admin over existing published `meal_services`, own institution only; RBAC resource, route, nav, authz tests, RLS cross-portal test. No second menu model, no duplicated data, no authoring control | `rbac.test.ts`; `verify_rls_cross_portal` schedule block; `schedule.spec.ts` |
-| 8 | RBAC advertised deletes the DB refuses; stale comments | meals / menubuilder / kitchens lose `delete`; consistency test extended; `resolveMealServiceId` comment corrected; retired 4-week menu title removed | `authorization.consistency.test.ts`; build |
+`login.roles` (2), `serving` (4), `parent-portal` (3), `rls` (4), `schedule` (3),
+`status` (3). None executed: there is no approved non-production Supabase
+project, and this sandbox blocks `*.supabase.co`. **No spec skips for any other
+reason** — the two that previously would have (child-switch needing a second
+child; the no-published-meal test that only checked the page loaded) are fixed
+in items 16 and 17.
 
 ---
 
-## 4. BLOCKED_BY_ENVIRONMENT
+## 3. The twenty items
 
-- **Playwright execution.** Specs (now including `schedule.spec.ts` and the
-  child-switch case), fixtures and the bundle-build wiring are in place and
-  type-checked, but running them needs an **approved non-production Supabase
-  project** and egress to it. This sandbox has neither; production is refused by
-  the seeder, by `build:e2e` and by CI. No new external environment was created.
+| # | Correction | Evidence |
+| - | ---------- | -------- |
+| 1 | Raw planning tables (service plans, rotation assignments, calendar exceptions) are Super-Admin-only | matrix planning counts flipped to Super-only; `verify_rls_cross_portal` now **seeds real planning rows first**, so every zero is a refusal |
+| 2 | Weekly schedule columns derive from that institution's published services; `/schedule` added to the page-title map | InstitutionSchedulePage; a three-meal institution shows three columns |
+| 3 | Four factual completion states; closures excluded from attention; 60/80% bands removed; unauthorized demand call dropped | `completion.test.ts` — closure, not started, partial, complete |
+| 4 | Combined average weighted by `scored_observations` | `completion.test.ts` — behaviour-only rows no longer skew it |
+| 5 | Guardian UNLINK removed for every client; LINK retained | matrix `student_parents.DELETE` DENIED × 11; `verify_db_boundary` b3 |
+| 6 | School Admin sees a linked Parent's identity — not an unlinked one, not another institution's, not a directory | `verify_note_privacy_and_states` i6a–i6e |
+| 7 | Kitchen master data closed to every role but Super Admin and the owning Kitchen | matrix `kitchens.SELECT count` × 11 |
+| 8 | Production Demand limited to Super Admin + Kitchen | matrix `meal_production_demand() rows` × 11 |
+| 9 | Unpublished Classroom free text closed to School Admin | i9a–i9c, with a **real unpublished note** |
+| 10 | A low-intake reason is optional again — "Save · no reason" completes 0/25% | TodayPage |
+| 11 | Role-correct navigation and copy across the confirmed inconsistencies | RBAC-gated links; `rbac.test.ts` |
+| 12 | Interim `medical_notes` terminology retired from active UI and code | build; grep-clean |
+| 13 | Publish↔record serialization | r1–r4, **r4 mutation-proven** |
+| 14 | Silent 5,000-row analytics cap replaced by exhaustive pagination | `pagination.test.ts`; `verify_analytics_volume` proves 6,000 rows average to exactly 83.3% where a capped read said 100% |
+| 15 | Exceptions are never preference evidence, including grandfathered rows | i15 — a pre-constraint ABSENT+REFUSED row, reproduced by dropping the NOT VALID constraint, counts as an exception and not a refusal, at meal AND revision level |
+| 16 | Two authorized children seeded with opposite outcomes; child-switch spec no longer skips | `parent-portal.spec.ts` |
+| 17 | No-published-meal spec exercises the real negative condition | `serving.spec.ts` |
+| 18 | README / BUILD_STATUS / RELEASE_GATE / PRODUCTION_APPLY regenerated (now 0037, 107 tests, 16 suites) | docs |
+| 19 | Decision Log: `menu_item_id` marked SUPERSEDED for new operations (historical data kept); future-republish rule and the approved Institution schedule recorded | 13_DECISION_LOG |
+| 20 | Deploy requires a backend-readiness attestation naming the applied migration | deploy.yml |
 
-## 5. BLOCKED_BY_SPEC (not invented)
+---
 
+## 4. The closure sweep — verify first, change only on proof
+
+The order was to re-examine the whole system and change something only where a
+real defect could be demonstrated. Fourteen areas were swept. **Two produced a
+reproducible defect; both are fixed and mutation-proven. Twelve did not, and
+were deliberately left alone** — the temptation in a sweep like this is to
+"improve" working code, which is how a frozen candidate acquires unreviewed
+risk.
+
+### Defects proven and closed
+
+**A. A meal image referenced by a historical Meal Revision could be destroyed.**
+Migration 0024 granted the Super Admin `for all` on the `meal-images` bucket
+with no reference guard. Reproduced before any fix was written: the DELETE
+removed the object while the revision kept pointing at it, so every past
+published Meal Service using that meal — and every Parent looking at what their
+child was actually served last term — resolved to nothing. The UPDATE half is
+quieter and worse: `upload(path, { upsert: true })` over an existing path leaves
+the reference intact while the picture behind it becomes a different meal, so
+nothing looks broken.
+
+Migration **0037** makes a referenced object immutable, matching the rule Meal
+Revisions already follow. An **unreferenced** upload stays disposable, and a
+control assertion proves that — otherwise these tests would also pass if the
+bucket were simply frozen, which is not the rule being tested.
+
+Honest limit: the guard resolves the reference through a SECURITY DEFINER
+helper, because storage policies run as the caller and `meal_revisions` is
+RLS-protected. With only the Super Admin holding write authority in this bucket
+today, that detail is defence in depth — the suite does not currently
+discriminate it, and this report does not claim it does.
+
+**B. The Menu Builder sidebar link pointed at a route that does not exist.**
+`NavItem.page` carried two meanings at once — the RBAC resource id *and* the URL
+segment. They diverge for exactly one entry: resource `menubuilder`, route
+`/menu-builder`. The sidebar rendered `to="/menubuilder"`, no `<Route>` matched,
+and the catch-all bounced the Super Admin to the dashboard. The only sidebar
+entry point to the Menu Builder did nothing at all; the topbar also showed
+"Dashboard" on `/menu-builder`, and the sidebar item never highlighted.
+
+`NavItem` now carries an optional `path` distinct from the resource id. The
+existing consistency suite could never have caught this — it compares resource
+ids to resource ids — so the new test reads `App.tsx` and asserts every sidebar
+link for every role resolves to a route the router actually declares.
+
+### Swept, verified, and deliberately not changed
+
+| Area | Finding |
+| ---- | ------- |
+| Auth / identity | No self-escalation path; role and institution locked at the DB boundary (0033). Unchanged. |
+| Tenant isolation | Cross-institution reads and writes refused from the referenced side as well as the referencing side (0032/0033). Unchanged. |
+| Database privileges | `serving_records` column-list grant holds; the raw path is closed; matrix covers all 11 roles × resources × actions. Unchanged. |
+| Historical truth — records | No hard delete of Students, Classes, Institutions, Meals, Menus, Kitchens or serving history; legacy notes archived, never destroyed (0034). Unchanged. |
+| Historical truth — images | **Defect A above.** Fixed in 0037. |
+| Auditability | `audit_log` is already unforgeable and untamperable from every client session, including the Super Admin. Nothing was broken — but it was **unasserted**, so three assertions were added. No behaviour change. |
+| Configuration determinism | Effective-dated planning saves are deterministic; 0033 refuses to apply against ambiguous duplicate rows rather than guessing. Unchanged. |
+| Classroom states | The complete approved state semantics hold on both the RPC and raw paths (0035); grandfathered rows are excluded from preference evidence, not rewritten. Unchanged. |
+| Parent | Child-switch readiness invariant holds in the render path; published notes only; no free text leaks. Unchanged. |
+| Nursery / School Admin | Planning, Kitchen master data, Production Demand and unpublished free text all closed this pass (items 1, 7, 8, 9). Unchanged since. |
+| Kitchen | Aggregates by `meal_revision_id`; demand limited to Super Admin + Kitchen. Unchanged. |
+| Analytics | One-truth views; exceptions never counted as preference; scored-observation denominator; exhaustive pagination proven at 6,000 rows. Unchanged. |
+| Dormant / legacy surfaces | Legacy `menus` read-only; `MenuPage` removed; `serving_records.note` closed; `enrollment_status` out of the active UI. No new dormant surface found. Unchanged. |
+| Test quality | Every concurrency case is labelled by whether it discriminates; the non-discriminating ones (r2, r3, c2) are named as such rather than counted as coverage. Unchanged. |
+| Documentation | Regenerated to `0037` / 107 tests / 16 suites / 182 assertions. |
+
+---
+
+## 5. BLOCKED_BY_ENVIRONMENT
+
+- **All 19 Playwright tests.** Specs, fixtures and the bundle-build wiring are
+  in place and type-checked, but execution needs an approved non-production
+  Supabase project and egress to it. This sandbox has neither, and production is
+  refused by the seeder, by `build:e2e` and by CI. No external environment was
+  created. This is not reported as PASS.
+
+## 6. BLOCKED_BY_SPEC (not invented)
+
+Institution access to Kitchen Production; the normal reviewer/internal-note
+visibility beyond the Super Admin override; guardian UNLINK/removal semantics;
 Meal-performance classification thresholds; a mandatory low-intake reason at
 0%/25%; a mandatory eating behaviour; the structured child Allergy/Dietary model
-(§42); retention / deletion / archive policy; the free-text review workflow
-beyond the Super Admin override; Nursery/School Admin classroom recording and
-menu authoring; Parent association & provisioning; per-institution timezones;
+(§42); retention / deletion / archive policy; Parent association & provisioning;
+account editing/deactivation; cross-institution Student/Class transfer;
+per-institution timezones; production lock before serving;
 Packing/Dispatch/Delivery; multi-kitchen routing.
 
-## 6. Production — unchanged; nothing pushed
+## 7. Production — unchanged; nothing pushed
 
-Migrations `0021`–`0035` are not applied. `scripts/PRODUCTION_APPLY.md` requires
-reading the production migration ledger first and applying only the versions
-missing from it. The frontend deploy runs only on a manual dispatch or a `v*`
-tag, after the non-network gate. This release candidate is committed locally and
-left frozen for independent review.
+Migrations `0021`–`0037` are not applied. `scripts/PRODUCTION_APPLY.md` remains
+ledger-first: inspect the production migration ledger, then apply only the
+versions missing from it — never replay an applied version because the file
+still exists. The frontend deploy now additionally refuses to run without a
+backend-readiness attestation. This candidate is committed locally and frozen
+for independent review.
