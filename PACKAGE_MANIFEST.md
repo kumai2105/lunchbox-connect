@@ -1,184 +1,106 @@
 # LunchBox Connect — Package Manifest
 
-**Packaged:** 2026-08-19
+**Packaged:** 2026-08-20
 **Branch:** `claude/new-session-k5dd5u`
-**Commit:** `a5c3047`
-**Working tree:** clean — everything below is committed and pushed to GitHub
-(`kumai2105/lunchbox-connect`).
+**Release commit:** `a9c9e96`
+**Package identity:** the ZIP is named `lunchbox-connect-a9c9e96.zip`, and this
+manifest and `docs/VERIFICATION_FINAL.md` both reference `a9c9e96`. The manifest
+and the regenerated report are committed as a thin packaging layer on top of
+`a9c9e96` (that is the commit whose code they describe); the archive contains
+that layer so the delivered docs are the current ones.
 
 ---
 
 ## 1. Build status — actual command output
 
-All four gates were run immediately before packaging.
+All gates were run immediately before packaging.
 
-| Gate             | Command          | Result                                 |
-| ---------------- | ---------------- | -------------------------------------- |
-| Types            | `pnpm typecheck` | **PASS** — no errors                   |
-| Lint             | `pnpm lint`      | **PASS** — no errors, no warnings      |
-| Unit tests       | `pnpm test:unit` | **PASS — 47/47** across 5 files        |
-| Production build | `pnpm build`     | **PASS** — 115 modules, built in ~2.5s |
+| Gate | Command | Result |
+| ---- | ------- | ------ |
+| Types | `pnpm typecheck` | **PASS** — no errors |
+| Lint | `pnpm lint` | **PASS** — no errors, no warnings |
+| Unit tests | `pnpm test:unit` | **PASS — 58/58** across 6 files |
+| Production build | `pnpm build` | **PASS** — 119 modules |
+| Database suites | `./tests/sql/run_verification.sh` | **PASS — 11 suites** (incl. the 146-check authorization matrix) |
 
-Test files: `rbac.test.ts` (11), `calendar.test.ts` (14),
-`mealAnalytics.test.ts` (11), `authorization.consistency.test.ts` (8),
-`status.test.ts` (3).
+Unit files: `calendar.test.ts` (14), `mealAnalytics.test.ts` (16),
+`rbac.test.ts` (11), `authorization.consistency.test.ts` (8), `format.test.ts`
+(6), `status.test.ts` (3).
 
-The build prints one advisory notice that the JS chunk exceeds 500 kB. That is a
-bundle-size suggestion, not an error, and the build succeeds.
-
-**Not run:** `pnpm test:e2e` (Playwright). The E2E suite needs network access to
-`*.supabase.co`, which this sandbox blocks. The spec files are included in the
-package and are runnable in your own environment.
+**Not run:** `pnpm test:e2e` (Playwright) — the suite needs egress to
+`*.supabase.co`, which this sandbox blocks. The specs are included, rewritten to
+the current architecture, and runnable in an environment with that egress.
 
 ## 2. Database verification
 
-Two runnable suites now cover the golden path and cross-portal visibility, with
-a one-command harness that builds a PostgreSQL 16 cluster from nothing and
-applies `supabase/migrations/*.sql` verbatim:
-
-```bash
-./tests/sql/run_verification.sh     # exit 0 only if every assertion passed
-```
-
-25 assertions pass. Three deliberate schema mutations were used to confirm the
-suites actually fail when an invariant is broken. Full report, including two
-checks that initially passed for the wrong reason and were fixed, is in
-**`docs/VERIFICATION_FINAL.md`** — which also carries the release decision:
-**APPROVED WITH LIMITATIONS**.
-
-### Earlier live-project verification
-
-Executed against the real Supabase project `llnofriwvnerntrbpehc`. Full evidence
-with query output is in **`docs/VERIFICATION_DECISION_033.md`**.
-
-| Scenario                                         | Result |
-| ------------------------------------------------ | ------ |
-| 104 Rotation → calendar, repeats 1,2,1,2,1       | PASS   |
-| 105 Closure does not shift the rotation          | PASS   |
-| 106 Date override changes only that date         | PASS   |
-| 107 Service Plan filters applicable periods      | PASS   |
-| 108 Plan effective dates preserve history        | PASS   |
-| 109 Drafts invisible to Parent and Kitchen       | PASS   |
-| 111 Historical meal revision survives republish  | PASS   |
-| 119 Cross-institution isolation, shared rotation | PASS   |
-
-Role isolation was separately verified live: Parent sees 2 of 10 students and 0
-rows when querying another child directly by ID; Teacher sees 5; Kitchen and
-Driver see 0; a Viewer and a Nursery Admin creating an Institution are both
-rejected by Postgres with `new row violates row-level security policy`; and a
-Super Admin `UPDATE` against `meal_revisions` rewrites **0 rows**.
-
----
+`./tests/sql/run_verification.sh` builds a PostgreSQL 16 cluster from nothing,
+applies `supabase/migrations/0001`–`0030` verbatim, and runs 11 suites. Each
+suite is mutation-tested (deliberately broken to prove it can fail). Full report
+and the release decision: **`docs/VERIFICATION_FINAL.md`**.
 
 ## 3. What is in the archive
 
-Everything required to run the project, excluding only the items in §5.
+Everything required to build and run the project, excluding only §5.
 
-### Frontend — `src/`
-
-| Path                                                                            | Notes                                             |
-| ------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `App.tsx`, `main.tsx`, `styles.css`                                             | Routing, entry, full design system                |
-| `components/Layout.tsx`                                                         | App shell; parent role gets its own mobile chrome |
-| `components/ui.tsx`                                                             | Card, StatCard, Pill, Modal, Banner, Avatar, etc. |
-| `components/icons.tsx`                                                          | **New** — inline SVG icon set replacing all emoji |
-| `components/charts.tsx`                                                         | **New** — BarChart / TrendChart, no chart library |
-| `lib/api.ts`                                                                    | All Supabase access                               |
-| `lib/calendar.ts` + `.test.ts`                                                  | **New** — calendar resolution + 14 tests          |
-| `lib/mealAnalytics.ts` + `.test.ts`                                             | Analytics validity rules + 11 tests               |
-| `lib/rbac.ts` + `.test.ts`                                                      | Permission matrix mirroring RLS + 11 tests        |
-| `lib/roles.ts`, `auth.tsx`, `types.ts`, `format.ts`, `status.ts`, `supabase.ts` | Core libs                                         |
-| `pages/` (20 files)                                                             | Admin/nursery/kitchen pages                       |
-| `pages/parent/` (7 files)                                                       | **New** — four-screen mobile parent portal        |
-
-Pages added this session: `InstitutionDetailPage`, `StudentProfilePage`,
-`MealAnalyticsPage`, `ReviewPage`, and the whole `parent/` directory.
-
-### Backend — `supabase/`
-
-| Path                                       | Notes                                                                                                                                             |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `migrations/0001`–`0015`                   | Pre-existing schema, RLS, RPCs, views                                                                                                             |
-| `migrations/0016_operating_logic_lock.sql` | **New** — Decision 033. Meals, revisions, rotations, service plans, calendar exceptions, meal services, RLS, and the resolution/publish functions |
-| `functions/admin-create-user/index.ts`     | Edge function for account provisioning                                                                                                            |
-| `config.toml`                              | Supabase config                                                                                                                                   |
-
-### Governance — `docs/`
-
-| Path                                    | Change                                              |
-| --------------------------------------- | --------------------------------------------------- |
-| `spec-pack/docs/13_DECISION_LOG.md`     | **Decision 033 added** (supersedes a clause of 032) |
-| `spec-pack/docs/04_DATA_MODEL.md`       | **Part VII added** — §26–34, the new entities       |
-| `VERIFICATION_DECISION_033.md`          | **New** — live test evidence                        |
-| `spec-pack/` (remaining 17 docs)        | Unchanged canonical specification                   |
-| `BUILD_STATUS.md`, `14-RELEASE_GATE.md` | Unchanged                                           |
-
-### Tests, config, deployment
-
-`tests/e2e/` (5 Playwright specs + fixtures), `tests/sql/notes_safety.sql`,
-`scripts/seed.sql`, `worker/worker.ts`, `.github/workflows/` (ci + deploy),
-`package.json`, `pnpm-lock.yaml`, `vite.config.ts`, `vitest.config.ts`,
-`playwright.config.ts`, `tsconfig*.json`, `eslint.config.js`, `.prettierrc`,
-`wrangler.jsonc`, `index.html`, `README.md`, `CLAUDE_CODE_GOLIVE.md`,
-`.env.example`.
-
----
+- **`src/`** — React/Vite/TypeScript app: `App.tsx`, `components/`, `lib/`
+  (api, rbac, roles, auth, mealAnalytics, calendar, types, …), `pages/`
+  (admin/nursery/kitchen incl. `StaffPage`, `MealLibraryPage`,
+  `MenuBuilderPage`, `InstitutionServiceTab`, `InstitutionCalendarTab`),
+  `pages/parent/` (mobile parent portal). The retired legacy `MenuPage` is gone.
+- **`supabase/`** — `migrations/0001`–`0030` (schema, RLS, resolution/publish
+  engine, meal library RPCs, class_staff, per-meal demand, analytics one-truth,
+  and the integrity pass 0029/0030); `functions/admin-create-user/`;
+  `config.toml`.
+- **`tests/`** — `sql/` (11 `verify_*.sql` suites + shim + actors + runner),
+  `e2e/` (5 Playwright specs + fixtures + global-setup, on the current chain).
+- **`docs/`** — the spec pack, `VERIFICATION_FINAL.md`, `VERIFICATION_DECISION_033.md`.
+- **`remediation/`** — separated, review-gated production scripts + README.
+- **Config / deploy** — `package.json`, `pnpm-lock.yaml`, `vite.config.ts`,
+  `vitest.config.ts`, `playwright.config.ts`, `tsconfig*.json`,
+  `eslint.config.js`, `.prettierrc`, `wrangler.jsonc`, `worker/`,
+  `.github/workflows/` (ci + deploy), `index.html`, `README.md`,
+  `scripts/PRODUCTION_APPLY.md`, `.env.example`.
+- **`CLAUDE_CODE_GOLIVE.md`** — **retired stub** pointing to
+  `scripts/PRODUCTION_APPLY.md`; do not follow the old runbook (it is gone).
 
 ## 4. Assets
 
-There are **no binary image assets** in this project. Every icon is inline SVG
-(`src/components/icons.tsx`), the logo is CSS-rendered, and Inter is loaded from
-Google Fonts. Student and meal photos are user-uploaded at runtime into private
-Supabase Storage buckets, not shipped files. Nothing is missing from the archive.
-
----
+No binary image assets. Icons are inline SVG (`src/components/icons.tsx`), the
+logo is CSS-rendered, Inter loads from Google Fonts. Student and meal photos are
+uploaded at runtime into private Supabase Storage buckets, not shipped files.
 
 ## 5. Deliberately excluded
 
-| Excluded          | Why                                                                                                                                      |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **`.env`**        | Contains `SUPABASE_SERVICE_ROLE_KEY`, which bypasses RLS entirely. Never package a service-role key. Copy `.env.example` and fill it in. |
-| `node_modules/`   | Reinstall with `pnpm install` (`pnpm-lock.yaml` is included, so versions are exact).                                                     |
-| `dist/`           | Build output. Regenerate with `pnpm build`.                                                                                              |
-| `.git/`           | History is on GitHub at the branch/commit above.                                                                                         |
-| `supabase/.temp/` | CLI scratch file.                                                                                                                        |
+| Excluded | Why |
+| -------- | --- |
+| **`.env`** | Holds `SUPABASE_SERVICE_ROLE_KEY`, which bypasses RLS. Never packaged. Copy `.env.example`. |
+| `node_modules/` | Reinstall with `pnpm install` (`pnpm-lock.yaml` pins versions). |
+| `dist/` | Build output; regenerate with `pnpm build`. |
+| `.git/` | History is on the branch above. |
 
----
+The only key present anywhere in the tree is the **public anon key** (in
+`.env.example` and the deploy workflow), which is public by design — RLS, not
+secrecy, is the boundary.
 
 ## 6. Running it
 
 ```bash
 pnpm install
-cp .env.example .env      # fill in your Supabase URL + keys
+cp .env.example .env      # fill in your Supabase URL + anon key
 pnpm dev                  # http://localhost:5173
 pnpm typecheck && pnpm lint && pnpm test:unit && pnpm build
+./tests/sql/run_verification.sh
 ```
 
-Migrations apply in numerical order, `0001` → `0016`.
+Migrations apply in numerical order, `0001` → `0030`. For production, follow
+`scripts/PRODUCTION_APPLY.md` (schema first; service plans / rotation
+assignments / publishing are Admin-UI actions, never migration side effects).
 
----
+## 7. Honest status — what is NOT finished (BLOCKED_BY_SPEC)
 
-## 7. Honest status — what is NOT finished
-
-The Master Software Build Contract and the Master Operating Logic Lock are
-**not fully implemented**. Specifically:
-
-1. **No admin UI for the new model.** Meal Library, Rotation Builder and
-   Calendar screens do not exist. The schema, RLS and resolution engine behind
-   them are built and verified; the screens are not.
-2. **Downstream still reads the legacy `menus` table.** Kitchen, Classroom and
-   Parent have not been rewired to `meal_services`. Both models currently
-   coexist — deliberately, so nothing that worked was broken.
-3. **Scenarios 112 and 117** (class-change history, kitchen change) have no live
-   run yet.
-4. **`BLOCKED_BY_SPEC`** — production lock policy and cutoff, permanent
-   production/delivery state enums, pre-production absence workflow, expected-vs-
-   actual quantity stages (scenario 118), multi-kitchen routing, retention and
-   deletion rules, parent invitation/activation, bulk import formats. None of
-   these were invented.
-5. **Deliveries, Ops and Absences** remain honest `NOT_YET_DEFINED` shells.
-6. **E2E suite not executed here** — sandbox network restriction, see §1.
-
-Test fixtures named `Test Meal A–D` and `Test Rotation 2wk` exist in the live
-database from the verification run. They are prefixed `Test ` so they are
-distinguishable, and can be deleted safely.
+Production-lock policy beyond the served-records boundary; email-delivered
+account self-activation; the structured StudentAllergy/StudentDietaryRestriction
+taxonomy (§42); Packing/Dispatch/Delivery state machine; expected-vs-actual
+quantities; multi-kitchen routing; retention/deletion. Deliveries, Ops and
+Absences remain honest `NOT_YET_DEFINED` shells. None of these were invented.
+Nothing has been applied to the production database in this pass.
