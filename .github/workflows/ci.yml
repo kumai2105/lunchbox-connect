@@ -65,13 +65,15 @@ jobs:
           fi
 
   # -----------------------------------------------------------------------------
-  # E2E — runs ONLY when the live-Supabase credentials exist as repository
-  # secrets AND the PR is from the same repo (GitHub never exposes secrets to
-  # fork PRs; the job is skipped there by design, matching the suite's
-  # BLOCKED_BY_ENVIRONMENT rule). Browser install is cached so re-runs skip it.
+  # E2E — runs ONLY when credentials for an APPROVED NON-PRODUCTION (disposable)
+  # Supabase project exist as repository secrets AND the PR is from the same repo
+  # (GitHub never exposes secrets to fork PRs; the job is skipped there by
+  # design, matching the suite's BLOCKED_BY_ENVIRONMENT rule). Production
+  # service-role credentials must NEVER be used here — the guard below refuses
+  # them. Browser install is cached so re-runs skip it.
   # -----------------------------------------------------------------------------
   e2e:
-    name: E2E (Playwright · live Supabase)
+    name: E2E (Playwright · non-production Supabase)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [gate, check-e2e-secrets]

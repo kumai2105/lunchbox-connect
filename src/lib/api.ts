@@ -384,8 +384,9 @@ export async function listAudit(): Promise<ApiResult<AuditLogRow[]>> {
 }
 
 // Authoritative derived demand: eligible students per institution, plus the
-// number of allergy-flagged eligible students (counts only — kitchen never
-// receives student identity, AT-034 / docs/02 §33).
+// number carrying any INTERIM safety note (medical_notes) — not an
+// authoritative allergy flag (§42 structured model is BLOCKED_BY_SPEC).
+// Counts only — kitchen never receives student identity (AT-034 / docs/02 §33).
 export interface MealDemandRow {
   institution_id: string;
   institution_name: string;
@@ -540,6 +541,13 @@ export async function getInstitutionServiceConfig(
   };
 }
 
+// Both of these are EFFECTIVE-DATED configuration: the history of rows is
+// preserved and the resolver picks the latest row at or before a date. Saving
+// twice for the SAME effective date previously INSERTed a competing second
+// row, leaving which configuration wins ambiguous. They now upsert on
+// (institution_id, effective_from) — a re-save for the same date corrects that
+// date's configuration instead of racing another row for it. The database has
+// the matching unique index (0033), so this holds on the raw path too.
 export async function setInstitutionServicePlan(
   institutionId: string,
   periods: AppPeriod[],
@@ -547,7 +555,10 @@ export async function setInstitutionServicePlan(
 ): Promise<ApiResult<null>> {
   const { error } = await supabase
     .from('institution_service_plans')
-    .insert({ institution_id: institutionId, periods, effective_from: effectiveFrom });
+    .upsert(
+      { institution_id: institutionId, periods, effective_from: effectiveFrom },
+      { onConflict: 'institution_id,effective_from' },
+    );
   if (error) return err(error);
   return { data: null, error: null };
 }
@@ -558,12 +569,17 @@ export async function assignInstitutionRotation(
   anchorWeek: number,
   effectiveFrom: string,
 ): Promise<ApiResult<null>> {
-  const { error } = await supabase.from('institution_rotation_assignments').insert({
-    institution_id: institutionId,
-    rotation_id: rotationId,
-    anchor_week: anchorWeek,
-    effective_from: effectiveFrom,
-  });
+  const { error } = await supabase.from('institution_rotation_assignments').upsert(
+    {
+      institution_id: institutionId,
+      rotation_id: rotationId,
+      // anchor_week must address a week the selected Menu actually has; the
+      // database enforces the same bound (0033) whatever the caller sends.
+      anchor_week: anchorWeek,
+      effective_from: effectiveFrom,
+    },
+    { onConflict: 'institution_id,effective_from' },
+  );
   if (error) return err(error);
   return { data: null, error: null };
 }

@@ -2,7 +2,7 @@ import { expect, test } from 'playwright/test';
 import { e2eReady, login, seeded } from './fixtures';
 
 test.describe('parent portal', () => {
-  test.skip(!e2eReady, 'needs E2E_* env (live Supabase project)');
+  test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
 
   test("parent sees their child's structured results, published notes only, and the published menu with meal detail", async ({
     page,

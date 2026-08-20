@@ -120,6 +120,22 @@ describe('authorization consistency: nav vs rbac matrix', () => {
     });
   });
 
+  it('no role advertises hard delete of a core historical entity', () => {
+    // Retention / archive / deletion semantics are NOT_YET_DEFINED, and the
+    // database denies these outright. The UI must not advertise an authority
+    // that does not exist — a Student delete cascades into operational
+    // history, a Class delete nulls historical references, and an Institution
+    // delete cascades a whole tenant.
+    const core: Resource[] = ['students', 'classes', 'institutions', 'users'];
+    const offenders: string[] = [];
+    ALL_ROLES.forEach((role) => {
+      core.forEach((resource) => {
+        if (can(role, resource, 'delete')) offenders.push(`${role} may delete ${resource}`);
+      });
+    });
+    expect(offenders).toEqual([]);
+  });
+
   it('read-only roles hold no write permission anywhere', () => {
     const readOnly: AppRole[] = ['viewer', 'finance_owner'];
     const writeActions = ['create', 'update', 'delete', 'publish', 'record', 'set'] as const;

@@ -2,7 +2,7 @@ import { expect, test } from 'playwright/test';
 import { e2eReady, login, seeded } from './fixtures';
 
 test.describe('classroom serving screen (docs/13 Decision 032 — fast tablet workflow)', () => {
-  test.skip(!e2eReady, 'needs E2E_* env (live Supabase project)');
+  test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
 
   test('teacher records a meal result which persists across reload', async ({ page }) => {
     const s = seeded();

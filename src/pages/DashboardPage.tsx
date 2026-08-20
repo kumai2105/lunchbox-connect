@@ -17,6 +17,7 @@ import {
   StatusDot,
 } from '../components/ui';
 import { useRole } from '../lib/auth';
+import { can } from '../lib/rbac';
 import { classifyMealPerformance } from '../lib/mealAnalytics';
 
 export default function DashboardPage() {
@@ -74,34 +75,39 @@ export default function DashboardPage() {
 
       {error && <Banner kind="err">{error}</Banner>}
 
+      {/* Every destination below is gated by the SAME can() matrix the target
+          route enforces: a Nursery Admin is denied /institutions and /status,
+          so those tiles must not be presented as links to them. Where no
+          approved destination exists for the role, the metric still shows —
+          only the navigation is withheld (no replacement route is invented). */}
       <div className="stat-grid">
         <StatCard
           icon="building"
           label="Institutions"
           value={rows.length}
           trend="across the chain"
-          to="/institutions"
+          to={can(role, 'institutions', 'view') ? '/institutions' : undefined}
         />
         <StatCard
           icon="users"
           label="Active students"
           value={activeStudents.toLocaleString()}
           trend="enrolled"
-          to="/students"
+          to={can(role, 'students', 'view') ? '/students' : undefined}
         />
         <StatCard
           icon="checkCircle"
           label="Operationally eligible"
           value={eligibleStudents}
           trend="ACTIVE_BILLABLE_TO_NURSERY"
-          to="/status"
+          to={can(role, 'status', 'view') ? '/status' : undefined}
         />
         <StatCard
           icon="utensils"
           label="Meals recorded today"
           value={mealsToday.toLocaleString()}
           trend="against the roster"
-          to={role === 'super_admin' ? '/analytics?days=7' : undefined}
+          to={can(role, 'analytics', 'view') ? '/analytics?days=7' : undefined}
         />
         {role === 'super_admin' && avgConsumption !== null && (
           <StatCard
@@ -127,9 +133,11 @@ export default function DashboardPage() {
         title="Institutions — serving today"
         hint="read model · RLS-scoped"
         actions={
-          <Link to="/institutions" className="btn ghost">
-            Manage →
-          </Link>
+          can(role, 'institutions', 'view') ? (
+            <Link to="/institutions" className="btn ghost">
+              Manage →
+            </Link>
+          ) : undefined
         }
       >
         {rows.length === 0 ? (

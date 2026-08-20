@@ -148,22 +148,35 @@ end $$;
 -- =====================================================================
 -- STUDENTS insert — super_admin + school_admin(own inst). Others denied.
 -- classroom_staff/nurse/teacher = view only.
+--
+-- Eligibility is a SEPARATE authority from creation. A School Admin may
+-- create their own institution's Student, but NOT one that is already
+-- operationally eligible — operational_status is Super-Admin-only on INSERT
+-- exactly as it is on UPDATE. The two cases are attacked separately below;
+-- a single combined case previously hid the INSERT hole.
 -- =====================================================================
 do $$
 declare i int;
 begin
   for i in 1..11 loop
-    perform zz_attempt(i, 'students.insert(instA)',
-      'insert into students(student_no,institution_id,given_name,family_name,enrollment_status,operational_status)
-       values (''ZZ-new'||i||''',''a0000000-0000-0000-0000-000000000001'',''N'',''N'',''enrolled'',''ACTIVE_BILLABLE_TO_NURSERY'')',
+    -- (a) create WITHOUT eligibility — the School Admin's legitimate action.
+    perform zz_attempt(i, 'students.insert(instA, status NULL)',
+      'insert into students(student_no,institution_id,given_name,family_name,enrollment_status)
+       values (''ZZ-new'||i||''',''a0000000-0000-0000-0000-000000000001'',''N'',''N'',''enrolled'')',
       case when i in (1,2) then 'ALLOWED' else 'DENIED' end);
+
+    -- (b) create ALREADY ELIGIBLE — Super Admin only.
+    perform zz_attempt(i, 'students.insert(instA, ALREADY ELIGIBLE)',
+      'insert into students(student_no,institution_id,given_name,family_name,enrollment_status,operational_status)
+       values (''ZZ-elig'||i||''',''a0000000-0000-0000-0000-000000000001'',''N'',''N'',''enrolled'',''ACTIVE_BILLABLE_TO_NURSERY'')',
+      case when i = 1 then 'ALLOWED' else 'DENIED' end);
   end loop;
 end $$;
 
 -- school_admin must NOT insert into an institution that is not theirs (inst B)
 select zz_attempt(2, 'students.insert(FOREIGN instB)',
-  'insert into students(student_no,institution_id,given_name,family_name,enrollment_status,operational_status)
-   values (''ZZ-foreign'',''a0000000-0000-0000-0000-000000000002'',''N'',''N'',''enrolled'',''ACTIVE_BILLABLE_TO_NURSERY'')',
+  'insert into students(student_no,institution_id,given_name,family_name,enrollment_status)
+   values (''ZZ-foreign'',''a0000000-0000-0000-0000-000000000002'',''N'',''N'',''enrolled'')',
   'DENIED');
 
 -- =====================================================================
@@ -192,12 +205,21 @@ begin
     perform zz_attempt(i, 'rotations.insert',
       'insert into rotations(name,week_count) values (''ZZ r'||i||''',2)',
       case when i=1 then 'ALLOWED' else 'DENIED' end);
-    -- Distinct date so this write probe does not collide with the fixture's
-    -- own published today/lunch service (unique on institution,date,period).
-    perform zz_attempt(i, 'meal_services.insert',
+    -- meal_services is a CONTROLLED write path (0033): NO client role writes
+    -- the table directly — not even a Super Admin. Publication goes through
+    -- publish_meal_services(), which carries the publish semantics and
+    -- integrity rules a generic table write would bypass. Distinct date so the
+    -- probe cannot collide with the fixture's published today/lunch service.
+    perform zz_attempt(i, 'meal_services.insert(direct table write)',
       'insert into meal_services(institution_id,service_date,period,meal_revision_id,published)
        values (''a0000000-0000-0000-0000-000000000001'',current_date + 60,''lunch'',''f1000000-0000-0000-0000-000000000001'',true)',
-      case when i=1 then 'ALLOWED' else 'DENIED' end);
+      'DENIED');
+    perform zz_attempt(i, 'meal_services.update(direct table write)',
+      'update meal_services set published = false where id = ''f2000000-0000-0000-0000-000000000001''',
+      'DENIED');
+    perform zz_attempt(i, 'meal_services.delete(direct table write)',
+      'delete from meal_services where id = ''f2000000-0000-0000-0000-000000000001''',
+      'DENIED');
     perform zz_attempt(i, 'calendar_exceptions.insert',
       'insert into calendar_exceptions(institution_id,date_from,date_to,kind) values (''a0000000-0000-0000-0000-000000000001'',current_date,current_date,''closure'')',
       case when i=1 then 'ALLOWED' else 'DENIED' end);
@@ -288,6 +310,204 @@ begin
   execute 'reset role';
   insert into matrix_result values ('parent','students.SELECT foreign-by-id',
     case when n=0 then 'PASS  0' else 'FAIL  leaked '||n end);
+end $$;
+
+-- =====================================================================
+-- PRIVILEGE ESCALATION — app_users self UPDATE (0033 item 1)
+--
+-- The Supabase baseline grants `authenticated` table privileges and relies on
+-- RLS, so a self-UPDATE policy meant ANY account could rewrite its own
+-- security identity. This section attacks that directly from every role: no
+-- role may promote itself, re-scope itself to another institution, or attach
+-- itself to a Kitchen. There is no approved self-profile mutation workflow.
+-- =====================================================================
+do $$
+declare i int;
+begin
+  for i in 1..11 loop
+    -- Self role change, including straight to super_admin. The target must
+    -- DIFFER from the role the account already holds, or the statement is a
+    -- no-op that would pass vacuously — so the Super Admin attacks in the
+    -- other direction (self-demotion is equally an undefined account edit).
+    perform zz_rows(i, 'app_users.SELF role change rows',
+      'update app_users set role='''||(case when i = 1 then 'viewer' else 'super_admin' end)||
+      ''' where user_id='''||'e0000000-0000-0000-0000-0000000000'||lpad(i::text,2,'0')||'''', 0);
+    -- Self re-scoping to another institution.
+    perform zz_rows(i, 'app_users.SELF institution_id rows',
+      'update app_users set institution_id=''a0000000-0000-0000-0000-000000000002'' where user_id='''||
+      'e0000000-0000-0000-0000-0000000000'||lpad(i::text,2,'0')||'''', 0);
+    -- Self attachment to a Kitchen entity.
+    perform zz_rows(i, 'app_users.SELF kitchen_id rows',
+      'update app_users set kitchen_id=''c0000000-0000-0000-0000-000000000001'' where user_id='''||
+      'e0000000-0000-0000-0000-0000000000'||lpad(i::text,2,'0')||'''', 0);
+    -- Escalating ANOTHER account is denied for every role, Super Admin
+    -- included: role/scope changes are a server-side provisioning action.
+    perform zz_rows(i, 'app_users.OTHER role -> super_admin rows',
+      'update app_users set role=''super_admin'' where user_id=''e0000000-0000-0000-0000-000000000008''', 0);
+    -- A profile field stays editable for the Super Admin — the lock is on
+    -- security identity/scope, not on ordinary account data.
+    perform zz_rows(i, 'app_users.OTHER full_name (profile field) rows',
+      'update app_users set full_name=''Renamed'' where user_id=''e0000000-0000-0000-0000-000000000008''',
+      case when i = 1 then 1 else 0 end);
+    -- Account deletion is not an approved client action for anyone (0033 item 5).
+    perform zz_rows(i, 'app_users.DELETE rows',
+      'delete from app_users where user_id=''e0000000-0000-0000-0000-000000000008''', 0);
+  end loop;
+end $$;
+
+-- =====================================================================
+-- STUDENT / CLASS UPDATE + DELETE paths (0033 items 2, 4, 5)
+-- =====================================================================
+do $$
+declare i int;
+begin
+  for i in 1..11 loop
+    -- Eligibility via UPDATE is Super-Admin-only (the INSERT twin is above).
+    -- The fixture student is already eligible, so the attack must CHANGE the
+    -- value — setting it to the value it already holds is not a mutation and
+    -- would pass vacuously.
+    perform zz_rows(i, 'students.UPDATE operational_status (revoke) rows',
+      'update students set operational_status=null
+       where id=''d0000000-0000-0000-0000-000000000001''',
+      case when i = 1 then 1 else 0 end);
+    -- Cross-institution transfer is not an approved client workflow for ANY
+    -- role, Super Admin included (BLOCKED_BY_SPEC).
+    perform zz_rows(i, 'students.UPDATE institution (tenant move) rows',
+      'update students set institution_id=''a0000000-0000-0000-0000-000000000002''
+       where id=''d0000000-0000-0000-0000-000000000001''', 0);
+    perform zz_rows(i, 'classes.UPDATE institution (tenant move) rows',
+      'update classes set institution_id=''a0000000-0000-0000-0000-000000000002''
+       where id=''b0000000-0000-0000-0000-000000000001''', 0);
+    -- Hard delete of core historical entities is denied while retention /
+    -- archive semantics are NOT_YET_DEFINED.
+    perform zz_rows(i, 'students.DELETE rows',
+      'delete from students where id=''d0000000-0000-0000-0000-000000000001''', 0);
+    perform zz_rows(i, 'classes.DELETE rows',
+      'delete from classes where id=''b0000000-0000-0000-0000-000000000001''', 0);
+    perform zz_rows(i, 'institutions.DELETE rows',
+      'delete from institutions where id=''a0000000-0000-0000-0000-000000000002''', 0);
+  end loop;
+end $$;
+
+-- =====================================================================
+-- GUARDIAN LINKS — student_parents INSERT/DELETE (0033 item 3)
+--
+-- The Parent-association workflow is NOT_YET_DEFINED. The frontend makes a
+-- School Admin read-only; the database must agree on the raw path. Only the
+-- currently implemented Super Admin link action remains.
+-- =====================================================================
+do $$
+declare i int;
+begin
+  for i in 1..11 loop
+    perform zz_attempt(i, 'student_parents.insert(link a parent)',
+      'insert into student_parents(student_id,user_id)
+       values (''d0000000-0000-0000-0000-000000000002'',''e0000000-0000-0000-0000-000000000005'')',
+      case when i = 1 then 'ALLOWED' else 'DENIED' end);
+    perform zz_rows(i, 'student_parents.DELETE (unlink) rows',
+      'delete from student_parents where student_id=''d0000000-0000-0000-0000-000000000001''',
+      case when i = 1 then 1 else 0 end);
+  end loop;
+end $$;
+
+-- =====================================================================
+-- RAW PLANNING TABLES — draft is not operational (0033 item 6)
+--
+-- Parent and Classroom Staff must not read internal Service Plans, Rotation
+-- Assignments or not-yet-materialised Calendar Exceptions. They consume the
+-- PUBLISHED meal_services truth instead (asserted immediately after).
+-- =====================================================================
+insert into institution_service_plans (institution_id, periods, effective_from) values
+  ('a0000000-0000-0000-0000-000000000001', array['lunch']::app_period[], current_date - 30);
+insert into rotations (id, name, week_count) values
+  ('f3000000-0000-0000-0000-000000000001','ZZ Matrix Rotation',2);
+insert into institution_rotation_assignments (institution_id, rotation_id, anchor_week, effective_from) values
+  ('a0000000-0000-0000-0000-000000000001','f3000000-0000-0000-0000-000000000001',1, current_date - 30);
+insert into calendar_exceptions (institution_id, date_from, date_to, kind) values
+  ('a0000000-0000-0000-0000-000000000001', current_date + 5, current_date + 5, 'closure');
+
+do $$
+declare i int; n int; v_uid text; expect int;
+begin
+  for i in 1..11 loop
+    v_uid := 'e0000000-0000-0000-0000-0000000000'||lpad(i::text,2,'0');
+    perform set_config('request.jwt.claims', json_build_object('sub',v_uid,'role','authenticated')::text, true);
+    -- Only Super Admin (1) and the institution's own School Admin (2) may read
+    -- planning rows. Parent (5) and Classroom Staff (11) must see none.
+    expect := case when i in (1,2) then 1 else 0 end;
+
+    execute 'set local role authenticated';
+    select count(*) into n from institution_service_plans;
+    execute 'reset role';
+    insert into matrix_result values ((select role::text from app_users where user_id=v_uid::uuid),
+      'institution_service_plans.SELECT count',
+      case when n = expect then 'PASS  sees '||n else 'FAIL  sees '||n||' expected '||expect end);
+
+    execute 'set local role authenticated';
+    select count(*) into n from institution_rotation_assignments;
+    execute 'reset role';
+    insert into matrix_result values ((select role::text from app_users where user_id=v_uid::uuid),
+      'institution_rotation_assignments.SELECT count',
+      case when n = expect then 'PASS  sees '||n else 'FAIL  sees '||n||' expected '||expect end);
+
+    execute 'set local role authenticated';
+    select count(*) into n from calendar_exceptions;
+    execute 'reset role';
+    insert into matrix_result values ((select role::text from app_users where user_id=v_uid::uuid),
+      'calendar_exceptions.SELECT count (unmaterialised draft)',
+      case when n = expect then 'PASS  sees '||n else 'FAIL  sees '||n||' expected '||expect end);
+  end loop;
+end $$;
+
+-- ...and the downstream roles CAN still read the published Meal Service they
+-- legitimately need — tightening planning must not blind Parent/Classroom.
+do $$
+declare n int;
+begin
+  -- Parent of the Class A child.
+  perform set_config('request.jwt.claims', json_build_object('sub','e0000000-0000-0000-0000-000000000005','role','authenticated')::text, true);
+  execute 'set local role authenticated';
+  select count(*) into n from meal_services where id='f2000000-0000-0000-0000-000000000001';
+  execute 'reset role';
+  insert into matrix_result values ('parent','meal_services.SELECT own published',
+    case when n = 1 then 'PASS  sees 1' else 'FAIL  sees '||n||' expected 1' end);
+
+  -- Assigned Classroom Staff.
+  perform set_config('request.jwt.claims', json_build_object('sub','e0000000-0000-0000-0000-000000000011','role','authenticated')::text, true);
+  execute 'set local role authenticated';
+  select count(*) into n from meal_services where id='f2000000-0000-0000-0000-000000000001';
+  execute 'reset role';
+  insert into matrix_result values ('classroom_staff','meal_services.SELECT own published',
+    case when n = 1 then 'PASS  sees 1' else 'FAIL  sees '||n||' expected 1' end);
+end $$;
+
+-- =====================================================================
+-- LEGACY SURFACES — retired at the boundary (0033 item 7)
+-- `menus` is LEGACY historical/read-only: no client writes at all, and no
+-- blanket read for every authenticated user. (`eligibility` and `messages`
+-- were already dropped outright by migration 0009.)
+-- =====================================================================
+insert into menus (id, week_number, weekday, period, dish_name) values
+  ('f4000000-0000-0000-0000-000000000001', 1, 0, 'lunch', 'ZZ Legacy Dish');
+do $$
+declare i int; n int; v_uid text;
+begin
+  for i in 1..11 loop
+    v_uid := 'e0000000-0000-0000-0000-0000000000'||lpad(i::text,2,'0');
+    perform zz_attempt(i, 'menus.insert (LEGACY read-only)',
+      'insert into menus(week_number,weekday,period,dish_name) values (2,1,''lunch'',''ZZ x'||i||''')',
+      'DENIED');
+    perform zz_rows(i, 'menus.UPDATE rows (LEGACY read-only)',
+      'update menus set dish_name=''HACKED'' where id=''f4000000-0000-0000-0000-000000000001''', 0);
+    perform set_config('request.jwt.claims', json_build_object('sub',v_uid,'role','authenticated')::text, true);
+    execute 'set local role authenticated';
+    select count(*) into n from menus;
+    execute 'reset role';
+    insert into matrix_result values ((select role::text from app_users where user_id=v_uid::uuid),
+      'menus.SELECT count (super-admin-only)',
+      case when n = (case when i=1 then 1 else 0 end) then 'PASS  sees '||n
+           else 'FAIL  sees '||n||' expected '||(case when i=1 then 1 else 0 end) end);
+  end loop;
 end $$;
 
 -- =====================================================================

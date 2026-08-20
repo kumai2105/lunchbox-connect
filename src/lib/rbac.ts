@@ -37,8 +37,15 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
     super_admin: ['view'],
     school_admin: ['view'],
   },
-  institutions: { super_admin: ['view', 'create', 'update', 'delete'] },
-  users: { super_admin: ['view', 'create', 'update', 'delete'] },
+  // Hard DELETE of core historical entities is NOT advertised anywhere:
+  // retention / archive / deletion semantics are NOT_YET_DEFINED, a Student
+  // delete cascades into operational relationships and history, a Class delete
+  // nulls historical references, and an Institution delete cascades a whole
+  // tenant. The database denies these outright (0033); the UI must not claim
+  // an authority that does not exist. Where an approved `active` / archive
+  // mechanism exists (rotations), that is used instead.
+  institutions: { super_admin: ['view', 'create', 'update'] },
+  users: { super_admin: ['view', 'create', 'update'] },
   // §5: exact Nursery guardian actions are NOT_YET_DEFINED. School Admin keeps
   // read-only visibility of existing authorized relationships; the
   // link/create/delete + Parent provisioning workflow is BLOCKED_BY_SPEC.
@@ -48,13 +55,13 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
   },
   students: {
     // read scope differs by role; write is admin-only
-    super_admin: ['view', 'create', 'update', 'delete'],
-    school_admin: ['view', 'create', 'update', 'delete'],
+    super_admin: ['view', 'create', 'update'],
+    school_admin: ['view', 'create', 'update'],
     classroom_staff: ['view'],
   },
   classes: {
-    super_admin: ['view', 'create', 'update', 'delete'],
-    school_admin: ['view', 'create', 'update', 'delete'],
+    super_admin: ['view', 'create', 'update'],
+    school_admin: ['view', 'create', 'update'],
     classroom_staff: ['view'],
   },
   // §4/§17: institution-scoped staff provisioning + class assignment. A Nursery

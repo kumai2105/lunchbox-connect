@@ -10,7 +10,7 @@ declare
   v_inst uuid; v_inst2 uuid; v_cls uuid; v_staff uuid; v_admin uuid; v_student uuid;
   v_rev uuid; v_meal uuid; v_service uuid; v_rec uuid; v_note uuid; n int;
   v_parent uuid; v_rev2 uuid;
-  v_cls2 uuid; v_staff2 uuid; b boolean;
+  v_cls2 uuid; v_staff2 uuid; b boolean; v_rot uuid;
 begin
   insert into institutions (name, kind) values ('ZZ DB Nursery','nursery') returning id into v_inst;
   insert into institutions (name, kind) values ('ZZ DB Other','nursery') returning id into v_inst2;
@@ -289,7 +289,274 @@ begin
   -- (the valid v_staff → v_cls membership already succeeded above.)
   raise notice 'PASS c12: a valid same-institution classroom_staff membership is allowed';
 
+  -- =================================================================
+  -- REFERENCED-SIDE INVARIANTS (0033 item 4).
+  --
+  -- 0032 guarded the RELATIONSHIP row. The invariant can still be broken
+  -- from the other side: move the Class, or change the referenced account's
+  -- role/institution, and existing rows silently become cross-tenant or
+  -- role-invalid without their own trigger ever firing. These attacks mutate
+  -- the REFERENCED row, and they must fail on EVERY path — they are integrity
+  -- rules, not authorization, so they hold for the owner too.
+  -- =================================================================
+  -- r1 — moving a Class that still has Students assigned.
+  begin
+    update classes set institution_id = v_inst2 where id = v_cls;
+    raise exception 'FAIL r1: a Class with assigned Students was moved to another institution';
+  exception when check_violation then
+    raise notice 'PASS r1: cannot move a Class that still has Students assigned';
+  end;
+
+  -- r2 — moving a Class that still has classroom staff assigned. (Detach the
+  -- students first so the failure is attributable to the staff invariant.)
+  update students set class_id = null where id = v_student;
+  begin
+    update classes set institution_id = v_inst2 where id = v_cls;
+    raise exception 'FAIL r2: a Class with assigned classroom staff was moved to another institution';
+  exception when check_violation then
+    raise notice 'PASS r2: cannot move a Class that still has classroom staff assigned';
+  end;
+  update students set class_id = v_cls where id = v_student;   -- restore
+
+  -- r3 — changing a classroom staff account's INSTITUTION while it still holds
+  -- class_staff assignments in the old institution.
+  begin
+    update app_users set institution_id = v_inst2 where user_id = v_staff;
+    raise exception 'FAIL r3: staff institution changed while class_staff assignments remained';
+  exception when check_violation then
+    raise notice 'PASS r3: cannot re-scope staff who still hold class_staff assignments';
+  end;
+
+  -- r4 — changing a classroom staff account's ROLE while assignments remain.
+  begin
+    update app_users set role = 'viewer' where user_id = v_staff;
+    raise exception 'FAIL r4: staff role changed while class_staff assignments remained';
+  exception when check_violation then
+    raise notice 'PASS r4: cannot change the role of staff who still hold assignments';
+  end;
+
+  -- r5 — changing a Parent account away from parent while guardian links remain.
+  begin
+    update app_users set role = 'viewer' where user_id = v_parent;
+    raise exception 'FAIL r5: a guardian account was moved off the parent role with links intact';
+  exception when check_violation then
+    raise notice 'PASS r5: cannot move a guardian off the parent role while links remain';
+  end;
+
+  -- r6 — the same changes SUCCEED once the relationships are removed first,
+  -- so the invariant blocks orphaning, not legitimate administration.
+  delete from class_staff where user_id = v_staff and class_id = v_cls;
+  update app_users set role = 'viewer' where user_id = v_staff;
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL r6: a legitimate role change was blocked after cleanup'; end if;
+  raise notice 'PASS r6: the same change succeeds once the relationships are removed';
+  -- restore the fixture for the checks below
+  update app_users set role = 'classroom_staff' where user_id = v_staff;
+  insert into class_staff (class_id, user_id) values (v_cls, v_staff);
+
+  -- =================================================================
+  -- CLIENT-BOUNDARY LOCKDOWN (0033 items 1, 5, 6, 7, 11) — raw path.
+  -- =================================================================
+  -- b1 — no client may escalate its own role/scope. (Parent shown here; the
+  -- authorization matrix attacks this from all eleven roles.)
+  perform set_config('request.jwt.claims', json_build_object('sub',v_parent,'role','authenticated')::text, true);
+  set local role authenticated;
+  update app_users set role = 'super_admin' where user_id = v_parent;
+  get diagnostics n = row_count;
+  reset role;
+  if n <> 0 then raise exception 'FAIL b1: a Parent escalated its own role (% rows)', n; end if;
+  raise notice 'PASS b1: a client cannot escalate its own role/scope';
+
+  -- b1b — not even a Super Admin edits security identity through the API;
+  -- provisioning is a server-side action (BLOCKED_BY_SPEC).
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub',v_super,'role','authenticated')::text, true);
+    set local role authenticated;
+    update app_users set role = 'viewer' where user_id = v_parent;
+    reset role;
+    raise exception 'FAIL b1b: a Super Admin changed a role through the client API';
+  exception when check_violation then
+    reset role;
+    raise notice 'PASS b1b: security identity is not client-editable for any role';
+  end;
+
+  -- b2 — a School Admin cannot create an ALREADY-ELIGIBLE Student, but can
+  -- create the same Student without eligibility.
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub',v_admin,'role','authenticated')::text, true);
+    set local role authenticated;
+    insert into students (student_no, institution_id, given_name, family_name, operational_status)
+      values ('DB-ELIG', v_inst, 'Pre', 'Eligible', 'ACTIVE_BILLABLE_TO_NURSERY');
+    reset role;
+    raise exception 'FAIL b2: School Admin created an already-eligible Student';
+  exception when check_violation then
+    reset role;
+    raise notice 'PASS b2: School Admin cannot create an already-eligible Student';
+  end;
+  perform set_config('request.jwt.claims', json_build_object('sub',v_admin,'role','authenticated')::text, true);
+  set local role authenticated;
+  insert into students (student_no, institution_id, given_name, family_name)
+    values ('DB-OK', v_inst, 'Not', 'Eligible');
+  get diagnostics n = row_count;
+  reset role;
+  if n <> 1 then raise exception 'FAIL b2: School Admin could not create an ordinary Student'; end if;
+  raise notice 'PASS b2: School Admin can still create a Student with no eligibility';
+
+  -- b3 — a School Admin cannot link or unlink a guardian on the raw path
+  -- (the frontend already says BLOCKED_BY_SPEC; the database now agrees).
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub',v_admin,'role','authenticated')::text, true);
+    set local role authenticated;
+    insert into student_parents (student_id, user_id)
+      values ((select id from students where student_no = 'DB-OK'), v_parent);
+    reset role;
+    raise exception 'FAIL b3: School Admin linked a guardian';
+  exception when insufficient_privilege then
+    reset role;
+    raise notice 'PASS b3: School Admin cannot link a guardian';
+  end;
+  perform set_config('request.jwt.claims', json_build_object('sub',v_admin,'role','authenticated')::text, true);
+  set local role authenticated;
+  delete from student_parents where student_id = v_student and user_id = v_parent;
+  get diagnostics n = row_count;
+  reset role;
+  if n <> 0 then raise exception 'FAIL b3: School Admin unlinked a guardian (% rows)', n; end if;
+  raise notice 'PASS b3: School Admin cannot unlink a guardian';
+
+  -- b4 — no client hard-deletes core historical entities. The DELETE grant
+  -- itself is withdrawn, so the attempt is refused outright rather than
+  -- quietly matching zero rows — the stronger of the two outcomes.
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub',v_super,'role','authenticated')::text, true);
+    set local role authenticated;
+    delete from students where id = v_student;
+    reset role;
+    raise exception 'FAIL b4: a Student was hard-deleted';
+  exception when insufficient_privilege then
+    reset role;
+    raise notice 'PASS b4: a Student cannot be hard-deleted by a client';
+  end;
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub',v_super,'role','authenticated')::text, true);
+    set local role authenticated;
+    delete from classes where id = v_cls;
+    reset role;
+    raise exception 'FAIL b4: a Class was hard-deleted';
+  exception when insufficient_privilege then
+    reset role;
+    raise notice 'PASS b4: a Class cannot be hard-deleted by a client';
+  end;
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub',v_super,'role','authenticated')::text, true);
+    set local role authenticated;
+    delete from institutions where id = v_inst2;
+    reset role;
+    raise exception 'FAIL b4: an Institution was hard-deleted';
+  exception when insufficient_privilege then
+    reset role;
+    raise notice 'PASS b4: an Institution cannot be hard-deleted by a client';
+  end;
+
+  -- b5 — raw planning data is invisible to Parent and Classroom Staff.
+  insert into institution_service_plans (institution_id, periods, effective_from)
+    values (v_inst, array['lunch']::app_period[], app_operational_date() - 10);
+  insert into calendar_exceptions (institution_id, date_from, date_to, kind)
+    values (v_inst, app_operational_date() + 7, app_operational_date() + 7, 'closure');
+
+  perform set_config('request.jwt.claims', json_build_object('sub',v_parent,'role','authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into n from institution_service_plans;
+  if n <> 0 then reset role; raise exception 'FAIL b5: a Parent read raw Service Plans (%)', n; end if;
+  select count(*) into n from calendar_exceptions;
+  reset role;
+  if n <> 0 then raise exception 'FAIL b5: a Parent read unmaterialised Calendar Exceptions (%)', n; end if;
+
+  perform set_config('request.jwt.claims', json_build_object('sub',v_staff,'role','authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into n from institution_service_plans;
+  if n <> 0 then reset role; raise exception 'FAIL b5: Classroom Staff read raw Service Plans (%)', n; end if;
+  select count(*) into n from calendar_exceptions;
+  reset role;
+  if n <> 0 then raise exception 'FAIL b5: Classroom Staff read unmaterialised Calendar Exceptions (%)', n; end if;
+  raise notice 'PASS b5: raw planning data is invisible to Parent and Classroom Staff';
+
+  -- ...while the PUBLISHED service they legitimately need is still readable.
+  perform set_config('request.jwt.claims', json_build_object('sub',v_staff,'role','authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into n from meal_services where id = v_service;
+  reset role;
+  if n <> 1 then raise exception 'FAIL b5: Classroom Staff lost sight of their published Meal Service (%)', n; end if;
+  raise notice 'PASS b5: the published Meal Service is still readable downstream';
+
+  -- b6 — meal_services is a controlled write path: no client table writes,
+  -- while the approved Super Admin publish RPC still works.
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub',v_super,'role','authenticated')::text, true);
+    set local role authenticated;
+    update meal_services set published = false where id = v_service;
+    reset role;
+    raise exception 'FAIL b6: a Super Admin mutated meal_services directly';
+  exception when insufficient_privilege then
+    reset role;
+    raise notice 'PASS b6: direct client writes to meal_services are denied';
+  end;
+
+  -- An explicit 2-week Menu with a lunch slot, so publication has something to
+  -- materialise and the anchor_week bound below is deterministic.
+  insert into rotations (name, week_count, active) values ('DB Rotation', 2, true)
+    returning id into v_rot;
+  insert into rotation_slots (rotation_id, week_number, weekday, period, meal_id)
+    select v_rot, w, d, 'lunch', v_meal from generate_series(1,2) w, generate_series(0,6) d;
+  insert into institution_rotation_assignments (institution_id, rotation_id, anchor_week, effective_from)
+    values (v_inst, v_rot, 1, app_operational_date() - 10);
+  insert into institution_service_plans (institution_id, periods, effective_from)
+    values (v_inst, array['lunch']::app_period[], app_operational_date() - 9);
+  perform set_config('request.jwt.claims', json_build_object('sub',v_super,'role','authenticated')::text, true);
+  set local role authenticated;
+  perform publish_meal_services(v_inst, app_operational_date() + 30, app_operational_date() + 32);
+  reset role;
+  raise notice 'PASS b6: the approved Super Admin publish RPC still materialises services';
+
+  -- b7 — the legacy `menus` table is historical/read-only at the boundary.
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub',v_super,'role','authenticated')::text, true);
+    set local role authenticated;
+    insert into menus (week_number, weekday, period, dish_name) values (1, 0, 'lunch', 'DB legacy');
+    reset role;
+    raise exception 'FAIL b7: a client wrote to the LEGACY menus table';
+  exception when insufficient_privilege then
+    reset role;
+    raise notice 'PASS b7: the legacy menus table is read-only at the boundary';
+  end;
+
+  -- b8 — effective-dated planning is deterministic: one row per
+  -- institution+effective date, and anchor_week must exist in the Menu.
+  begin
+    insert into institution_service_plans (institution_id, periods, effective_from)
+      values (v_inst, array['breakfast']::app_period[], app_operational_date() - 10);
+    raise exception 'FAIL b8: a second Service Plan for the same effective date was accepted';
+  exception when unique_violation then
+    raise notice 'PASS b8: one Service Plan per institution + effective date';
+  end;
+  begin
+    insert into institution_rotation_assignments (institution_id, rotation_id, anchor_week, effective_from)
+      values (v_inst, v_rot, 7, app_operational_date() - 20);   -- Menu has 2 weeks
+    raise exception 'FAIL b8: an anchor_week beyond the Menu''s week_count was accepted';
+  exception when check_violation then
+    raise notice 'PASS b8: anchor_week cannot exceed the selected Menu''s week_count';
+  end;
+  -- ...and the invariant also holds from the REFERENCED side: shrinking the
+  -- Menu must not strand an assignment anchored beyond its new length.
+  update institution_rotation_assignments set anchor_week = 2
+    where institution_id = v_inst and rotation_id = v_rot;
+  begin
+    update rotations set week_count = 1 where id = v_rot;
+    raise exception 'FAIL b8: a Menu was shrunk below a live assignment''s anchor_week';
+  exception when check_violation then
+    raise notice 'PASS b8: a Menu cannot be shrunk below a live assignment''s anchor_week';
+  end;
+
   raise notice '---------------------------------------------------------';
-  raise notice 'DB BOUNDARY: raw-path integrity verified (items 1/2/3/4/6/12).';
+  raise notice 'DB BOUNDARY: raw-path integrity verified (0031/0032/0033 items).';
 end $$;
 rollback;

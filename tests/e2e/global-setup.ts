@@ -1,7 +1,13 @@
 /**
- * E2E global setup — idempotent seeding of the LIVE project on the CURRENT
- * architecture. BLOCKED_BY_ENVIRONMENT when E2E_* vars are absent (the suite
- * just skips). All rows are namespaced (E2E …).
+ * E2E global setup — idempotent seeding of an APPROVED NON-PRODUCTION
+ * (disposable) Supabase project on the CURRENT architecture. It seeds with a
+ * service-role key that bypasses RLS and writes rows, so it must never point
+ * at production: `assertNotProduction()` below refuses the known production
+ * project outright, and CI fails the job before this file even runs.
+ *
+ * BLOCKED_BY_ENVIRONMENT when E2E_* vars are absent (the suite just skips) —
+ * which is the current state until an approved non-production target exists.
+ * All rows are namespaced (E2E …).
  *
  * The seed models the real chain, not the retired one:
  *   Meal (library) → Meal Revision → published, dated Meal Service

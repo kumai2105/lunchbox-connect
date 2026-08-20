@@ -120,7 +120,7 @@ export default function InstitutionDetailPage() {
     () => students.filter((s) => s.operational_status !== null).length,
     [students],
   );
-  const allergyFlagged = useMemo(
+  const safetyNoteCount = useMemo(
     () => students.filter((s) => (s.medical_notes ?? []).length > 0).length,
     [students],
   );
@@ -198,7 +198,7 @@ export default function InstitutionDetailPage() {
                 </tr>
                 <tr>
                   <td className="cell-sub">Students with safety notes</td>
-                  <td className="mono">{allergyFlagged}</td>
+                  <td className="mono">{safetyNoteCount}</td>
                 </tr>
               </tbody>
             </table>

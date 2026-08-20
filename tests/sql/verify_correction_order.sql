@@ -71,21 +71,50 @@ begin
     raise notice 'PASS item1: recording a served meal with nothing published is refused';
   end;
 
-  -- ---- item 1: NOT_SERVED needs no service (the honest escape valve) -------
+  -- ---- NOT_SERVED also requires an applicable published service ------------
+  -- Previously not-served was an escape valve that needed no Meal Service, so
+  -- an authorized RPC call could create a disconnected observation for a
+  -- period the institution never published — distorting completion/reporting.
+  -- A period with nothing published is simply NOT an applicable service, so no
+  -- record of any served_status may be created for it.
+  begin
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_staff, 'role','authenticated')::text, true);
+    set local role authenticated;
+    perform record_serving_batch(
+      v_cls,
+      jsonb_build_array(jsonb_build_object(
+        'student_id', v_student, 'period','breakfast',
+        'served_status','not_served')),
+      app_operational_date());
+    reset role;
+    raise exception 'FAIL: a NOT_SERVED record was created for a period with nothing published';
+  exception when check_violation then
+    reset role;
+    raise notice 'PASS: not-served ALSO requires an applicable published Meal Service';
+  end;
+  select count(*) into n from serving_records
+   where student_id = v_student and period = 'breakfast';
+  if n <> 0 then raise exception 'FAIL: a disconnected breakfast observation was persisted (%)', n; end if;
+  raise notice 'PASS: no disconnected observation was persisted for the unpublished period';
+
+  -- ...but the SAME not-served outcome records fine for an APPLICABLE period
+  -- (lunch is published), so absence/unwell/asleep is still recordable.
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_staff, 'role','authenticated')::text, true);
   set local role authenticated;
   perform record_serving_batch(
     v_cls,
     jsonb_build_array(jsonb_build_object(
-      'student_id', v_student, 'period','breakfast',
+      'student_id', v_student, 'period','lunch',
       'served_status','not_served')),
     app_operational_date());
   reset role;
   select count(*) into n from serving_records
-   where student_id = v_student and period = 'breakfast' and served_status = 'not_served';
-  if n <> 1 then raise exception 'FAIL item1: could not mark not-served without a service'; end if;
-  raise notice 'PASS item1: not-served can be recorded with no published service';
+   where student_id = v_student and period = 'lunch'
+     and served_status = 'not_served' and meal_service_id = v_service;
+  if n <> 1 then raise exception 'FAIL: not-served on an applicable published period was refused'; end if;
+  raise notice 'PASS: not-served on an APPLICABLE period records and anchors to its service';
 
   -- ---- item 1 backstop: direct served+null insert hits the constraint ------
   begin

@@ -7,7 +7,7 @@ import { adminDb, e2eReady, login, seeded } from './fixtures';
  * kitchen demand reflects the count, and the change is audit-logged.
  */
 test.describe('operational status workflow', () => {
-  test.skip(!e2eReady, 'needs E2E_* env (live Supabase project)');
+  test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
 
   test('super admin sets eligible status and it lands in audit', async ({ page }) => {
     const s = seeded();

@@ -6,7 +6,7 @@ import { e2eReady, login, seeded } from './fixtures';
  * first nav page with the correct role chip.
  */
 test.describe('login matrix — nine roles', () => {
-  test.skip(!e2eReady, 'needs E2E_* env (live Supabase project)');
+  test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
 
   const cases = [
     {

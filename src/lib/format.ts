@@ -28,8 +28,19 @@ export function formatDateTime(iso: string | null | undefined): string {
   });
 }
 
-export const WEEKDAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-export const WEEKDAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+// ISO weekday order, 0=Mon .. 6=Sun. The service model is publication-driven
+// (§35) and rotation_slots accepts all seven days since 0016 — there is no
+// Mon–Fri service rule, so these lists must not stop at Friday.
+export const WEEKDAY_NAMES = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
+export const WEEKDAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 // Deterministic week label for the menu grid: baseWeek is the admin-set "now".
 export function weekLabel(week: number): string {
@@ -109,7 +120,16 @@ export function weekEndISO(base: Date = new Date()): string {
   return x.toISOString().slice(0, 10);
 }
 
-// menus.weekday: 0=Mon..4=Fri. Date.getDay() is 0=Sun..6=Sat.
+/**
+ * ISO weekday index: 0=Mon .. 6=Sun (Date.getDay() is 0=Sun..6=Sat).
+ *
+ * Covers all seven days, matching `rotation_slots.weekday` since 0016. The
+ * retired `menus` table constrained weekday to 0..4 (Mon–Fri); that limit
+ * belonged to the legacy table, never to this function, and `menus` is now
+ * historical/read-only. The active resolver uses `calendar.ts`
+ * `isoWeekdayIndex()`; this export is kept in step with it rather than left
+ * behind as a trap.
+ */
 export function isoWeekday(d: Date): number {
   return (d.getDay() + 6) % 7;
 }

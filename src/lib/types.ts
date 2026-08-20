@@ -165,7 +165,7 @@ export interface ProductionDemandRow {
   kitchen_id: string | null;
   kitchen_name: string | null;
   eligible_students: number;
-  allergy_flagged: number;
+  safety_note_flagged: number;
 }
 
 // Meal-performance analytics row (docs/13 Decision 032, Super Admin only) —

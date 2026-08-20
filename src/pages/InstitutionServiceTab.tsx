@@ -79,6 +79,10 @@ export default function InstitutionServiceTab({ institutionId }: { institutionId
 
   async function saveRotation() {
     if (!rotationId) return setError('Choose a menu to assign.');
+    const weeks = rotations.find((r) => r.id === rotationId)?.week_count ?? 1;
+    if (anchorWeek < 1 || anchorWeek > weeks) {
+      return setError(`Starting rotation week must be between 1 and ${weeks} for this menu.`);
+    }
     setBusy(true);
     setError(null);
     setMsg(null);
@@ -102,6 +106,8 @@ export default function InstitutionServiceTab({ institutionId }: { institutionId
   if (!cfg) return <Spinner />;
 
   const configured = cfg.periods && cfg.rotation_id;
+  // The upper bound for the anchor week follows the currently selected menu.
+  const selectedWeekCount = rotations.find((r) => r.id === rotationId)?.week_count ?? 1;
 
   return (
     <div className="service-config">
@@ -156,12 +162,21 @@ export default function InstitutionServiceTab({ institutionId }: { institutionId
                 ))}
               </select>
             </Field>
+            {/* anchor_week must address a week the SELECTED menu actually has —
+                an anchor beyond its week_count resolves to nothing. The bound
+                follows the chosen menu, and the database enforces the same
+                rule (0033) whatever the client sends. */}
             <Field label="Starting rotation week">
               <input
                 type="number"
                 min={1}
+                max={selectedWeekCount}
                 value={anchorWeek}
-                onChange={(e) => setAnchorWeek(Math.max(1, Number(e.target.value)))}
+                onChange={(e) =>
+                  setAnchorWeek(
+                    Math.min(selectedWeekCount, Math.max(1, Number(e.target.value) || 1)),
+                  )
+                }
               />
             </Field>
             <Field label="Effective from">

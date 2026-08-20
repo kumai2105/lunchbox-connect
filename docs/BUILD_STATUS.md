@@ -69,7 +69,7 @@ README only. The full spec pack introduced corrections:
 The stack is **approved** (A1–A3) and recorded in `docs/13` **Decision 034**:
 TypeScript · React 18 + Vite (SPA) · Supabase (PostgreSQL, Auth, Storage, Edge
 Functions) · Row Level Security as the boundary · Supabase CLI migrations
-(`0001`–`0031`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
+(`0001`–`0033`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
 Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
 `TECHNICAL_STACK = NOT_YET_DEFINED` statements are SUPERSEDED.
 
@@ -79,7 +79,7 @@ Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
 - `pnpm test:unit` — **65 tests** (RBAC, calendar, meal analytics incl.
   meal-id/exception rules, kitchen revision grouping, operational-date boundary)
 - `./tests/sql/run_verification.sh` — **12 SQL suites** on a throwaway
-  PostgreSQL 16, incl. the 146-check authorization matrix and the raw-path
+  PostgreSQL 16, incl. the 401-check authorization matrix and the raw-path
   DB-boundary suite (RPC-only writes, note-publish authority, tenant/eligibility
   triggers, meal-image storage visibility)
 - `pnpm test:e2e` — current-architecture specs written; BLOCKED_BY_ENVIRONMENT

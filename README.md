@@ -26,7 +26,7 @@ pnpm · Vitest · Playwright · ESLint · Prettier
 pnpm install
 cp .env.example .env          # fill VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
 supabase link --project-ref <your-ref>
-supabase db push              # migrations 0001–0031
+supabase db push              # migrations 0001–0033
 pnpm dev                      # http://localhost:5173
 ```
 
@@ -58,7 +58,7 @@ pnpm test:e2e    # live-boundary Playwright suite — needs the env below
 
 `run_verification.sh` builds a PostgreSQL 16 cluster from nothing, applies
 `supabase/migrations/*.sql` verbatim, and runs every `tests/sql/verify_*.sql`
-suite (golden path, cross-portal RLS, the 146-check authorization matrix, menu
+suite (golden path, cross-portal RLS, the 401-check authorization matrix, menu
 cutover, downstream wiring, special period, class staff, kitchen demand,
 correction order, publish-future, and the raw-path DB-boundary suite).
 
@@ -106,7 +106,7 @@ src/
             analytics, reports, review, status, users, audit, parent/*
   components/  layout + shared UI (design ported from the approved mockup)
 supabase/
-  migrations/ 0001–0031 (schema, RLS, resolution/publish engine, meal library,
+  migrations/ 0001–0033 (schema, RLS, resolution/publish engine, meal library,
               class_staff, per-meal demand, analytics, DB-boundary integrity)
   functions/admin-create-user/  privileged account creation (super/nursery admin)
 tests/

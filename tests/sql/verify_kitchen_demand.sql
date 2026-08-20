@@ -8,7 +8,12 @@ declare v_super uuid; iA uuid; iB uuid; mChicken uuid; mBeef uuid; n int; qty bi
 begin
   select user_id into v_super from app_users where role='super_admin' limit 1;
   perform set_config('request.jwt.claims', json_build_object('sub',v_super,'role','authenticated')::text, true);
-  set local role authenticated;
+
+  -- Fixture is built on the OWNER path (migrations/service-role equivalent).
+  -- 0033 makes meal_services a controlled write path: no client role — not
+  -- even a Super Admin — writes that table directly; publication goes through
+  -- publish_meal_services(). The fixture is not the thing under test here, so
+  -- it is staged as the owner and only the READ is exercised as the client.
   insert into institutions (name,kind) values ('ZZ KD A','nursery') returning id into iA;
   insert into institutions (name,kind) values ('ZZ KD B','nursery') returning id into iB;
   mChicken := save_meal(null,'KD Chicken Pasta',null,null,null,null,null);
@@ -21,6 +26,7 @@ begin
     values (iA,current_date,'lunch',(select current_revision_id from meals where id=mChicken),true,now()),
            (iB,current_date,'lunch',(select current_revision_id from meals where id=mBeef),true,now());
 
+  set local role authenticated;
   select count(*) into n from meal_production_demand(current_date);
   if n<>2 then raise exception 'FAIL expected 2 per-meal demand rows, got %', n; end if;
   select eligible_students into qty from meal_production_demand(current_date) where meal_name='KD Chicken Pasta';

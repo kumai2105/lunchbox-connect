@@ -52,8 +52,31 @@ show:
 ## Order of application
 
 1. **Confirm ground truth** — run `remediation/00_diagnose.sql` (read-only).
-2. **Apply the pending schema migrations** in numeric order. Migrations
-   `0017`–`0032` carry the corrected architecture (rotation engine, resolver
+2. **Read the production migration ledger FIRST, then apply only what is
+   missing.** Do **not** replay a version that production has already applied
+   merely because the file is still in the repository — re-running historical
+   migrations is how a reviewed deployment gets corrupted.
+
+   ```sql
+   -- what production has actually applied, newest last
+   select version, name
+     from supabase_migrations.schema_migrations
+    order by version;
+   ```
+
+   Compare that list against `supabase/migrations/` and apply **only the
+   versions absent from the ledger**, in ascending order. `supabase db push`
+   does this comparison for you and is the preferred path; applying files by
+   hand means doing the comparison yourself first.
+
+   The repository currently contains `0001`–`0033`. Which of those are pending
+   depends on the ledger you just read — the expected pending set must agree
+   with that verified state, not with any range quoted in a document. If the
+   ledger disagrees with what you expect, stop and reconcile before applying
+   anything.
+
+   For reference, the corrected architecture arrived in migrations
+   `0017`–`0033` (rotation engine, resolver
    lockdown, meal-service link, planning-RLS tightening, special-period fix,
    dashboard KPI, meal-library RPCs, `class_staff`, legacy-publish retirement,
    per-meal demand, analytics one-truth, served-meal integrity + role de-stale
@@ -65,10 +88,21 @@ show:
    same-institution trigger, `student_parents` parent-role trigger, `class_staff`
    classroom-staff+same-institution trigger, removal of the invented School-Admin
    recording and note-publish authorities, and the honest `meal_production_demand`
-   safety-note column rename (**0032**)). They are idempotent where they touch
-   data and **publish/assign nothing**. Prefer the Supabase CLI
-   (`supabase db push`) or apply each file in order; verify the ledger against
-   `supabase/migrations/`.
+   safety-note column rename (**0032**); and the client-boundary lockdown — no
+   `app_users` self role/scope escalation, eligibility protected on INSERT as
+   well as UPDATE, School Admin guardian writes closed, tenant invariants held
+   from the referenced side, no generic hard delete of core historical
+   entities, planning tables closed to downstream roles, the legacy `menus`
+   surface made read-only, every new classroom record anchored to a published
+   Meal Service, deterministic effective-dated planning, and `meal_services`
+   writable only through the publishing RPC (**0033**)). They are idempotent
+   where they touch data and **publish/assign nothing**.
+
+   > ⚠️ **0033 stops rather than guesses.** It refuses to apply if production
+   > already holds two service-plan or rotation-assignment rows for the same
+   > institution *and* effective date, and names them. That ambiguity must be
+   > resolved by a human decision about which row is correct — the migration
+   > will not pick one for you.
 3. **Deploy and verify the `admin-create-user` Edge Function** — the only
    server-side account-provisioning path. A new frontend/DB release must **not**
    run against a stale copy of this function, so deploy it in the same release,

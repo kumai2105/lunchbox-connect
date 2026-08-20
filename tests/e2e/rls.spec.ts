@@ -4,10 +4,10 @@ import { e2eReady, login, seeded } from './fixtures';
 /**
  * Live-boundary acceptance (AT-030 / AT-031). The route gate is a convenience;
  * RLS is the real boundary and re-checks every read server-side. These drive
- * the seeded live project via the shared fixtures.
+ * the seeded non-production project via the shared fixtures.
  */
 test.describe('AT-030 / AT-031 — role isolation', () => {
-  test.skip(!e2eReady, 'needs E2E_* env (live Supabase project)');
+  test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
 
   test('parent cannot navigate to staff/admin pages', async ({ page }) => {
     const s = seeded();
