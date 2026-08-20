@@ -1,6 +1,6 @@
 import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
-import { navFor } from '../lib/roles';
+import { navFor, navPath, resourceForPath } from '../lib/roles';
 import { Btn, Spinner } from './ui';
 import { Icon } from './icons';
 import { formatOperationalDate, initials } from '../lib/format';
@@ -50,7 +50,10 @@ export default function Layout() {
   // First path segment only — nested detail routes (/students/:id,
   // /institutions/:id) must still resolve to their section's title and keep
   // that section highlighted in the sidebar.
-  const page = location.pathname.split('/').filter(Boolean)[0] ?? 'dashboard';
+  // …then translated from URL segment to RBAC resource, because the two are
+  // not always the same word (`/menu-builder` is the `menubuilder` resource).
+  const segment = location.pathname.split('/').filter(Boolean)[0] ?? 'dashboard';
+  const page = resourceForPath(segment);
   const title = PAGE_TITLES[page] ?? ['Dashboard', 'LunchBox Connect /'];
 
   // Every authenticated route is nested inside this Layout, so its <Outlet/> —
@@ -134,7 +137,7 @@ export default function Layout() {
             .map((item) => (
               <Link
                 key={item.page}
-                to={`/${item.page}`}
+                to={`/${navPath(item)}`}
                 className={page === item.page ? 'active' : ''}
               >
                 <span className="nav-ico">

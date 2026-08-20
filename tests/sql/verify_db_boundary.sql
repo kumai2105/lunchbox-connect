@@ -10,7 +10,7 @@ declare
   v_inst uuid; v_inst2 uuid; v_cls uuid; v_staff uuid; v_admin uuid; v_student uuid;
   v_rev uuid; v_meal uuid; v_service uuid; v_rec uuid; v_note uuid; n int;
   v_parent uuid; v_rev2 uuid;
-  v_cls2 uuid; v_staff2 uuid; b boolean; v_rot uuid;
+  v_cls2 uuid; v_staff2 uuid; b boolean; v_rot uuid; v_audit uuid;
 begin
   insert into institutions (name, kind) values ('ZZ DB Nursery','nursery') returning id into v_inst;
   insert into institutions (name, kind) values ('ZZ DB Other','nursery') returning id into v_inst2;
@@ -200,6 +200,95 @@ begin
   reset role;
   if n <> 2 then raise exception 'FAIL item6: Super Admin cannot read the full meal-image library (%)', n; end if;
   raise notice 'PASS item6: Super Admin can read the whole meal-image library';
+
+  -- ---- CLOSURE SWEEP (0037): a referenced meal image is HISTORY ----------
+  -- imgA is referenced by a meal revision that a published Meal Service uses;
+  -- imgC is an abandoned upload no revision points at. The Super Admin — the
+  -- ONLY role with any write authority in this bucket — must be refused on the
+  -- first and allowed on the second. Before 0037 the `for all` policy deleted
+  -- imgA happily, dangling every historical reference to it.
+  insert into storage.objects (bucket_id, name) values ('meal-images','imgC.jpg');
+
+  perform set_config('request.jwt.claims', json_build_object('sub',v_super,'role','authenticated')::text, true);
+  set local role authenticated;
+
+  delete from storage.objects where bucket_id='meal-images' and name='imgA.jpg';
+  get diagnostics n = row_count;
+  if n <> 0 then
+    reset role;
+    raise exception
+      'FAIL item0037: a Super Admin DELETED a meal image still referenced by a '
+      'meal revision (% rows) — every historical Meal Service using it now '
+      'points at nothing', n;
+  end if;
+
+  -- Overwriting is the quieter failure: the reference survives, the picture
+  -- changes. RLS filters rather than raises, so assert on the row count.
+  update storage.objects set bucket_id = 'meal-images'
+   where bucket_id='meal-images' and name='imgA.jpg';
+  get diagnostics n = row_count;
+  if n <> 0 then
+    reset role;
+    raise exception
+      'FAIL item0037: a Super Admin OVERWROTE a meal image referenced by a '
+      'meal revision (% rows) — the history now shows a different meal', n;
+  end if;
+
+  -- The control: an unreferenced upload is not history and stays disposable.
+  -- Without this the two assertions above would also pass if the bucket were
+  -- simply frozen for everyone, which is not the rule being tested.
+  delete from storage.objects where bucket_id='meal-images' and name='imgC.jpg';
+  get diagnostics n = row_count;
+  reset role;
+  if n <> 1 then
+    raise exception
+      'FAIL item0037: a Super Admin could not delete an UNREFERENCED meal image '
+      '(% rows) — the bucket is frozen, not reference-guarded', n;
+  end if;
+  raise notice 'PASS item0037: a meal image referenced by a revision cannot be deleted or overwritten';
+  raise notice 'PASS item0037: an unreferenced meal image is still disposable';
+
+  -- ---- CLOSURE SWEEP: the audit log is evidence, so it must be
+  -- ---- unforgeable and untamperable from EVERY client session ------------
+  -- The Super Admin is the strongest client identity there is and the only
+  -- role that can READ the log; if the boundary holds for them it holds for
+  -- everyone. Writes are supposed to arrive only through the SECURITY DEFINER
+  -- audit triggers. Nothing here was found broken — these assertions exist so
+  -- a future policy change cannot quietly make the log editable.
+  insert into audit_log (actor_user_id, action, entity_type, entity_id)
+    values (v_super, 'PROBE', 'probe', v_student) returning id into v_audit;
+
+  perform set_config('request.jwt.claims', json_build_object('sub',v_super,'role','authenticated')::text, true);
+  set local role authenticated;
+
+  update audit_log set action = 'TAMPERED' where id = v_audit;
+  get diagnostics n = row_count;
+  if n <> 0 then
+    reset role;
+    raise exception 'FAIL audit: a client session REWROTE an audit entry (% rows)', n;
+  end if;
+
+  delete from audit_log where id = v_audit;
+  get diagnostics n = row_count;
+  if n <> 0 then
+    reset role;
+    raise exception 'FAIL audit: a client session DELETED an audit entry (% rows)', n;
+  end if;
+  raise notice 'PASS audit: an audit entry cannot be rewritten or deleted from a client session';
+
+  -- Forging is the other half: a fabricated entry is as damaging as a deleted
+  -- one. RLS RAISES on INSERT (unlike UPDATE/DELETE, which filter to 0 rows),
+  -- so this half is asserted by catching the refusal.
+  begin
+    insert into audit_log (actor_user_id, action, entity_type)
+      values (v_super, 'FORGED', 'probe');
+    reset role;
+    raise exception 'FAIL audit: a client session FORGED an audit entry';
+  exception
+    when insufficient_privilege then null;
+  end;
+  reset role;
+  raise notice 'PASS audit: an audit entry cannot be forged from a client session';
 
   -- =================================================================
   -- CORRECTION PASS — tenant-integrity + permission-correction triggers

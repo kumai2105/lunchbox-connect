@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { NAV_BY_ROLE, canAccessPage, navFor } from './roles';
+import { readFileSync } from 'node:fs';
+import { NAV_BY_ROLE, canAccessPage, navFor, navPath } from './roles';
 import { can, viewableResources, type Resource } from './rbac';
 import type { AppRole } from './types';
 
@@ -156,5 +157,42 @@ describe('authorization consistency: nav vs rbac matrix', () => {
         });
       });
     });
+  });
+});
+
+/**
+ * The sidebar link and the <Route> must agree on the URL.
+ *
+ * The suite above compares RESOURCE ids to RESOURCE ids, which is why it
+ * passed while the Menu Builder link was dead: `navFor()` said the resource
+ * was `menubuilder`, the matrix agreed, and the sidebar rendered
+ * `to="/menubuilder"` — a path App.tsx never declares. React Router's
+ * catch-all swallowed it and bounced the Super Admin to the dashboard, so the
+ * only sidebar route to the Menu Builder silently did nothing.
+ *
+ * This reads App.tsx itself rather than a hand-copied list, so a route renamed
+ * without updating the nav fails here instead of in a user's browser.
+ */
+describe('nav links resolve to declared routes', () => {
+  const appSource = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
+  const declaredPaths = new Set(
+    [...appSource.matchAll(/path="\/([^":/]+)/g)].map((m) => m[1]),
+  );
+
+  it('App.tsx declares routes at all (guards against the regex silently matching nothing)', () => {
+    expect(declaredPaths.size).toBeGreaterThan(10);
+    expect(declaredPaths.has('dashboard')).toBe(true);
+  });
+
+  it('every sidebar link for every role points at a route App.tsx declares', () => {
+    const dead: string[] = [];
+    ALL_ROLES.forEach((role) => {
+      navFor(role).forEach((item) => {
+        if (!declaredPaths.has(navPath(item))) {
+          dead.push(`${role} -> /${navPath(item)} (resource "${item.page}")`);
+        }
+      });
+    });
+    expect(dead).toEqual([]);
   });
 });

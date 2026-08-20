@@ -3,7 +3,20 @@ import type { IconName } from '../components/icons';
 import { can, type Resource } from './rbac';
 
 export interface NavItem {
+  /**
+   * The RBAC resource id — the key `can()` and `canAccessPage()` are asked
+   * about. It is NOT the URL. Conflating the two is what broke the Menu
+   * Builder link: the resource is `menubuilder`, the route is `/menu-builder`,
+   * and a sidebar that navigated to `/${page}` sent every Super Admin to a
+   * path no <Route> matched — the catch-all bounced them to the dashboard, so
+   * the only sidebar entry point to the Menu Builder did nothing at all.
+   */
   page: string;
+  /**
+   * URL path segment, when it differs from the resource id. Defaults to
+   * `page`. Keep this in step with the <Route path=…> in App.tsx.
+   */
+  path?: string;
   label: string;
   icon: IconName;
   shell?: boolean; // NOT_YET_DEFINED spec area — honest shell, no invented features
@@ -27,7 +40,7 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
     { page: 'classes', label: 'Classes', icon: 'folder', hidden: true },
     { page: 'status', label: 'Status / eligibility', icon: 'checkCircle' },
     { page: 'meals', label: 'Meal Library', icon: 'apple' },
-    { page: 'menubuilder', label: 'Menu Builder', icon: 'utensils' },
+    { page: 'menubuilder', path: 'menu-builder', label: 'Menu Builder', icon: 'utensils' },
     { page: 'analytics', label: 'Meal analytics', icon: 'barChart' },
     { page: 'today', label: 'Serving (Today)', icon: 'sun' },
     { page: 'review', label: 'Parent-safe updates', icon: 'checkCircle' },
@@ -66,6 +79,29 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
 
 export function navFor(role: AppRole): NavItem[] {
   return NAV_BY_ROLE[role] ?? [];
+}
+
+/** The URL segment a nav item links to. */
+export function navPath(item: NavItem): string {
+  return item.path ?? item.page;
+}
+
+/**
+ * Inverse of `navPath`: the RBAC resource behind a URL segment.
+ *
+ * The chrome (topbar title, active sidebar item) is keyed by resource, but all
+ * it has to work from is `location.pathname`. Without this, `/menu-builder`
+ * resolved to no known resource and the topbar silently displayed
+ * "Dashboard" while the sidebar highlighted nothing.
+ */
+const RESOURCE_BY_PATH: Record<string, string> = Object.fromEntries(
+  Object.values(NAV_BY_ROLE)
+    .flat()
+    .map((item) => [navPath(item), item.page]),
+);
+
+export function resourceForPath(segment: string): string {
+  return RESOURCE_BY_PATH[segment] ?? segment;
 }
 
 /**
