@@ -2,9 +2,15 @@ import { Link } from 'react-router-dom';
 import { useParentData } from './context';
 import { Avatar, Card, Pill } from '../../components/ui';
 import { Icon } from '../../components/icons';
-import { initials, todayISO } from '../../lib/format';
+import {
+  formatOperationalDate,
+  initials,
+  operationalHour,
+  todayISO,
+} from '../../lib/format';
 import {
   BEHAVIOR_LABEL,
+  meanConsumption,
   LOW_INTAKE_REASON_LABEL,
   consumptionHumanLabel,
   isNonPreferenceReason,
@@ -48,13 +54,13 @@ export default function ParentHome() {
   const valid = applicable.map((p) => byPeriod[p]).filter(
     (r): r is NonNullable<typeof r> => !!r && isValidPreferenceObservation(r),
   );
-  const overall =
-    valid.length > 0
-      ? Math.round(valid.reduce((s, r) => s + (r.consumption_pct ?? 0), 0) / valid.length)
-      : null;
+  // Only SCORED observations are averaged: an upcoming or unscored meal is
+  // "not recorded", never 0%.
+  const overall = meanConsumption(valid);
 
   const greeting = (() => {
-    const h = new Date().getHours();
+    // Greet by the nursery's clock, not the device's.
+    const h = operationalHour();
     if (h < 12) return 'Good morning';
     if (h < 18) return 'Good afternoon';
     return 'Good evening';
@@ -67,11 +73,7 @@ export default function ParentHome() {
           <div className="parent-greeting">{greeting},</div>
           <h2 className="parent-child-name">{child.given_name}'s day</h2>
           <div className="parent-date">
-            {new Date().toLocaleDateString(undefined, {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-            })}
+            {formatOperationalDate(new Date())}
           </div>
         </div>
         <Avatar photoUrl={photoUrl} initials={initials(child.given_name)} size="md" />

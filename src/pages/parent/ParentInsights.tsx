@@ -7,6 +7,7 @@ import {
   aggregateObservations,
   groupPreferencesByMeal,
   isValidPreferenceObservation,
+  meanConsumption,
 } from '../../lib/mealAnalytics';
 import { operationalDaysAgoISO } from '../../lib/format';
 
@@ -50,7 +51,7 @@ export default function ParentInsights() {
         label: i % Math.max(1, Math.round(days / 5)) === 0 ? key.slice(5) : '',
         value:
           valid.length > 0
-            ? Math.round(valid.reduce((s, r) => s + (r.consumption_pct ?? 0), 0) / valid.length)
+            ? meanConsumption(valid)
             : null,
       });
     }
@@ -71,6 +72,19 @@ export default function ParentInsights() {
       (id) => identityFor.get(id),
     ).map((e) => ({ label: e.label, value: e.value, hint: `${e.count} times` }));
   }, [scoped, meals]);
+
+  // The approved Parent set includes BOTH the meals accepted best and those
+  // accepted least. groupPreferencesByMeal returns them ordered by average
+  // intake, so the two ends of the same factual list are shown — no score, no
+  // ranking judgement, and never a comparison against another child.
+  const DISPLAY_LIMIT = 5;
+  const higherAccepted = useMemo(() => topMeals.slice(0, DISPLAY_LIMIT), [topMeals]);
+  const lowerAccepted = useMemo(() => {
+    // Only the meals not already shown above, so a short list is never printed
+    // twice under two different headings.
+    const remaining = topMeals.slice(higherAccepted.length);
+    return [...remaining].reverse().slice(0, DISPLAY_LIMIT);
+  }, [topMeals, higherAccepted]);
 
   const reasons = useMemo(
     () =>
@@ -128,6 +142,16 @@ export default function ParentInsights() {
               value={stats.lowIntake}
               trend="meals"
             />
+            <StatCard
+              icon="xCircle"
+              label="Refused"
+              value={stats.refusals}
+              trend={
+                stats.refusalRate !== null
+                  ? `${stats.refusalRate}% of counted meals`
+                  : 'meals'
+              }
+            />
           </div>
 
           <Card title="Intake trend" hint="average per day">
@@ -156,10 +180,18 @@ export default function ParentInsights() {
             </div>
           </Card>
 
-          {topMeals.length > 0 && (
+          {higherAccepted.length > 0 && (
             <Card title="Meals eaten best" hint="average intake per meal">
               <div style={{ padding: 16 }}>
-                <BarChart data={topMeals} max={100} valueSuffix="%" />
+                <BarChart data={higherAccepted} max={100} valueSuffix="%" />
+              </div>
+            </Card>
+          )}
+
+          {lowerAccepted.length > 0 && (
+            <Card title="Meals eaten least" hint="average intake per meal">
+              <div style={{ padding: 16 }}>
+                <BarChart data={lowerAccepted} max={100} valueSuffix="%" />
               </div>
             </Card>
           )}

@@ -69,14 +69,14 @@ show:
    does this comparison for you and is the preferred path; applying files by
    hand means doing the comparison yourself first.
 
-   The repository currently contains `0001`–`0033`. Which of those are pending
+   The repository currently contains `0001`–`0034`. Which of those are pending
    depends on the ledger you just read — the expected pending set must agree
    with that verified state, not with any range quoted in a document. If the
    ledger disagrees with what you expect, stop and reconcile before applying
    anything.
 
    For reference, the corrected architecture arrived in migrations
-   `0017`–`0033` (rotation engine, resolver
+   `0017`–`0034` (rotation engine, resolver
    lockdown, meal-service link, planning-RLS tightening, special-period fix,
    dashboard KPI, meal-library RPCs, `class_staff`, legacy-publish retirement,
    per-meal demand, analytics one-truth, served-meal integrity + role de-stale
@@ -95,8 +95,20 @@ show:
    entities, planning tables closed to downstream roles, the legacy `menus`
    surface made read-only, every new classroom record anchored to a published
    Meal Service, deterministic effective-dated planning, and `meal_services`
-   writable only through the publishing RPC (**0033**)). They are idempotent
+   writable only through the publishing RPC (**0033**); and the note-privacy /
+   state-validity / atomicity pass — the retired legacy `serving_records.note`
+   free text archived and closed to every client, a SERVED record required to
+   carry a real outcome, a narrow `set_concern_observed` write path, atomic
+   Menu resizing with the `rotation_slots.week_number <= rotations.week_count`
+   invariant, the completed factual analytics view, and archive-only lifecycle
+   for Meals / Menus / Kitchens (**0034**)). They are idempotent
    where they touch data and **publish/assign nothing**.
+
+   > ⚠️ **0034 moves data before it locks a column.** It COPIES every historical
+   > `serving_records.note` value into `serving_record_note_archive` and only
+   > then clears the column, so nothing is destroyed — retention/deletion is
+   > still `NOT_YET_DEFINED`. Confirm the archive row count matches the number
+   > of non-null legacy notes before you continue.
 
    > ⚠️ **0033 stops rather than guesses.** It refuses to apply if production
    > already holds two service-plan or rotation-assignment rows for the same
@@ -140,7 +152,7 @@ show:
 The deploy is **release-gated**: it runs only after typecheck, lint, unit tests
 and a production build all pass, and only on an explicit release trigger
 (a `v*` tag push or a manual `workflow_dispatch`) — never merely because a
-branch was pushed. The corrected frontend expects the `0021`–`0032` schema and
+branch was pushed. The corrected frontend expects the `0021`–`0034` schema and
 the deployed `admin-create-user` Edge Function (steps 2–3 above), so **apply the
 migrations and deploy the function before — or together with — the frontend
 deploy**, or the live app will call tables/RPCs (`class_staff`,

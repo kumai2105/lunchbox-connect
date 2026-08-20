@@ -120,7 +120,13 @@ export interface ServingRecord {
    * calendar-week number. Null on records written before the cutover.
    */
   meal_service_id: string | null;
-  note: string | null;
+  /**
+   * RETIRED (migration 0034). The legacy free-text column is no longer readable
+   * by any API client and is never written again; historical values live in
+   * serving_record_note_archive. Classroom free text belongs to serving_notes,
+   * which has the publication boundary. Kept off this type so no screen can
+   * accidentally surface internal text to a family.
+   */
   recorded_by: string;
   created_at: string;
   updated_at: string;
@@ -188,6 +194,14 @@ export interface MealRevisionPerformanceRow {
   did_not_like_count: number;
 }
 
+/**
+ * The approved FACTUAL Meal measures (migration 0034).
+ *
+ * Everything here is a count, an average or a share of what was actually
+ * recorded. There is deliberately NO classification, score or ranking field:
+ * the thresholds that would assign KEEP / MONITOR / REVIEW_IMPROVE /
+ * CANDIDATE_FOR_REMOVAL are NOT_YET_DEFINED and are not invented.
+ */
 export interface MealPerformanceRow {
   menu_item_id: string; // stable Meal id (v_meal_performance, migration 0028)
   dish_name: string;
@@ -198,6 +212,34 @@ export interface MealPerformanceRow {
   refusal_count: number;
   encouragement_count: number;
   did_not_like_count: number;
+  /** 100/75/50/25/0 distribution across the VALID population. */
+  ate_all_count: number;
+  ate_most_count: number;
+  ate_half_count: number;
+  ate_some_count: number;
+  ate_none_count: number;
+  /** The same distribution as a percentage of valid observations. */
+  ate_all_share: number | null;
+  ate_most_share: number | null;
+  ate_half_share: number | null;
+  ate_some_share: number | null;
+  ate_none_share: number | null;
+  refusal_share: number | null;
+  encouragement_share: number | null;
+  did_not_like_share: number | null;
+  /** Low-intake reason breakdown; exceptions counted separately. */
+  reason_not_hungry: number;
+  reason_did_not_like_it: number;
+  reason_distracted: number;
+  reason_other: number;
+  exception_absent: number;
+  exception_unwell: number;
+  exception_sleeping: number;
+  /** Factual trend: a reporting window, never a judgement. */
+  recent_avg_consumption_pct: number | null;
+  prior_avg_consumption_pct: number | null;
+  trend_delta_pct: number | null;
+  trend_window_days: number;
 }
 
 

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatOperationalDate,
+  formatOperationalTime,
   isoWeek,
   operationalDateFor,
   operationalDaysAgoISO,
+  operationalHour,
   weekEndISO,
   weekStartISO,
 } from './format';
@@ -92,5 +95,37 @@ describe('week boundaries', () => {
   it('spans a month boundary correctly', () => {
     expect(weekStartISO(new Date('2026-09-02T12:00:00'))).toBe('2026-08-31');
     expect(weekEndISO(new Date('2026-08-31T12:00:00'))).toBe('2026-09-06');
+  });
+});
+
+describe('operational (Asia/Dubai) presentation', () => {
+  it('greets by the nursery clock, not the device clock', () => {
+    // 21:30 UTC is already 01:30 the NEXT day in Dubai — an evening greeting on
+    // the device, but the small hours at the nursery.
+    expect(operationalHour(new Date('2026-08-20T21:30:00Z'))).toBe(1);
+    // 07:00 UTC is 11:00 in Dubai: late morning, not early morning.
+    expect(operationalHour(new Date('2026-08-20T07:00:00Z'))).toBe(11);
+  });
+
+  it('renders the operational date for an instant past UTC midnight', () => {
+    // 22:00 UTC on the 20th is already the 21st in Dubai. The header must agree
+    // with the date the record is filed under.
+    expect(formatOperationalDate(new Date('2026-08-20T22:00:00Z'), { day: 'numeric' })).toBe('21');
+    expect(operationalDateFor(new Date('2026-08-20T22:00:00Z'))).toBe('2026-08-21');
+  });
+
+  it('renders a service date string as that same calendar day', () => {
+    expect(formatOperationalDate('2026-08-20', { day: 'numeric', month: 'numeric' })).toContain(
+      '20',
+    );
+  });
+
+  it('renders a classroom service time on the nursery clock', () => {
+    // A meal recorded at 08:30 UTC was served at 12:30 in the nursery.
+    expect(formatOperationalTime('2026-08-20T08:30:00Z')).toMatch(/12:30/);
+  });
+
+  it('does not crash on an unparseable timestamp', () => {
+    expect(formatOperationalTime('not-a-date')).toBe('—');
   });
 });

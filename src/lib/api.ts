@@ -1,4 +1,14 @@
 import { supabase } from './supabase';
+
+// The client-readable columns of a Classroom Meal Record.
+//
+// Enumerated rather than `*` on purpose: the LEGACY `note` column has been
+// retired and its SELECT privilege revoked (migration 0034), so `select *`
+// would now be refused for every role. Historical values are preserved in
+// serving_record_note_archive, which no API role can read.
+const SERVING_RECORD_COLUMNS =
+  'id,serving_date,class_id,student_id,period,served_status,consumption_pct,behavior,low_intake_reason,concern_observed,menu_item_id,meal_service_id,recorded_by,created_at,updated_at';
+
 import {
   OPERATIONAL_STATUS_ELIGIBLE,
   type AppPeriod,
@@ -220,7 +230,7 @@ export async function servingHistoryForStudent(
 ): Promise<ApiResult<ServingRecord[]>> {
   const { data, error } = await supabase
     .from('serving_records')
-    .select('*')
+    .select(SERVING_RECORD_COLUMNS)
     .eq('student_id', studentId)
     .order('serving_date', { ascending: false })
     .order('period')
@@ -239,7 +249,7 @@ export async function servingRangeForStudent(
 ): Promise<ApiResult<ServingRecord[]>> {
   const { data, error } = await supabase
     .from('serving_records')
-    .select('*')
+    .select(SERVING_RECORD_COLUMNS)
     .eq('student_id', studentId)
     .gte('serving_date', from)
     .lte('serving_date', to)
@@ -645,15 +655,22 @@ export async function createRotation(name: string, weekCount: number): Promise<A
   return { data: (data as { id: string }).id, error: null };
 }
 
+/**
+ * Resizes a Menu ATOMICALLY (migration 0034).
+ *
+ * This used to DELETE the out-of-range slots and THEN update week_count as two
+ * separate requests. When the second step was rejected — because an institution
+ * is anchored beyond the new range — the meal slots were already destroyed, so a
+ * refused edit still lost planning data.
+ *
+ * set_rotation_week_count() validates first and does the whole thing in one
+ * transaction: a rejected shrink leaves every slot exactly as it was.
+ */
 export async function setRotationWeekCount(id: string, weekCount: number): Promise<ApiResult<null>> {
-  // Shrinking removes the now-out-of-range slots so no orphan planning lingers.
-  const { error: delErr } = await supabase
-    .from('rotation_slots')
-    .delete()
-    .eq('rotation_id', id)
-    .gt('week_number', weekCount);
-  if (delErr) return err(delErr);
-  const { error } = await supabase.from('rotations').update({ week_count: weekCount }).eq('id', id);
+  const { error } = await supabase.rpc('set_rotation_week_count', {
+    p_rotation: id,
+    p_week_count: weekCount,
+  });
   if (error) return err(error);
   return { data: null, error: null };
 }
@@ -939,7 +956,7 @@ export async function mealObservations(
   let q = supabase
     .from('serving_records')
     .select(
-      '*, svc:meal_services!meal_service_id(period,rev:meal_revisions!meal_revision_id(name,meal_id)), student:students!inner(institution_id,class_id)',
+      `${SERVING_RECORD_COLUMNS}, svc:meal_services!meal_service_id(period,rev:meal_revisions!meal_revision_id(name,meal_id)), student:students!inner(institution_id,class_id)`,
     )
     .gte('serving_date', filters.from)
     .lte('serving_date', filters.to)
@@ -992,7 +1009,7 @@ export async function servingForDay(
 ): Promise<ApiResult<ServingRecord[]>> {
   const { data, error } = await supabase
     .from('serving_records')
-    .select('*')
+    .select(SERVING_RECORD_COLUMNS)
     .eq('class_id', classId)
     .eq('serving_date', date)
     .eq('period', period);
@@ -1011,7 +1028,9 @@ export interface MealObservationInput {
   menu_item_id?: string | null;
   /** The dated Meal Service this observation was recorded against (0016/0020). */
   meal_service_id?: string | null;
-  note?: string | null;
+  // The legacy free-text `note` field is deliberately absent. Classroom free
+  // text goes to serving_notes, which carries the publication boundary a
+  // family-visible message requires; record_serving_batch no longer accepts it.
 }
 
 export async function recordServing(
@@ -1028,6 +1047,26 @@ export async function recordServing(
   return { data: null, error: null };
 }
 
+/**
+ * Sets ONLY the concern flag on an existing Classroom Meal Record (§25).
+ *
+ * Flagging a concern while saving a note used to require re-sending the whole
+ * meal result, so the flag was silently dropped. This narrow RPC touches no
+ * other meal-result field, and the database re-checks authorization and the
+ * operational-day rule.
+ */
+export async function setConcernObserved(
+  recordId: string,
+  concern: boolean,
+): Promise<ApiResult<ServingRecord>> {
+  const { data, error } = await supabase.rpc('set_concern_observed', {
+    p_record: recordId,
+    p_concern: concern,
+  });
+  if (error) return err(error);
+  return { data: data as ServingRecord, error: null };
+}
+
 export async function servingForStudent(
   studentId: string,
   date: string,
@@ -1035,7 +1074,7 @@ export async function servingForStudent(
 ): Promise<ApiResult<ServingRecord | null>> {
   const { data, error } = await supabase
     .from('serving_records')
-    .select('*')
+    .select(SERVING_RECORD_COLUMNS)
     .eq('student_id', studentId)
     .eq('serving_date', date)
     .eq('period', period)

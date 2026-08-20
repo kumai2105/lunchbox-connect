@@ -7,7 +7,11 @@ import {
   isValidPreferenceObservation,
   groupPreferencesByMeal,
   type ObservationLike,
+  meanConsumption,
+  measuredObservations,
+  classifyMealPerformance,
 } from './mealAnalytics';
+import type { LowIntakeReason, MealPerformanceRow } from './types';
 import { CONSUMPTION_VALUES } from './types';
 
 function obs(p: Partial<ObservationLike>): ObservationLike {
@@ -236,3 +240,65 @@ describe('groupPreferencesByMeal (§9/§30/§31)', () => {
     expect(out).toHaveLength(0);
   });
 })
+
+describe('unscored observations are never silently 0% (state validity)', () => {
+  const served = (pct: number | null, reason: LowIntakeReason | null = null) => ({
+    served_status: 'served' as const,
+    consumption_pct: pct,
+    behavior: null,
+    low_intake_reason: reason,
+    concern_observed: false,
+  });
+
+  it('meanConsumption ignores unscored rows instead of counting them as zero', () => {
+    // 100 and 50 are scored; the third is served but not yet scored. The honest
+    // mean is 75 — treating the unscored row as 0 would report 50.
+    expect(meanConsumption([served(100), served(50), served(null)])).toBe(75);
+  });
+
+  it('meanConsumption is null when nothing has been scored at all', () => {
+    expect(meanConsumption([served(null), served(null)])).toBeNull();
+  });
+
+  it('a genuine 0% still counts — NOT_SERVED is what is distinct, not zero', () => {
+    expect(meanConsumption([served(0), served(100)])).toBe(50);
+  });
+
+  it('measuredObservations keeps only rows carrying a percentage', () => {
+    expect(measuredObservations([served(25), served(null), served(0)])).toHaveLength(2);
+  });
+
+  it('an exception row (absent) carries no percentage and never averages as 0', () => {
+    expect(meanConsumption([served(100), served(null, 'absent')])).toBe(100);
+  });
+});
+
+describe('meal-performance classification is NOT_YET_DEFINED', () => {
+  const row = (over: Partial<MealPerformanceRow>): MealPerformanceRow =>
+    ({
+      menu_item_id: 'm1',
+      dish_name: 'Dish',
+      period: 'lunch',
+      total_observations: 50,
+      valid_observations: 50,
+      avg_consumption_pct: 95,
+      refusal_count: 0,
+      encouragement_count: 0,
+      did_not_like_count: 0,
+      ...over,
+    }) as MealPerformanceRow;
+
+  it('never invents a KEEP / CANDIDATE_FOR_REMOVAL verdict from numbers', () => {
+    // The function takes no measurements at all any more: there is no approved
+    // rule mapping numbers to a verdict, so a strong meal and a weak one get
+    // the same honest answer.
+    expect(classifyMealPerformance().label).toBe('NOT_YET_DEFINED');
+    expect(classifyMealPerformance().variant).toBe('slate');
+    // The factual row the old thresholds were computed from is still produced
+    // in full for the screens to display.
+    const strong = row({ avg_consumption_pct: 95 });
+    const weak = row({ avg_consumption_pct: 5, refusal_count: 45 });
+    expect(strong.avg_consumption_pct).toBe(95);
+    expect(weak.refusal_count).toBe(45);
+  });
+});

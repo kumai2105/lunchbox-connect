@@ -524,6 +524,75 @@ begin
 end $$;
 
 -- =====================================================================
+-- 0034 PASS — the paths this migration closed, attacked from EVERY role.
+-- =====================================================================
+
+-- LEGACY serving_records.note: no client role may read the retired column, and
+-- no wildcard read may smuggle it out. This is the Parent privacy bypass.
+do $$
+declare i int;
+begin
+  for i in 1..11 loop
+    perform zz_attempt(i, 'serving_records.note (legacy free text) SELECT',
+      'select note from serving_records limit 1', 'DENIED');
+    perform zz_attempt(i, 'serving_records.* wildcard SELECT',
+      'select row_to_json(sr.*) from serving_records sr limit 1', 'DENIED');
+    -- The archive that preserves the historical text is invisible too.
+    perform zz_attempt(i, 'serving_record_note_archive SELECT',
+      'select count(*) from serving_record_note_archive', 'DENIED');
+  end loop;
+end $$;
+
+-- Approved columns stay readable, so the lockdown above is a column boundary
+-- and not an outage. (Row visibility is still decided by RLS.)
+do $$
+declare i int;
+begin
+  for i in 1..11 loop
+    perform zz_attempt(i, 'serving_records approved columns SELECT',
+      'select id, served_status, consumption_pct from serving_records limit 1', 'ALLOWED');
+  end loop;
+end $$;
+
+-- An outcome-free SERVED row must be unrepresentable for everyone.
+do $$
+declare i int;
+begin
+  for i in 1..11 loop
+    perform zz_attempt(i, 'serving_records.insert(OUTCOME-FREE served)',
+      'insert into serving_records(serving_date,class_id,student_id,period,served_status,meal_service_id,recorded_by)
+       values (current_date,''b0000000-0000-0000-0000-000000000001'',''d0000000-0000-0000-0000-000000000001'',''snack'',''served'',''f2000000-0000-0000-0000-000000000001'',''e0000000-0000-0000-0000-000000000011'')',
+      'DENIED');
+  end loop;
+end $$;
+
+-- Archive-only lifecycle: entities carrying `active` cannot be hard-deleted by
+-- any client, Super Admin included.
+do $$
+declare i int;
+begin
+  for i in 1..11 loop
+    perform zz_attempt(i, 'meals.DELETE (archive-only)',
+      'delete from meals where id=''f0000000-0000-0000-0000-000000000001''', 'DENIED');
+    perform zz_attempt(i, 'meal_revisions.DELETE (archive-only)',
+      'delete from meal_revisions where id=''f1000000-0000-0000-0000-000000000001''', 'DENIED');
+    perform zz_attempt(i, 'kitchens.DELETE (archive-only)',
+      'delete from kitchens where id=''c0000000-0000-0000-0000-000000000001''', 'DENIED');
+  end loop;
+end $$;
+
+-- The narrow concern-flag RPC is authorization-checked inside the SECURITY
+-- DEFINER function: roles with no recording authority are refused.
+do $$
+declare i int;
+begin
+  for i in 2..10 loop
+    perform zz_attempt(i, 'set_concern_observed RPC (unauthorized role)',
+      'select set_concern_observed((select id from serving_records limit 1), true)', 'DENIED');
+  end loop;
+end $$;
+
+-- =====================================================================
 -- REPORT
 -- =====================================================================
 select role, op, verdict from matrix_result order by

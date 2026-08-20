@@ -10,14 +10,15 @@ this repository alone.
 1. **Static checks**
    - `pnpm typecheck` — clean
    - `pnpm lint` — clean (0 warnings)
-   - `pnpm test:unit` — 65 tests pass (RBAC, calendar, meal analytics, kitchen
-     revision grouping, operational-date boundary)
+   - `pnpm test:unit` — 83 tests pass (RBAC, calendar, meal analytics incl. the
+     unscored-is-not-0% rule, kitchen revision grouping, operational date and
+     Asia/Dubai presentation, parent child-switch race guard)
    - `pnpm build` — production build succeeds
 
 2. **Schema / RLS / RPC / trigger suite (no network required)**
-   - `./tests/sql/run_verification.sh` — all **12** `verify_*.sql` suites pass
-     on a throwaway PostgreSQL 16 built from `supabase/migrations/0001`–`0033`,
-     including the **401-check authorization matrix** and the **DB-boundary**
+   - `./tests/sql/run_verification.sh` — all **13** `verify_*.sql` suites pass
+     on a throwaway PostgreSQL 16 built from `supabase/migrations/0001`–`0034`,
+     including the **498-check authorization matrix** and the **DB-boundary**
      suite: raw `serving_records` writes are denied (RPC is the only path);
      classroom staff cannot publish notes and School Admin cannot publish a note
      at all; only Super Admin changes `operational_status`, moves a Student/Class

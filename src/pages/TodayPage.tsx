@@ -8,6 +8,7 @@ import {
   rosterForClass,
   servingForDay,
   studentPhotoUrl,
+  setConcernObserved,
   upsertServingNote,
   type ClassWithMeta,
   type DayMeal,
@@ -304,25 +305,25 @@ export default function TodayPage() {
 
   async function saveNote() {
     if (!student) return;
-    setNoteBusy(true);
-    let rec: ServingRecord | undefined = byStudent[student.id];
+    const rec: ServingRecord | undefined = byStudent[student.id];
+    // A note must NEVER fabricate a meal outcome. Creating a record here just to
+    // obtain an id used to write an outcome-free SERVED row — a meal that looks
+    // recorded but says nothing. The database now refuses that row outright, so
+    // the honest behaviour is to ask for the result first.
     if (!rec) {
-      const ok = await save({
-        consumption_pct: draft.pct,
-        behavior: draft.behavior,
-        low_intake_reason: draft.reason,
-        concern_observed: draft.concern, // §25: a note never implies a concern
-      });
-      if (!ok) {
+      setError('Record the meal result first — a note cannot stand in for an outcome.');
+      return;
+    }
+    setNoteBusy(true);
+    // §25: the concern flag is its own narrow write. It is saved even when the
+    // note body is unchanged, and it overwrites no other meal-result field.
+    if (draft.concern !== rec.concern_observed) {
+      const flagged = await setConcernObserved(rec.id, draft.concern);
+      if (flagged.error) {
+        setError(flagged.error);
         setNoteBusy(false);
         return;
       }
-      const fresh = await servingForDay(classId, todayISO(), period);
-      rec = fresh.data?.find((r) => r.student_id === student.id);
-    }
-    if (!rec) {
-      setNoteBusy(false);
-      return;
     }
     // §24: classroom free text is INTERNAL. It reaches a family only after a
     // reviewer publishes it from the Parent-safe updates queue — never directly.
@@ -332,7 +333,7 @@ export default function TodayPage() {
       setError(res.error);
       return;
     }
-    setNotes((n) => ({ ...n, [rec!.id]: res.data! }));
+    setNotes((n) => ({ ...n, [rec.id]: res.data! }));
     setNoteOpen(false);
   }
 

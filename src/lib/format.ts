@@ -133,3 +133,49 @@ export function weekEndISO(base: Date = new Date()): string {
 export function isoWeekday(d: Date): number {
   return (d.getDay() + 6) % 7;
 }
+
+// ---------------------------------------------------------------------------
+// Operational (Asia/Dubai) PRESENTATION.
+//
+// The operational DATE rule above decides which service day a record belongs
+// to. These helpers make the screens that display that day agree with it.
+//
+// A device set to another timezone previously rendered the header date, the
+// Parent greeting and the classroom service time from the browser's clock — so
+// a nursery phone abroad, or simply a device an hour either side of GST, could
+// show a different "today" than the one the record was filed under. Per-
+// institution timezones are deliberately NOT modelled; there is one
+// operational timezone.
+export const OPERATIONAL_TIME_ZONE = 'Asia/Dubai';
+
+/** Hour of day (0-23) in the operational timezone — for the greeting. */
+export function operationalHour(base: Date = new Date()): number {
+  return new Date(base.getTime() + UAE_UTC_OFFSET_HOURS * 3_600_000).getUTCHours();
+}
+
+/**
+ * Formats an instant (or a YYYY-MM-DD service date) as a date in the
+ * operational timezone, in the viewer's own locale.
+ */
+export function formatOperationalDate(
+  value: Date | string,
+  options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long' },
+): string {
+  const d =
+    typeof value === 'string'
+      ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00Z` : value)
+      : value;
+  if (Number.isNaN(d.getTime())) return typeof value === 'string' ? value : '—';
+  return d.toLocaleDateString(undefined, { ...options, timeZone: OPERATIONAL_TIME_ZONE });
+}
+
+/** Formats an instant as a clock time in the operational timezone. */
+export function formatOperationalTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: OPERATIONAL_TIME_ZONE,
+  });
+}

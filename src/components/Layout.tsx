@@ -1,9 +1,9 @@
 import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { navFor } from '../lib/roles';
-import { initials } from '../lib/format';
 import { Btn, Spinner } from './ui';
 import { Icon } from './icons';
+import { formatOperationalDate, initials } from '../lib/format';
 
 // Every route in App.tsx needs an entry here, or its topbar silently falls
 // back to showing "Dashboard" regardless of which page is actually open —
@@ -34,8 +34,9 @@ const PAGE_TITLES: Record<string, [string, string]> = {
 };
 
 function todayChip(): string {
-  const now = new Date();
-  const day = now.toLocaleDateString(undefined, {
+  // "Today" here means the OPERATIONAL day the records are filed under, so it
+  // is rendered in the operational timezone, not the device's.
+  const day = formatOperationalDate(new Date(), {
     weekday: 'short',
     day: 'numeric',
     month: 'short',

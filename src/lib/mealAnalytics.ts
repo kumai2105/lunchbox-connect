@@ -3,7 +3,7 @@
 // without a live database — same pattern as rbac.ts mirroring RLS.
 
 import { NON_PREFERENCE_LOW_INTAKE_REASONS } from './types';
-import type { ConsumptionPct, EatingBehavior, LowIntakeReason, MealPerformanceRow } from './types';
+import type { ConsumptionPct, EatingBehavior, LowIntakeReason } from './types';
 
 export const BEHAVIOR_LABEL: Record<EatingBehavior, string> = {
   ate_independently: 'Ate independently',
@@ -93,6 +93,29 @@ function rate(part: number, whole: number): number | null {
   return Math.round((part / whole) * 1000) / 10;
 }
 
+/**
+ * The subset of valid observations that actually carries a recorded percentage.
+ *
+ * An observation can be valid (a served, non-exception meal) and still have no
+ * consumption reading yet. Averaging it as `?? 0` silently reported "ate none"
+ * for a meal nobody had scored — the difference between "0%" and "not recorded"
+ * is exactly the distinction the classroom record exists to preserve.
+ */
+export function measuredObservations<T extends { consumption_pct: number | null }>(
+  rows: T[],
+): Array<T & { consumption_pct: number }> {
+  return rows.filter(
+    (r): r is T & { consumption_pct: number } => r.consumption_pct !== null,
+  );
+}
+
+/** Mean of the recorded percentages, or null when nothing has been scored. */
+export function meanConsumption(rows: Array<{ consumption_pct: number | null }>): number | null {
+  const measured = measuredObservations(rows);
+  if (measured.length === 0) return null;
+  return Math.round(measured.reduce((s, r) => s + r.consumption_pct, 0) / measured.length);
+}
+
 export function aggregateObservations(rows: ObservationLike[]): AggregateStats {
   const valid = rows.filter((r) => isValidPreferenceObservation(r));
   const distribution: Record<number, number> = { 0: 0, 25: 0, 50: 0, 75: 0, 100: 0 };
@@ -120,10 +143,9 @@ export function aggregateObservations(rows: ObservationLike[]): AggregateStats {
     total: rows.length,
     valid: valid.length,
     excluded: rows.length - valid.length,
-    avgConsumption:
-      valid.length > 0
-        ? Math.round(valid.reduce((s, r) => s + (r.consumption_pct ?? 0), 0) / valid.length)
-        : null,
+    // Only SCORED valid observations are averaged — an unscored one is "not
+    // recorded", never 0%.
+    avgConsumption: meanConsumption(valid),
     refusals,
     refusalRate: rate(refusals, valid.length),
     encouraged,
@@ -136,21 +158,31 @@ export function aggregateObservations(rows: ObservationLike[]): AggregateStats {
   };
 }
 
-// Decision-support classification for a menu item's aggregate meal-performance
-// row (docs/13 Decision 032 §42-45) — one implementation shared by the
-// Dashboard's "top/bottom dishes" panel and the full Reporting page, so the
-// label a Super Admin sees never disagrees with itself between screens.
-export function classifyMealPerformance(row: MealPerformanceRow): {
+/**
+ * Meal-performance classification — KEEP / MONITOR / REVIEW_IMPROVE /
+ * CANDIDATE_FOR_REMOVAL.
+ *
+ * The four labels are approved concepts. The NUMERIC THRESHOLDS that would
+ * assign a meal to one of them are **NOT_YET_DEFINED**: no approved source
+ * states the consumption cut-offs, the refusal share, or the minimum number of
+ * observations required before a judgement is fair.
+ *
+ * A previous implementation invented them (70/40/55% consumption, 10/15/30%
+ * refusal, "at least 3 observations"). Those numbers decided whether a real
+ * meal looked like a candidate for removal, so inventing them was not a
+ * cosmetic liberty. They are removed rather than replaced.
+ *
+ * Every FACTUAL measure the classification was derived from is still reported
+ * in full (average consumption, the distribution, refusal / encouragement /
+ * DID_NOT_LIKE_IT, the reason breakdown and the trend) — a Super Admin sees the
+ * evidence and applies their own judgement until the Founder approves the
+ * thresholds.
+ */
+export function classifyMealPerformance(): {
   label: string;
   variant: string;
 } {
-  if (row.valid_observations < 3) return { label: 'Not enough data', variant: 'slate' };
-  const pct = row.avg_consumption_pct ?? 0;
-  const refusalShare = row.refusal_count / row.valid_observations;
-  if (pct >= 70 && refusalShare < 0.1) return { label: 'KEEP', variant: 'brand' };
-  if (pct < 40 || refusalShare >= 0.3) return { label: 'CANDIDATE_FOR_REMOVAL', variant: 'na' };
-  if (pct < 55 || refusalShare >= 0.15) return { label: 'REVIEW_IMPROVE', variant: 'reduced' };
-  return { label: 'MONITOR', variant: 'free' };
+  return { label: 'NOT_YET_DEFINED', variant: 'slate' };
 }
 
 // ---------------------------------------------------------------------------
@@ -186,8 +218,9 @@ export function groupPreferencesByMeal(
     if (!r.meal_service_id) continue; // pre-cutover records have no service link
     const meal = identityFor(r.meal_service_id);
     if (!meal) continue;
+    if (r.consumption_pct === null) continue; // unscored: not 0%, just not recorded
     const e = byMeal.get(meal.id) ?? { label: meal.label, total: 0, count: 0 };
-    e.total += r.consumption_pct ?? 0;
+    e.total += r.consumption_pct;
     e.count += 1;
     byMeal.set(meal.id, e); // key is the stable MEAL id, never the service id or name
   }

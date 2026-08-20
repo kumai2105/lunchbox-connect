@@ -61,7 +61,9 @@ export default function DashboardPage() {
   const avgConsumption =
     totalValidObs > 0
       ? Math.round(
-          meals.reduce((sum, m) => sum + (m.avg_consumption_pct ?? 0) * m.valid_observations, 0) /
+          meals
+            .filter((m) => m.avg_consumption_pct !== null)
+            .reduce((sum, m) => sum + (m.avg_consumption_pct as number) * m.valid_observations, 0) /
             totalValidObs,
         )
       : null;
@@ -214,12 +216,12 @@ export default function DashboardPage() {
                 <th className="col-secondary">Period</th>
                 <th>Avg. consumption</th>
                 <th className="col-secondary">Refusals</th>
-                <th>Signal</th>
+                <th>Classification</th>
               </tr>
             </thead>
             <tbody>
               {meals.slice(0, 8).map((m) => {
-                const c = classifyMealPerformance(m);
+                const c = classifyMealPerformance();
                 return (
                   <tr key={m.menu_item_id}>
                     <td className="cell-name">{m.dish_name}</td>

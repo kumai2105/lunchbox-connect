@@ -26,7 +26,7 @@ pnpm · Vitest · Playwright · ESLint · Prettier
 pnpm install
 cp .env.example .env          # fill VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
 supabase link --project-ref <your-ref>
-supabase db push              # migrations 0001–0033
+supabase db push              # migrations 0001–0034
 pnpm dev                      # http://localhost:5173
 ```
 
@@ -51,32 +51,37 @@ Privileged steps that need your accounts (the tool cannot supply them):
 ```bash
 pnpm typecheck   # full-project TypeScript
 pnpm lint
-pnpm test:unit   # RBAC, calendar, meal analytics, kitchen, operational date (65 tests)
+pnpm test:unit   # RBAC, calendar, meal analytics, kitchen, operational date (83 tests)
 pnpm test:e2e    # live-boundary Playwright suite — needs the env below
-./tests/sql/run_verification.sh   # 12 SQL suites on a throwaway PostgreSQL 16
+./tests/sql/run_verification.sh   # 13 SQL suites on a throwaway PostgreSQL 16
 ```
 
 `run_verification.sh` builds a PostgreSQL 16 cluster from nothing, applies
 `supabase/migrations/*.sql` verbatim, and runs every `tests/sql/verify_*.sql`
-suite (golden path, cross-portal RLS, the 401-check authorization matrix, menu
+suite (golden path, cross-portal RLS, the 498-check authorization matrix, menu
 cutover, downstream wiring, special period, class staff, kitchen demand,
 correction order, publish-future, and the raw-path DB-boundary suite).
 
 **CI (GitHub Actions, `.github/workflows/ci.yml`)**: every PR runs the gate
 (typecheck, lint, unit). The E2E job runs automatically on same-repo PRs when
-the `E2E_SUPABASE_URL` / `E2E_SUPABASE_SERVICE_ROLE_KEY` repository secrets are
-set (Playwright browsers cached per commit); fork PRs and PRs without those
-secrets skip it, matching the suite's BLOCKED_BY_ENVIRONMENT rule.
+the `E2E_SUPABASE_URL` / `E2E_SUPABASE_SERVICE_ROLE_KEY` / `E2E_SUPABASE_ANON_KEY`
+repository secrets are set (Playwright browsers cached per commit); fork PRs and
+PRs without those secrets skip it, matching the suite's BLOCKED_BY_ENVIRONMENT
+rule. A secret pointing at the production project fails the job.
 
 ### End-to-end (Playwright)
 
-The E2E suite is BLOCKED_BY_ENVIRONMENT: it seeds and runs only against your
-live Supabase project, then SKIPS cleanly without credentials.
+The E2E suite is BLOCKED_BY_ENVIRONMENT: it seeds and runs only against an
+**approved non-production (disposable) Supabase project**, and SKIPS cleanly
+without credentials. Seeding production is refused outright — by the seeder, by
+`build:e2e`, and by CI before either runs.
 
 ```bash
 pnpm dev                 # or: pnpm build && pnpm preview
 # .env (E2E_* keys):
-#   E2E_BASE_URL, E2E_SUPABASE_URL, E2E_SUPABASE_SERVICE_ROLE_KEY
+#   E2E_BASE_URL, E2E_SUPABASE_URL, E2E_SUPABASE_SERVICE_ROLE_KEY,
+#   E2E_SUPABASE_ANON_KEY   <- the browser bundle is built from this one
+pnpm build:e2e           # builds against the SAME non-production project
 pnpm test:e2e
 ```
 
@@ -106,12 +111,12 @@ src/
             analytics, reports, review, status, users, audit, parent/*
   components/  layout + shared UI (design ported from the approved mockup)
 supabase/
-  migrations/ 0001–0033 (schema, RLS, resolution/publish engine, meal library,
+  migrations/ 0001–0034 (schema, RLS, resolution/publish engine, meal library,
               class_staff, per-meal demand, analytics, DB-boundary integrity)
   functions/admin-create-user/  privileged account creation (super/nursery admin)
 tests/
   e2e/        Playwright specs on the current architecture (+ global-setup)
-  sql/        run_verification.sh + 12 verify_*.sql suites (schema/RLS/RPC/triggers)
+  sql/        run_verification.sh + 13 verify_*.sql suites (schema/RLS/RPC/triggers)
 docs/         BUILD_STATUS.md · 14-RELEASE_GATE.md · VERIFICATION_FINAL.md · spec-pack/
 scripts/      PRODUCTION_APPLY.md (authoritative apply order) · seed.sql
 remediation/  separated, review-gated production scripts

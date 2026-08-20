@@ -76,8 +76,11 @@ function MealPerformance() {
         Meal.
       </Banner>
       <Banner kind="warn">
-        Classification labels are decision-support evidence for a human reviewer. Nothing here
-        removes, substitutes, or modifies a Meal automatically.
+        The <b>Signal</b> column reads <b>NOT_YET_DEFINED</b> on purpose. KEEP / MONITOR /
+        REVIEW_IMPROVE / CANDIDATE_FOR_REMOVAL are approved labels, but the numeric thresholds that
+        would assign a Meal to one of them are not approved — so no threshold is applied. Every
+        factual measure the judgement would rest on is in this table; the decision stays with you.
+        Nothing here removes, substitutes, or modifies a Meal automatically.
       </Banner>
 
       {error && <Banner kind="err">{error}</Banner>}
@@ -95,15 +98,19 @@ function MealPerformance() {
                 <th>Period</th>
                 <th>Valid observations</th>
                 <th>Avg. consumption</th>
+                <th className="col-secondary">Ate all / most / half / some / none</th>
                 <th>Refusals</th>
                 <th>Needed encouragement</th>
                 <th>Didn't like it</th>
-                <th>Signal</th>
+                <th className="col-secondary">Reasons</th>
+                <th className="col-secondary">Exceptions</th>
+                <th className="col-secondary">Trend</th>
+                <th>Classification</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => {
-                const c = classifyMealPerformance(r);
+                const c = classifyMealPerformance();
                 return (
                   <tr key={r.menu_item_id}>
                     <td className="cell-name">{r.dish_name}</td>
@@ -114,9 +121,66 @@ function MealPerformance() {
                     <td className="mono">
                       {r.avg_consumption_pct !== null ? `${r.avg_consumption_pct}%` : '—'}
                     </td>
-                    <td className="mono">{r.refusal_count}</td>
-                    <td className="mono">{r.encouragement_count}</td>
-                    <td className="mono">{r.did_not_like_count}</td>
+                    {/* The approved 100/75/50/25/0 distribution, as counts with
+                        their share of the valid population. */}
+                    <td className="mono col-secondary">
+                      {r.ate_all_count} / {r.ate_most_count} / {r.ate_half_count} /{' '}
+                      {r.ate_some_count} / {r.ate_none_count}
+                      {r.ate_all_share !== null && (
+                        <span className="cell-sub">
+                          {' '}
+                          ({r.ate_all_share}% / {r.ate_most_share}% / {r.ate_half_share}% /{' '}
+                          {r.ate_some_share}% / {r.ate_none_share}%)
+                        </span>
+                      )}
+                    </td>
+                    <td className="mono">
+                      {r.refusal_count}
+                      {r.refusal_share !== null && (
+                        <span className="cell-sub"> ({r.refusal_share}%)</span>
+                      )}
+                    </td>
+                    <td className="mono">
+                      {r.encouragement_count}
+                      {r.encouragement_share !== null && (
+                        <span className="cell-sub"> ({r.encouragement_share}%)</span>
+                      )}
+                    </td>
+                    <td className="mono">
+                      {r.did_not_like_count}
+                      {r.did_not_like_share !== null && (
+                        <span className="cell-sub"> ({r.did_not_like_share}%)</span>
+                      )}
+                    </td>
+                    {/* Low-intake reasons, and the behaviour-free exceptions kept
+                        separate because they never enter the averages. */}
+                    <td className="cell-sub col-secondary">
+                      {r.reason_not_hungry + r.reason_did_not_like_it + r.reason_distracted + r.reason_other === 0
+                        ? '—'
+                        : `not hungry ${r.reason_not_hungry} · didn't like ${r.reason_did_not_like_it} · distracted ${r.reason_distracted} · other ${r.reason_other}`}
+                    </td>
+                    <td className="cell-sub col-secondary">
+                      {r.exception_absent + r.exception_unwell + r.exception_sleeping === 0
+                        ? '—'
+                        : `absent ${r.exception_absent} · unwell ${r.exception_unwell} · asleep ${r.exception_sleeping}`}
+                    </td>
+                    {/* Factual trend: the two window averages and their
+                        difference. No threshold decides what the number means. */}
+                    <td className="mono col-secondary">
+                      {r.trend_delta_pct === null ? (
+                        <span className="cell-sub">—</span>
+                      ) : (
+                        <>
+                          {r.trend_delta_pct > 0 ? '+' : ''}
+                          {r.trend_delta_pct}
+                          <span className="cell-sub">
+                            {' '}
+                            ({r.prior_avg_consumption_pct}% → {r.recent_avg_consumption_pct}%, last{' '}
+                            {r.trend_window_days}d)
+                          </span>
+                        </>
+                      )}
+                    </td>
                     <td>
                       <Pill variant={c.variant}>{c.label}</Pill>
                     </td>

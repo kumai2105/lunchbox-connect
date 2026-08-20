@@ -479,7 +479,8 @@ Confirmed structured fields on the Classroom Meal Record (one row per Student ×
 
 ### Mandatory invariants
 
-- **Past truth survives future edits.** Editing a Meal creates a new revision; already-served and already-published Meal Services keep the revision they referenced. January history never retroactively shows March's recipe.
+- **Past truth survives future edits.** Editing a Meal creates a new revision; a Meal Service that **carries Classroom Meal Records** keeps the revision those records were filed against. January history never retroactively shows March's recipe.
+  - **Correction (future-republish).** Publication alone does not freeze a Meal Service. A **future, unserved** published service may be deliberately re-resolved — a later override, closure or rotation change is applied by republishing, and the dated rows move with it. Immutability attaches to a service that has been **served** (it carries serving records), not to one that has merely been published. An earlier version of this line said "already-published", which would have frozen next week's menu against a correction the Founder had approved; the implementation (migration 0030) follows the rule as stated here.
 - **A closure does not shift the Rotation.** If Monday is closed, Tuesday still serves Tuesday's rotation slot. Rotation position derives from the calendar mapping, not from counting served days.
 - **A date override changes only that date.** The master Rotation is untouched; the next comparable weekday returns to normal.
 - **Draft is not operational.** Unpublished schedule changes must never reach Parent, Kitchen, Nursery or Classroom views.

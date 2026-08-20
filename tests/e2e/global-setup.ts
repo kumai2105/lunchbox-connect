@@ -60,6 +60,27 @@ function operationalDateFor(instant: Date): string {
     .slice(0, 10);
 }
 
+/**
+ * Fixture operations must not fail silently.
+ *
+ * The seeder previously discarded the `error` of nearly every insert, so a
+ * fixture that never actually landed produced specs failing later for reasons
+ * that had nothing to do with the defect under test. Every write now goes
+ * through this.
+ */
+function must<T>(what: string, res: { data: T; error: { message: string } | null }): T {
+  if (res.error) throw new Error(`[e2e] fixture step failed — ${what}: ${res.error.message}`);
+  if (res.data === null || res.data === undefined) {
+    throw new Error(`[e2e] fixture step returned no row — ${what}`);
+  }
+  return res.data;
+}
+
+/** Same, for writes that return no row. */
+function mustOk(what: string, res: { error: { message: string } | null }): void {
+  if (res.error) throw new Error(`[e2e] fixture step failed — ${what}: ${res.error.message}`);
+}
+
 // Get-or-create a Meal + its revision by name; returns the revision id.
 async function ensureMeal(
   db: SupabaseClient,
@@ -107,9 +128,15 @@ async function ensureMeal(
 export default async function globalSetup(): Promise<void> {
   const url = process.env.E2E_SUPABASE_URL;
   const serviceKey = process.env.E2E_SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
+  const anonKey = process.env.E2E_SUPABASE_ANON_KEY;
+  // The anon key is part of readiness, not an optional extra: the browser
+  // bundle under test is built from it, so without it the page would talk to a
+  // placeholder host while the fixtures seeded a real project — every spec
+  // would then fail for the wrong reason. Missing vars mean the suite is
+  // BLOCKED_BY_ENVIRONMENT and skips honestly.
+  if (!url || !serviceKey || !anonKey) {
     console.warn(
-      '[e2e] E2E_SUPABASE_URL / E2E_SUPABASE_SERVICE_ROLE_KEY missing — full suite SKIPPED.',
+      '[e2e] E2E_SUPABASE_URL / E2E_SUPABASE_SERVICE_ROLE_KEY / E2E_SUPABASE_ANON_KEY missing — full suite SKIPPED.',
     );
     return;
   }
@@ -146,22 +173,43 @@ export default async function globalSetup(): Promise<void> {
   }
 
   // ---- institution (nursery — 'other' is retired) + class -------------------
-  const { data: institution } = await db
-    .from('institutions')
-    .upsert({ name: 'E2E Nursery', kind: 'nursery' }, { onConflict: 'name' })
-    .select('id')
-    .single();
-  const institutionId = institution!.id;
+  const institution = must(
+    'create E2E Nursery',
+    await db
+      .from('institutions')
+      .upsert({ name: 'E2E Nursery', kind: 'nursery' }, { onConflict: 'name' })
+      .select('id')
+      .single(),
+  );
+  const institutionId = (institution as { id: string }).id;
 
-  const { data: klass } = await db
-    .from('classes')
-    .upsert(
-      { institution_id: institutionId, name: 'E2E 1-A', grade: '1' },
-      { onConflict: 'institution_id,name' },
-    )
-    .select('id')
-    .single();
-  const classId = klass!.id;
+  const klass = must(
+    'create class E2E 1-A',
+    await db
+      .from('classes')
+      .upsert(
+        { institution_id: institutionId, name: 'E2E 1-A', grade: '1' },
+        { onConflict: 'institution_id,name' },
+      )
+      .select('id')
+      .single(),
+  );
+  const classId = (klass as { id: string }).id;
+
+  // ---- Kitchen ENTITY (item 5) ---------------------------------------------
+  // A Kitchen account is scoped to a Kitchen, not to an Institution (docs/13
+  // Decision 031). The fixture previously created the account with a NULL
+  // kitchen_id, so the Kitchen role had no scope at all and its screens could
+  // not be exercised honestly.
+  const kitchen = must(
+    'create E2E Kitchen entity',
+    await db
+      .from('kitchens')
+      .upsert({ name: 'E2E Kitchen', active: true }, { onConflict: 'name' })
+      .select('id')
+      .single(),
+  );
+  const kitchenId = (kitchen as { id: string }).id;
 
   // ---- nine approved role domains ------------------------------------------
   const accounts = [
@@ -184,27 +232,35 @@ export default async function globalSetup(): Promise<void> {
       .maybeSingle();
 
     if (!existing) {
-      const { data: created } = await db.auth.admin.createUser({
+      const created = await db.auth.admin.createUser({
         email: account.email,
         password: PASS,
         email_confirm: true,
         user_metadata: { full_name: account.role.replace('_', ' ').toUpperCase() },
       });
+      if (created.error || !created.data.user) {
+        throw new Error(
+          `[e2e] fixture step failed — create auth user ${account.email}: ${created.error?.message ?? 'no user returned'}`,
+        );
+      }
 
-      await db.from('app_users').insert({
-        user_id: created!.user!.id,
-        role: account.role,
-        // super_admin and parent are not institution-anchored; kitchen is a
-        // Kitchen entity, not an institution. Everyone else is scoped here.
-        institution_id:
-          account.role === 'super_admin' ||
-          account.role === 'parent' ||
-          account.role === 'kitchen'
-            ? null
-            : institutionId,
-        full_name: account.role.replace('_', ' '),
-        email: account.email,
-      });
+      // Only the genuinely INSTITUTION-SCOPED roles carry institution_id.
+      // Operations Manager, Finance/Owner, Viewer and Driver are NOT
+      // institution-scoped in the approved model — anchoring them to one out of
+      // convenience made the fixture disagree with the RBAC it is meant to
+      // prove. Kitchen is scoped to a Kitchen entity instead.
+      const INSTITUTION_SCOPED = ['school_admin', 'classroom_staff'];
+      mustOk(
+        `create app_users row for ${account.email}`,
+        await db.from('app_users').insert({
+          user_id: created.data.user.id,
+          role: account.role,
+          institution_id: INSTITUTION_SCOPED.includes(account.role) ? institutionId : null,
+          kitchen_id: account.role === 'kitchen' ? kitchenId : null,
+          full_name: account.role.replace('_', ' '),
+          email: account.email,
+        }),
+      );
     }
   }
 

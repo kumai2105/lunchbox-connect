@@ -57,8 +57,12 @@ jobs:
         env:
           E2E_URL: ${{ secrets.E2E_SUPABASE_URL }}
           E2E_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          # The browser bundle needs the SAME project's anon key, or the page
+          # under test talks to a placeholder host while the fixtures seed a
+          # real project. Without it the suite is BLOCKED_BY_ENVIRONMENT.
+          E2E_ANON: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
         run: |
-          if [ -n "$E2E_URL" ] && [ -n "$E2E_KEY" ]; then
+          if [ -n "$E2E_URL" ] && [ -n "$E2E_KEY" ] && [ -n "$E2E_ANON" ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
@@ -85,6 +89,7 @@ jobs:
       E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
       E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
       E2E_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+      E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -136,8 +141,12 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Build the frontend
-        run: pnpm build
+      # Build the bundle AGAINST THE SEEDED PROJECT. build:e2e maps
+      # E2E_SUPABASE_URL / E2E_SUPABASE_ANON_KEY onto the Vite variables, and
+      # refuses to build if the URL is production or if the "anon" key actually
+      # carries the service_role claim (that key must never ship to a browser).
+      - name: Build the frontend against the E2E project
+        run: pnpm build:e2e
 
       - name: Serve app + run E2E
         run: |

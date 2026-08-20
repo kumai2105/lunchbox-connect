@@ -30,6 +30,7 @@ import { initials } from '../lib/format';
 import { statusLabel, statusPillClass } from '../lib/status';
 import {
   BEHAVIOR_LABEL,
+  meanConsumption,
   LOW_INTAKE_REASON_LABEL,
   consumptionHumanLabel,
   isValidPreferenceObservation,
@@ -103,9 +104,7 @@ export default function StudentProfilePage() {
   const stats = useMemo(() => {
     const valid = history.filter((r) => isValidPreferenceObservation(r));
     const avg =
-      valid.length > 0
-        ? Math.round(valid.reduce((s, r) => s + (r.consumption_pct ?? 0), 0) / valid.length)
-        : null;
+      valid.length > 0 ? meanConsumption(valid) : null;
     return {
       recorded: history.length,
       valid: valid.length,
@@ -358,7 +357,15 @@ export default function StudentProfilePage() {
                     {r.served_status === 'not_served' ? (
                       <Pill variant="slate">Not served</Pill>
                     ) : (
-                      <Pill variant={(r.consumption_pct ?? 0) >= 50 ? 'free' : 'reduced'}>
+                      <Pill
+                        variant={
+                          r.consumption_pct === null
+                            ? 'slate'
+                            : r.consumption_pct >= 50
+                              ? 'free'
+                              : 'reduced'
+                        }
+                      >
                         {consumptionHumanLabel(r.consumption_pct)}
                       </Pill>
                     )}

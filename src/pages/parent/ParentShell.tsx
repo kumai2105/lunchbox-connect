@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   mealsForDates,
@@ -13,6 +13,7 @@ import { Banner, EmptyState, Spinner } from '../../components/ui';
 import { Icon, type IconName } from '../../components/icons';
 import { operationalDaysAgoISO, todayISO, weekEndISO } from '../../lib/format';
 import { ParentContext, type ParentCtx } from './context';
+import { createRequestGuard } from './shared';
 
 const NAV: Array<{ to: string; label: string; icon: IconName; end?: boolean }> = [
   { to: '/parent', label: 'Home', icon: 'home', end: true },
@@ -39,6 +40,13 @@ export default function ParentShell() {
   const [meals, setMeals] = useState<DayMeal[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // True while THIS child's data is in flight. The screens are not rendered at
+  // all during that window, so none of them can paint the previous child's
+  // records, photo, meals or notes under the newly selected child's name.
+  const [childLoading, setChildLoading] = useState(false);
+  // Discards responses belonging to a child who is no longer selected: without
+  // it a slow request for child A could land after child B's and overwrite it.
+  const guard = useRef(createRequestGuard()).current;
 
   const child = useMemo(
     () => (children ?? []).find((c) => c.id === childId) ?? (children ?? [])[0],
@@ -61,7 +69,15 @@ export default function ParentShell() {
   }, []);
 
   async function loadChild(id: string) {
+    const token = guard.next();
     const kid = (children ?? []).find((c) => c.id === id);
+    // Drop the outgoing child's data IMMEDIATELY rather than leaving it on
+    // screen until the new data arrives.
+    setChildLoading(true);
+    setRecords([]);
+    setNotes({});
+    setMeals([]);
+    setPhotoUrl(null);
     // Meals are read for THIS child's institution as dated rows, over a range
     // wide enough for every screen that consumes them: Insights looks back 30
     // days, the Menu screen forward to the end of this week. Fetching once
@@ -76,6 +92,7 @@ export default function ParentShell() {
         : Promise.resolve({ data: [] as DayMeal[], error: null }),
       studentPhotoUrl(kid?.photo_path ?? null),
     ]);
+    if (!guard.isCurrent(token)) return; // a newer child was selected meanwhile
     setError(recs.error ?? mealRes.error);
     const rows = recs.data ?? [];
     setRecords(rows);
@@ -86,9 +103,11 @@ export default function ParentShell() {
     // (blueprint Part 66) — unpublished note bodies are filtered out here and
     // are not readable by this role at the database level either.
     const n = await notesForServing(rows.map((r) => r.id));
+    if (!guard.isCurrent(token)) return;
     const map: Record<string, ServingNote> = {};
     (n.data ?? []).filter((x) => x.published_at).forEach((x) => (map[x.serving_record_id] = x));
     setNotes(map);
+    setChildLoading(false);
   }
 
   useEffect(() => {
@@ -139,7 +158,10 @@ export default function ParentShell() {
 
         <div className="parent-body">
           {error && <Banner kind="err">{error}</Banner>}
-          <Outlet />
+          {/* While a newly selected child is loading, show the spinner rather
+              than the previous child's data. Rendering the screens here would
+              let them paint child A's records under child B's name. */}
+          {childLoading ? <Spinner /> : <Outlet />}
         </div>
 
         <nav className="parent-nav">

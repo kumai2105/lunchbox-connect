@@ -29,3 +29,6 @@ tests/e2e/.seeded.json
 # and OAuth credentials are not — MCP auth tokens live outside the repo.
 .claude/settings.local.json
 .claude/*.local.json
+
+# Packaged release candidates (build output, named for the release commit)
+lunchbox-connect-*.zip

@@ -289,10 +289,19 @@ begin
    where id = 'a2000000-0000-0000-0000-000000000001';
   if ing <> '["rev one"]' then raise exception 'FAIL §28 revision content changed to %', ing; end if;
 
-  delete from meal_revisions where id = 'a2000000-0000-0000-0000-000000000001';
-  get diagnostics n = row_count;
-  if n <> 0 then raise exception 'FAIL §28 super admin deleted % meal_revisions rows', n; end if;
-  raise notice 'PASS  §28 super admin UPDATE and DELETE on meal_revisions both affect 0 rows';
+  -- 0034 item 14: meal history is archive-only. DELETE is no longer merely
+  -- filtered away by a policy — the grant itself is revoked, so the attempt is
+  -- refused outright. Either way no row may be destroyed; this is the stronger
+  -- of the two boundaries.
+  begin
+    delete from meal_revisions where id = 'a2000000-0000-0000-0000-000000000001';
+    get diagnostics n = row_count;
+    if n <> 0 then raise exception 'FAIL §28 super admin deleted % meal_revisions rows', n; end if;
+    raise notice 'PASS  §28 super admin DELETE on meal_revisions affects 0 rows (policy)';
+  exception when insufficient_privilege then
+    raise notice 'PASS  §28 super admin DELETE on meal_revisions is refused by grant (archive-only)';
+  end;
+  raise notice 'PASS  §28 super admin cannot rewrite or destroy a meal revision';
 
   -- Sanity: the super admin genuinely has full read, so the zeros above are
   -- a policy refusal and not an empty table.

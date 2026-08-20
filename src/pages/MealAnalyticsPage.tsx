@@ -15,6 +15,7 @@ import {
   aggregateObservations,
   classifyMealPerformance,
   isValidPreferenceObservation,
+  meanConsumption,
 } from '../lib/mealAnalytics';
 import { operationalDaysAgoISO, todayISO } from '../lib/format';
 
@@ -150,7 +151,7 @@ export default function MealAnalyticsPage() {
         label: i % labelEvery === 0 ? d.slice(5) : '',
         value:
           valid.length > 0
-            ? Math.round(valid.reduce((s, r) => s + (r.consumption_pct ?? 0), 0) / valid.length)
+            ? meanConsumption(valid)
             : null,
       };
     });
@@ -316,22 +317,12 @@ export default function MealAnalyticsPage() {
                     <th>Avg. consumption</th>
                     <th className="col-secondary">Refusal rate</th>
                     <th className="col-secondary">Didn't like it</th>
-                    <th>Signal</th>
+                    <th>Classification</th>
                   </tr>
                 </thead>
                 <tbody>
                   {perMeal.map((m) => {
-                    const c = classifyMealPerformance({
-                      menu_item_id: m.id,
-                      dish_name: m.name,
-                      period: 'lunch',
-                      total_observations: m.agg.total,
-                      valid_observations: m.agg.valid,
-                      avg_consumption_pct: m.agg.avgConsumption,
-                      refusal_count: m.agg.refusals,
-                      encouragement_count: m.agg.encouraged,
-                      did_not_like_count: m.agg.reasons.did_not_like_it ?? 0,
-                    });
+                    const c = classifyMealPerformance();
                     return (
                       <tr
                         key={m.id}

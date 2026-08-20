@@ -8,10 +8,13 @@ import { initials } from '../../lib/format';
 import { useAuth } from '../../lib/auth';
 
 /**
- * Parent Profile (blueprint Parts 80-81). Read-only child context. Allergy and
- * dietary information is authoritative safety data owned by the nursery — a
- * parent cannot overwrite it from here, and no parent-submitted change
- * workflow exists because none has been approved.
+ * Parent Profile (blueprint Parts 80-81). Read-only child context.
+ *
+ * What this screen shows are INTERIM free-text safety notes owned by the
+ * nursery. The structured child Allergy / Dietary model (§42) is
+ * BLOCKED_BY_SPEC, so the profile must never be presented as holding an
+ * authoritative allergy record. A parent cannot change any of it from here, and
+ * no parent-submitted change workflow exists because none has been approved.
  */
 export default function ParentProfile() {
   const { child, photoUrl } = useParentData();

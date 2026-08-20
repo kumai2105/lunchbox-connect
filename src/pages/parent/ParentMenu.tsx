@@ -96,9 +96,10 @@ export default function ParentMenu() {
       )}
 
       <Banner kind="info">
-        Allergen information shown here comes from the authoritative meal record. If your child has
-        an allergy that isn't reflected on their profile, contact your nursery — it cannot be
-        changed from this app.
+        Allergen information shown here is the authoritative record <b>for this meal</b> — what the
+        kitchen prepared. It is <b>not</b> matched against your child: their profile does not yet
+        hold a structured allergy or dietary record, so nothing here is checked against one. Always
+        tell your nursery directly about your child's allergies and dietary needs.
       </Banner>
 
       {detail && (

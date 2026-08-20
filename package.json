@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Institutional child-nutrition operations platform — Institutions → Students → Eligibility → Classroom Serving → Parent Visibility",
+  "description": "Institutional child-nutrition operations platform \u2014 Institutions \u2192 Students \u2192 Eligibility \u2192 Classroom Serving \u2192 Parent Visibility",
   "packageManager": "pnpm@11.22.0",
   "engines": {
     "node": ">=20"
@@ -21,7 +21,8 @@
     "db:link": "supabase link --project-ref $SUPABASE_PROJECT_REF",
     "db:push": "supabase db push",
     "functions:deploy": "supabase functions deploy admin-create-user",
-    "deploy:cf": "wrangler deploy"
+    "deploy:cf": "wrangler deploy",
+    "build:e2e": "node scripts/build-e2e.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
