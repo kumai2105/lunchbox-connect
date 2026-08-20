@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { linkGuardian, listGuardians, listStudents, listUsers } from '../lib/api';
 import type { AppUser, Student } from '../lib/types';
+import { useRole } from '../lib/auth';
+import { can } from '../lib/rbac';
 import { Banner, Btn, Card, EmptyState, Field, Modal, PageHead, Spinner } from '../components/ui';
 
 interface GuardianRow {
@@ -19,6 +21,12 @@ export default function GuardiansPage() {
   const [studentId, setStudentId] = useState('');
   const [userId, setUserId] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const role = useRole();
+  // §5: exact Nursery guardian actions are NOT_YET_DEFINED. Only Super Admin may
+  // link/create; a Nursery Admin gets read-only visibility of existing links,
+  // and the Parent association/provisioning workflow is BLOCKED_BY_SPEC.
+  const canLink = can(role, 'guardians', 'create');
 
   async function load() {
     // student_parents embeds the authoritative student record (no copies)
@@ -69,12 +77,20 @@ export default function GuardiansPage() {
         title="Parents / guardians"
         hint="linked to children through the authoritative student record"
         actions={
-          <Btn variant="brand" onClick={() => setShowLink(true)}>
-            + Link guardian
-          </Btn>
+          canLink ? (
+            <Btn variant="brand" onClick={() => setShowLink(true)}>
+              + Link guardian
+            </Btn>
+          ) : undefined
         }
       />
       {error && <Banner kind="err">{error}</Banner>}
+      {!canLink && (
+        <Banner kind="info">
+          Read-only. The exact Nursery guardian workflow — linking, creating, or
+          provisioning Parent accounts — is <b>BLOCKED_BY_SPEC</b> and not yet defined.
+        </Banner>
+      )}
       <Card title="Guardian links">
         {!sorted.length && !rows ? (
           <Spinner />

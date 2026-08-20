@@ -1,9 +1,20 @@
 name: Deploy to Cloudflare
 
+# RELEASE-SAFE (item 10): a production deploy is an explicit release action, not
+# a side effect of pushing a branch. It fires ONLY on:
+#   • a manual `workflow_dispatch` (a human clicks "Run workflow"), or
+#   • pushing a version tag `v*` (a deliberate release cut).
+# Pushing the development branch — including `claude/new-session-k5dd5u` — no
+# longer deploys anything. And even on a real release trigger, the deploy runs
+# only after non-network build gates (typecheck · lint · unit · build) pass in
+# the same job, so a broken tree cannot reach production. Production E2E is
+# intentionally NOT part of this gate: seeded E2E must never run against the
+# production Supabase project (see CI item 8), so it stays out of the release
+# path.
 on:
   workflow_dispatch:
   push:
-    branches: [claude/new-session-k5dd5u]
+    tags: ['v*']
 
 concurrency:
   group: deploy-cloudflare
@@ -30,6 +41,18 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # ---- release gate: fail the deploy before any build/publish if the tree
+      # does not pass the same non-network checks CI enforces. These need no
+      # network and no Supabase project, so they are safe in the release path.
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests
+        run: pnpm test:unit
 
       - name: Build the frontend
         env:

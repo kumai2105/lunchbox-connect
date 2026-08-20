@@ -42,8 +42,9 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
     { page: 'guardians', label: 'Parents / guardians', icon: 'heart' },
     { page: 'classes', label: 'Classes', icon: 'folder' },
     { page: 'staff', label: 'Staff', icon: 'user' },
-    { page: 'today', label: 'Today — serving', icon: 'sun' },
-    { page: 'review', label: 'Parent-safe updates', icon: 'checkCircle' },
+    // §3/§4: Classroom recording and note publication by a Nursery Admin are
+    // NOT_YET_DEFINED, so Today (serving) and Parent-safe updates are not in the
+    // Nursery Admin nav.
     { page: 'absences', label: 'Absences', icon: 'xCircle', shell: true },
     { page: 'deliveries', label: 'Deliveries', icon: 'truck', shell: true },
     { page: 'reports', label: 'Reporting', icon: 'barChart', shell: true },

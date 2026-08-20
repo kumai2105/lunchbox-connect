@@ -393,7 +393,7 @@ export interface MealDemandRow {
   meal_revision_id: string;
   meal_name: string;
   eligible_students: number;
-  allergy_flagged: number;
+  safety_note_flagged: number;
 }
 
 // Per-published-meal demand for a date (§33/§34): the kitchen sees the quantity
@@ -409,7 +409,7 @@ export async function mealProductionDemand(date: string): Promise<ApiResult<Meal
       meal_revision_id: r.meal_revision_id as string,
       meal_name: r.meal_name as string,
       eligible_students: Number(r.eligible_students),
-      allergy_flagged: Number(r.allergy_flagged),
+      safety_note_flagged: Number(r.safety_note_flagged),
     })),
     error: null,
   };
@@ -596,7 +596,7 @@ export interface RotationSummary {
 }
 export interface RotationSlotRow {
   week_number: number;
-  weekday: number; // 0=Mon..4=Fri
+  weekday: number; // 0=Mon..6=Sun (rotation_slots allows all 7 days since 0016)
   period: AppPeriod;
   meal_id: string;
   meal_name: string;

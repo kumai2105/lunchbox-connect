@@ -53,19 +53,47 @@ show:
 
 1. **Confirm ground truth** — run `remediation/00_diagnose.sql` (read-only).
 2. **Apply the pending schema migrations** in numeric order. Migrations
-   `0017`–`0031` carry the corrected architecture (rotation engine, resolver
+   `0017`–`0032` carry the corrected architecture (rotation engine, resolver
    lockdown, meal-service link, planning-RLS tightening, special-period fix,
    dashboard KPI, meal-library RPCs, `class_staff`, legacy-publish retirement,
    per-meal demand, analytics one-truth, served-meal integrity + role de-stale
    (**0029**); publishable future services + revision analytics + recording
-   integrity (**0030**); and the database-boundary lockdown — RPC-only
+   integrity (**0030**); the database-boundary lockdown — RPC-only
    `serving_records` writes, note-publish authority, tenant/eligibility
    triggers, meal-image storage visibility, and the Asia/Dubai operational date
-   (**0031**)). They are idempotent where they touch
+   (**0031**); and the tenant-integrity + permission correction — student/class
+   same-institution trigger, `student_parents` parent-role trigger, `class_staff`
+   classroom-staff+same-institution trigger, removal of the invented School-Admin
+   recording and note-publish authorities, and the honest `meal_production_demand`
+   safety-note column rename (**0032**)). They are idempotent where they touch
    data and **publish/assign nothing**. Prefer the Supabase CLI
    (`supabase db push`) or apply each file in order; verify the ledger against
    `supabase/migrations/`.
-3. **Enter business configuration** — for each institution whose agreement you
+3. **Deploy and verify the `admin-create-user` Edge Function** — the only
+   server-side account-provisioning path. A new frontend/DB release must **not**
+   run against a stale copy of this function, so deploy it in the same release,
+   after the migrations and before (or together with) the frontend deploy:
+   - Set its secrets in the production project (the function reads them from the
+     Deno environment; the service-role key is used **only** here, never in the
+     frontend):
+     ```
+     supabase secrets set \
+       SUPABASE_URL=https://llnofriwvnerntrbpehc.supabase.co \
+       SUPABASE_ANON_KEY=<production anon key> \
+       SUPABASE_SERVICE_ROLE_KEY=<production service-role key> \
+       --project-ref llnofriwvnerntrbpehc
+     ```
+     (`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ANON_KEY` are all
+     required — the function returns `500 missing server env` without them.)
+   - Deploy the function:
+     ```
+     supabase functions deploy admin-create-user --project-ref llnofriwvnerntrbpehc
+     ```
+   - **Verify** it is live and enforcing authorization before relying on it:
+     an unauthenticated `POST` must return `401`, and a non-admin caller `403`
+     (the function re-checks the caller's role server-side; the frontend gate is
+     not the boundary). Only then is Admin-driven provisioning safe.
+4. **Enter business configuration** — for each institution whose agreement you
    can source from an authoritative record, set its service plan, rotation
    assignment, and publish window **through the Admin UI**, or via the
    reviewed `remediation/03_institution_config.TEMPLATE.sql` +
@@ -74,13 +102,16 @@ show:
 
 ## Frontend deploy — sequence it with the migration
 
-`.github/workflows/deploy.yml` builds and deploys the frontend to Cloudflare
-on every push to `claude/new-session-k5dd5u` (when the `CLOUDFLARE_*` repo
-secrets are set). The corrected frontend expects the `0021`–`0031` schema, so
-**apply the migrations before — or together with — the frontend deploy**, or
-the live app will call tables/RPCs (`class_staff`, `meal_production_demand`,
-`save_meal`, the rebuilt `v_meal_performance`) that production does not yet
-have.
+`.github/workflows/deploy.yml` builds and deploys the frontend to Cloudflare.
+The deploy is **release-gated**: it runs only after typecheck, lint, unit tests
+and a production build all pass, and only on an explicit release trigger
+(a `v*` tag push or a manual `workflow_dispatch`) — never merely because a
+branch was pushed. The corrected frontend expects the `0021`–`0032` schema and
+the deployed `admin-create-user` Edge Function (steps 2–3 above), so **apply the
+migrations and deploy the function before — or together with — the frontend
+deploy**, or the live app will call tables/RPCs (`class_staff`,
+`meal_production_demand`, `save_meal`, the rebuilt `v_meal_performance`) or an
+account-provisioning function that production does not yet have.
 
 ## Transaction safety
 

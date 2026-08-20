@@ -214,7 +214,8 @@ export default function StudentProfilePage() {
 
       {notes.length > 0 && (
         <Banner kind="warn">
-          <Icon name="alertTriangle" size={14} /> Allergy / dietary notes:{' '}
+          <Icon name="alertTriangle" size={14} /> Safety notes (interim — not the
+          authoritative allergy record):{' '}
           {notes.map((n) => n.text).join(' · ')}
         </Banner>
       )}

@@ -11,7 +11,7 @@ export interface DemandRowLike {
   meal_revision_id: string;
   meal_name: string;
   eligible_students: number;
-  allergy_flagged: number;
+  safety_note_flagged: number;
 }
 
 export interface ProductionLine {
@@ -19,7 +19,7 @@ export interface ProductionLine {
   meal_name: string;
   period: AppPeriod;
   total: number; // eligible headcount summed across the sites making this revision
-  allergy: number;
+  safetyNotes: number;
   sites: DemandRowLike[];
 }
 
@@ -35,11 +35,11 @@ export function groupDemandByRevision(rows: DemandRowLike[]): ProductionLine[] {
       meal_name: r.meal_name,
       period: r.period,
       total: 0,
-      allergy: 0,
+      safetyNotes: 0,
       sites: [] as DemandRowLike[],
     };
     e.total += r.eligible_students;
-    e.allergy += r.allergy_flagged;
+    e.safetyNotes += r.safety_note_flagged;
     e.sites.push(r);
     map.set(key, e);
   }

@@ -197,7 +197,7 @@ export default function InstitutionDetailPage() {
                   <td>{new Date(institution.created_at).toLocaleDateString()}</td>
                 </tr>
                 <tr>
-                  <td className="cell-sub">Allergy-flagged students</td>
+                  <td className="cell-sub">Students with safety notes</td>
                   <td className="mono">{allergyFlagged}</td>
                 </tr>
               </tbody>

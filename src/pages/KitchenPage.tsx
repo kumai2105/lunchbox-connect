@@ -44,7 +44,7 @@ export default function KitchenPage() {
   const byMeal = useMemo(() => groupDemandByRevision(rows ?? []), [rows]);
 
   const totalPortions = byMeal.reduce((s, m) => s + m.total, 0);
-  const totalAllergy = byMeal.reduce((s, m) => s + m.allergy, 0);
+  const totalSafetyNotes = byMeal.reduce((s, m) => s + m.safetyNotes, 0);
   const isServiceDay = (rows?.length ?? 0) > 0;
 
   return (
@@ -77,9 +77,9 @@ export default function KitchenPage() {
         />
         <StatCard
           icon="alertTriangle"
-          label="Allergy-flagged"
-          value={totalAllergy}
-          trend="require safe-handling awareness"
+          label="Safety notes (interim)"
+          value={totalSafetyNotes}
+          trend="students with any interim note — not an allergy record"
         />
       </div>
 
@@ -95,7 +95,7 @@ export default function KitchenPage() {
                 <th>Period</th>
                 <th>Meal</th>
                 <th>Make (eligible)</th>
-                <th className="col-secondary">Allergy-flagged</th>
+                <th className="col-secondary">Safety notes</th>
                 <th className="col-secondary">Sites</th>
               </tr>
             </thead>
@@ -113,8 +113,8 @@ export default function KitchenPage() {
                     <b>{m.total}</b>
                   </td>
                   <td className="col-secondary">
-                    {m.allergy > 0 ? (
-                      <Pill variant="reduced">{m.allergy}</Pill>
+                    {m.safetyNotes > 0 ? (
+                      <Pill variant="reduced">{m.safetyNotes}</Pill>
                     ) : (
                       <span className="cell-sub">—</span>
                     )}

@@ -37,8 +37,18 @@ describe('rbac matrix (9 role domains — docs/02)', () => {
 
   it('school_admin is scoped to own institution and never the central menu', () => {
     expect(can('school_admin', 'students', 'create')).toBe(true);
-    expect(can('school_admin', 'guardians', 'update')).toBe(true);
+    // Guardian management (link/create/update/delete) is NOT_YET_DEFINED for a
+    // Nursery/School Admin — the canonical Parent-association flow is not
+    // approved. They keep read-only visibility only.
+    expect(can('school_admin', 'guardians', 'view')).toBe(true);
+    expect(can('school_admin', 'guardians', 'create')).toBe(false);
+    expect(can('school_admin', 'guardians', 'update')).toBe(false);
+    expect(can('school_admin', 'guardians', 'delete')).toBe(false);
     expect(can('school_admin', 'status', 'set')).toBe(false); // NOT_YET_DEFINED -> deny
+    // Classroom recording and note publication are NOT_YET_DEFINED for a School
+    // Admin — neither is granted (Classroom Staff record; Super Admin overrides).
+    expect(can('school_admin', 'today', 'record')).toBe(false);
+    expect(can('school_admin', 'review', 'publish')).toBe(false);
     expect(can('school_admin', 'users', 'view')).toBe(false);
     expect(can('school_admin', 'institutions', 'view')).toBe(false);
     expect(can('school_admin', 'audit', 'view')).toBe(false);

@@ -21,6 +21,39 @@ const PASS = process.env.E2E_PASSWORD ?? 'E2e-pass!12345';
 const ELIGIBLE = 'ACTIVE_BILLABLE_TO_NURSERY';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
+// RELEASE BLOCKER GUARD (item 8): this seeder holds a service-role key that
+// bypasses RLS and WRITES rows. It must never run against the production
+// Supabase project. We match on the actual project ref in the URL, not on any
+// human-set naming/label, so a mislabelled but production-pointing URL is still
+// refused. Keep this list conservative — the only safe target is an approved
+// throwaway/non-prod project.
+const PRODUCTION_PROJECT_REFS = ['llnofriwvnerntrbpehc'];
+
+function assertNotProduction(url: string): void {
+  for (const ref of PRODUCTION_PROJECT_REFS) {
+    if (url.includes(ref)) {
+      throw new Error(
+        `[e2e] REFUSING to seed the production Supabase project (matched ref "${ref}" in ` +
+          `E2E_SUPABASE_URL). E2E seeding writes rows with a service-role key and must only ` +
+          `run against an approved non-production project. Aborting.`,
+      );
+    }
+  }
+}
+
+// Canonical operational (Asia/Dubai) date — the same rule the app and database
+// use (src/lib/format.ts operationalDateFor / app_operational_date()). GST is
+// UTC+4 with no DST, so the operational calendar date is the date part of the
+// instant shifted +4h read in UTC. Using this (instead of a raw UTC slice)
+// keeps the seeded "today" identical to what the DB and frontend compute, even
+// between 20:00–24:00 UTC when a naive UTC date is already a day behind Dubai.
+const UAE_UTC_OFFSET_HOURS = 4;
+function operationalDateFor(instant: Date): string {
+  return new Date(instant.getTime() + UAE_UTC_OFFSET_HOURS * 3_600_000)
+    .toISOString()
+    .slice(0, 10);
+}
+
 // Get-or-create a Meal + its revision by name; returns the revision id.
 async function ensureMeal(
   db: SupabaseClient,
@@ -75,9 +108,36 @@ export default async function globalSetup(): Promise<void> {
     return;
   }
 
+  // Hard production guard (item 8) — before any client is built or any row is
+  // written. Throws (fails the run) rather than skipping: a production URL here
+  // is a misconfiguration to surface loudly, not to swallow.
+  assertNotProduction(url);
+
   const db = createClient(url, serviceKey, { auth: { persistSession: false } });
-  const today = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
+  // Canonical Asia/Dubai operational dates (item 7). `tomorrow` is derived from
+  // the same operational instant so the today/tomorrow boundary is computed by
+  // one rule, not two.
+  const now = new Date();
+  const today = operationalDateFor(now);
+  const tomorrow = operationalDateFor(new Date(now.getTime() + 86400000));
+
+  // Deterministic boundary assertion (item 7): today and tomorrow must be
+  // exactly one operational day apart, and both must be canonical YYYY-MM-DD.
+  // This catches a regression to raw-UTC date math (which drifts by a day near
+  // UTC midnight relative to the DB's Asia/Dubai app_operational_date()).
+  const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+  if (!ISO_DATE.test(today) || !ISO_DATE.test(tomorrow)) {
+    throw new Error(`[e2e] non-canonical operational date: today=${today} tomorrow=${tomorrow}`);
+  }
+  const dayGapMs =
+    Date.parse(`${tomorrow}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`);
+  if (dayGapMs !== 86400000) {
+    throw new Error(
+      `[e2e] operational today/tomorrow are not exactly one day apart ` +
+        `(today=${today} tomorrow=${tomorrow}); date rule is inconsistent.`,
+    );
+  }
 
   // ---- institution (nursery — 'other' is retired) + class -------------------
   const { data: institution } = await db

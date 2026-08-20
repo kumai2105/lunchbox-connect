@@ -71,10 +71,10 @@ export default function ParentProfile() {
         </table>
       </Card>
 
-      <Card title="Allergies & dietary information">
+      <Card title="Safety notes (interim)">
         {notes.length === 0 ? (
           <div className="center-box">
-            No allergy or dietary notes are recorded for {child.given_name}.
+            No interim safety notes are recorded for {child.given_name}.
           </div>
         ) : (
           <div className="allergy-list">
@@ -88,8 +88,9 @@ export default function ParentProfile() {
         )}
         <div style={{ padding: '0 18px 18px' }}>
           <Banner kind="info">
-            This is the same record the kitchen and classroom staff work from. To add or change
-            anything here, contact your nursery — for safety, it can only be changed by them.
+            These are general, interim safety notes — <b>not</b> a complete or authoritative
+            allergy/dietary record (a structured allergy model is not yet available). To add or
+            change anything, contact your nursery — for safety, it can only be changed by them.
           </Banner>
         </div>
       </Card>

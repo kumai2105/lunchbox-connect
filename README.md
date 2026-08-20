@@ -53,7 +53,7 @@ pnpm typecheck   # full-project TypeScript
 pnpm lint
 pnpm test:unit   # RBAC, calendar, meal analytics, kitchen, operational date (65 tests)
 pnpm test:e2e    # live-boundary Playwright suite — needs the env below
-./tests/sql/run_verification.sh   # 11 SQL suites on a throwaway PostgreSQL 16
+./tests/sql/run_verification.sh   # 12 SQL suites on a throwaway PostgreSQL 16
 ```
 
 `run_verification.sh` builds a PostgreSQL 16 cluster from nothing, applies
@@ -111,7 +111,7 @@ supabase/
   functions/admin-create-user/  privileged account creation (super/nursery admin)
 tests/
   e2e/        Playwright specs on the current architecture (+ global-setup)
-  sql/        run_verification.sh + 11 verify_*.sql suites (schema/RLS/RPC/triggers)
+  sql/        run_verification.sh + 12 verify_*.sql suites (schema/RLS/RPC/triggers)
 docs/         BUILD_STATUS.md · 14-RELEASE_GATE.md · VERIFICATION_FINAL.md · spec-pack/
 scripts/      PRODUCTION_APPLY.md (authoritative apply order) · seed.sql
 remediation/  separated, review-gated production scripts

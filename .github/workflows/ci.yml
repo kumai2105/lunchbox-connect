@@ -86,6 +86,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # RELEASE BLOCKER GUARD (item 8): E2E seeding writes rows with a
+      # service-role key. It must never point at the production Supabase
+      # project. Fail the job outright if the configured E2E URL matches a known
+      # production project ref, so a mis-set secret can never seed production.
+      # (global-setup.ts enforces the same refusal at runtime; this is the
+      # earlier, cheaper tripwire.)
+      - name: Guard — E2E must not target production
+        env:
+          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+        run: |
+          PROD_REFS="llnofriwvnerntrbpehc"
+          for ref in $PROD_REFS; do
+            case "$E2E_SUPABASE_URL" in
+              *"$ref"*)
+                echo "::error::E2E_SUPABASE_URL points at the production project ($ref). Refusing to seed production."
+                exit 1
+                ;;
+            esac
+          done
+          echo "E2E target is not the production project."
+
       - name: Install pnpm (from packageManager)
         uses: pnpm/action-setup@v4
         with:

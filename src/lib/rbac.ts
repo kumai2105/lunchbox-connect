@@ -39,9 +39,12 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
   },
   institutions: { super_admin: ['view', 'create', 'update', 'delete'] },
   users: { super_admin: ['view', 'create', 'update', 'delete'] },
+  // §5: exact Nursery guardian actions are NOT_YET_DEFINED. School Admin keeps
+  // read-only visibility of existing authorized relationships; the
+  // link/create/delete + Parent provisioning workflow is BLOCKED_BY_SPEC.
   guardians: {
     super_admin: ['view', 'create', 'update', 'delete'],
-    school_admin: ['view', 'create', 'update', 'delete'],
+    school_admin: ['view'],
   },
   students: {
     // read scope differs by role; write is admin-only
@@ -68,11 +71,12 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
   // is the only approved "management" role (Decision 007); v_meal_performance
   // and the raw records are RLS-scoped independently of this matrix.
   analytics: { super_admin: ['view'] },
-  // Parent-safe note review (blueprint Parts 66-67). Institution-side admins
-  // review their own staff's notes; serving_notes RLS scopes the rows.
+  // §4: the reviewer role/process/conditions for publishing Classroom free text
+  // are NOT_YET_DEFINED. Only the Super Admin system-wide administrative
+  // override may publish; a normal institution-side review workflow is
+  // BLOCKED_BY_SPEC and must not be invented.
   review: {
     super_admin: ['view', 'publish'],
-    school_admin: ['view', 'publish'],
   },
   meals: {
     super_admin: ['view', 'create', 'update', 'delete'],
@@ -80,9 +84,11 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
   menubuilder: {
     super_admin: ['view', 'create', 'update', 'delete', 'publish'],
   },
+  // §3: Classroom meal RECORDING by Nursery/School Admin is NOT_YET_DEFINED and
+  // is not granted. Classroom Staff record within assigned classes; Super Admin
+  // keeps the explicitly approved administrative override.
   today: {
     super_admin: ['view', 'record'],
-    school_admin: ['view', 'record'],
     classroom_staff: ['view', 'record'],
   },
   kitchen: { super_admin: ['view'], kitchen: ['view'] },

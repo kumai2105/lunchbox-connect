@@ -245,7 +245,7 @@ export default function ParentHome() {
           <Icon name="user" size={18} />
           <div>
             <b>Profile</b>
-            <span>{child.given_name}'s details and allergies</span>
+            <span>{child.given_name}'s details and safety notes</span>
           </div>
           <Icon name="arrowRight" size={15} />
         </Link>

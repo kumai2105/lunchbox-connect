@@ -10,6 +10,7 @@ declare
   v_inst uuid; v_inst2 uuid; v_cls uuid; v_staff uuid; v_admin uuid; v_student uuid;
   v_rev uuid; v_meal uuid; v_service uuid; v_rec uuid; v_note uuid; n int;
   v_parent uuid; v_rev2 uuid;
+  v_cls2 uuid; v_staff2 uuid; b boolean;
 begin
   insert into institutions (name, kind) values ('ZZ DB Nursery','nursery') returning id into v_inst;
   insert into institutions (name, kind) values ('ZZ DB Other','nursery') returning id into v_inst2;
@@ -78,14 +79,26 @@ begin
     raise notice 'PASS item2: Classroom Staff cannot set published_at';
   end;
 
-  -- The School Admin (review authority) publishes it.
+  -- ITEM 4 — note PUBLICATION authority is NOT_YET_DEFINED. The invented
+  -- School-Admin publish grant is removed: a School Admin must NOT be able to
+  -- set published_at. RLS simply gives them no matching UPDATE policy, so the
+  -- row is invisible to their update (0 rows affected, no error).
   perform set_config('request.jwt.claims', json_build_object('sub',v_admin,'role','authenticated')::text, true);
   set local role authenticated;
   update serving_notes set published_at = now() where id = v_note;
   get diagnostics n = row_count;
   reset role;
-  if n <> 1 then raise exception 'FAIL item2: School Admin could not publish the note (% rows)', n; end if;
-  raise notice 'PASS item2: the School Admin review authority can publish';
+  if n <> 0 then raise exception 'FAIL item4: School Admin was able to publish a note (% rows)', n; end if;
+  raise notice 'PASS item4: School Admin cannot publish a note (authority NOT_YET_DEFINED)';
+
+  -- The Super Admin system-wide override is the only publish path that remains.
+  perform set_config('request.jwt.claims', json_build_object('sub',v_super,'role','authenticated')::text, true);
+  set local role authenticated;
+  update serving_notes set published_at = now() where id = v_note;
+  get diagnostics n = row_count;
+  reset role;
+  if n <> 1 then raise exception 'FAIL item4: Super Admin override could not publish the note (% rows)', n; end if;
+  raise notice 'PASS item4: only the Super Admin system-wide override can publish';
 
   -- Staff cannot silently alter the now-published note (RLS hides it from update).
   perform set_config('request.jwt.claims', json_build_object('sub',v_staff,'role','authenticated')::text, true);
@@ -188,7 +201,95 @@ begin
   if n <> 2 then raise exception 'FAIL item6: Super Admin cannot read the full meal-image library (%)', n; end if;
   raise notice 'PASS item6: Super Admin can read the whole meal-image library';
 
+  -- =================================================================
+  -- CORRECTION PASS — tenant-integrity + permission-correction triggers
+  -- (pass items 1, 2, 3, 12). These fire on ALL paths, so they are proven
+  -- here at the RAW table level, isolated from RLS. A cross-institution or
+  -- wrong-role write must be refused even for a privileged writer.
+  -- =================================================================
+  -- A second class in the OTHER institution, and a classroom_staff there.
+  insert into classes (institution_id, name, grade) values (v_inst2,'DB Class 2','T') returning id into v_cls2;
+  insert into auth.users (email) values ('db.staff2@t.test') returning id into v_staff2;
+  insert into app_users (user_id, role, full_name, email, institution_id) values
+    (v_staff2,'classroom_staff','DB Staff2','db.staff2@t.test',v_inst2);
+
+  -- c1 — a Student's Class must share the Student's institution (item 1).
+  begin
+    update students set class_id = v_cls2 where id = v_student;   -- cross-institution
+    raise exception 'FAIL c1: a Student was assigned to a Class in another institution';
+  exception when check_violation then
+    raise notice 'PASS c1: Student cannot be assigned to a Class in another institution';
+  end;
+  update students set class_id = v_cls where id = v_student;      -- same institution
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL c1: a same-institution Class assignment was blocked'; end if;
+  raise notice 'PASS c1: a same-institution Class assignment is allowed';
+
+  -- c2 — a guardian link must reference a role=parent account (item 2).
+  begin
+    insert into student_parents (student_id, user_id) values (v_student, v_staff);  -- classroom_staff
+    raise exception 'FAIL c2: a classroom_staff account was linked as a guardian';
+  exception when check_violation then
+    raise notice 'PASS c2: a non-parent (classroom_staff) cannot be a guardian';
+  end;
+  begin
+    insert into student_parents (student_id, user_id) values (v_student, v_admin);  -- school_admin
+    raise exception 'FAIL c2: a school_admin account was linked as a guardian';
+  exception when check_violation then
+    raise notice 'PASS c2: a non-parent (school_admin) cannot be a guardian';
+  end;
+  -- (the genuine parent link v_parent → v_student already succeeded above.)
+
+  -- c2 defense-in-depth — even if a stray non-parent relationship existed, the
+  -- visibility helper's guardian branch requires the caller to BE a parent.
+  perform set_config('request.jwt.claims', json_build_object('sub',v_staff,'role','authenticated')::text, true);
+  set local role authenticated;
+  select app_current_role() = 'parent' into b;
+  reset role;
+  if b then raise exception 'FAIL c2: classroom_staff resolved as parent role'; end if;
+  raise notice 'PASS c2: the guardian visibility branch is parent-gated (defense in depth)';
+
+  -- c3 — Nursery/School Admin classroom RECORDING is removed (item 3).
+  perform set_config('request.jwt.claims', json_build_object('sub',v_admin,'role','authenticated')::text, true);
+  set local role authenticated;
+  select app_can_record_in_class(v_cls) into b;
+  if b then reset role; raise exception 'FAIL c3: School Admin can record in a class'; end if;
+  select app_can_record_for_student(v_student) into b;
+  reset role;
+  if b then raise exception 'FAIL c3: School Admin can record for a student'; end if;
+  raise notice 'PASS c3: School Admin cannot record (recording authority NOT_YET_DEFINED)';
+
+  perform set_config('request.jwt.claims', json_build_object('sub',v_staff,'role','authenticated')::text, true);
+  set local role authenticated;
+  select app_can_record_in_class(v_cls) into b;
+  reset role;
+  if not b then raise exception 'FAIL c3: assigned Classroom Staff cannot record in their class'; end if;
+  raise notice 'PASS c3: assigned Classroom Staff can still record';
+
+  perform set_config('request.jwt.claims', json_build_object('sub',v_super,'role','authenticated')::text, true);
+  set local role authenticated;
+  select app_can_record_in_class(v_cls) into b;
+  reset role;
+  if not b then raise exception 'FAIL c3: Super Admin override lost recording authority'; end if;
+  raise notice 'PASS c3: Super Admin retains the approved recording override';
+
+  -- c12 — class_staff must be a classroom_staff in the Class's institution (item 12).
+  begin
+    insert into class_staff (class_id, user_id) values (v_cls, v_admin);  -- school_admin, not classroom_staff
+    raise exception 'FAIL c12: a school_admin was added as class_staff';
+  exception when check_violation then
+    raise notice 'PASS c12: a non-classroom_staff account cannot be class_staff';
+  end;
+  begin
+    insert into class_staff (class_id, user_id) values (v_cls, v_staff2);  -- classroom_staff, other institution
+    raise exception 'FAIL c12: a classroom_staff from another institution was added as class_staff';
+  exception when check_violation then
+    raise notice 'PASS c12: class_staff must share the Class institution';
+  end;
+  -- (the valid v_staff → v_cls membership already succeeded above.)
+  raise notice 'PASS c12: a valid same-institution classroom_staff membership is allowed';
+
   raise notice '---------------------------------------------------------';
-  raise notice 'DB BOUNDARY: raw-path integrity verified (items 1/2/3/6).';
+  raise notice 'DB BOUNDARY: raw-path integrity verified (items 1/2/3/4/6/12).';
 end $$;
 rollback;

@@ -78,7 +78,7 @@ Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
 - `pnpm typecheck` — clean · `pnpm lint` — clean (0 warnings)
 - `pnpm test:unit` — **65 tests** (RBAC, calendar, meal analytics incl.
   meal-id/exception rules, kitchen revision grouping, operational-date boundary)
-- `./tests/sql/run_verification.sh` — **11 SQL suites** on a throwaway
+- `./tests/sql/run_verification.sh` — **12 SQL suites** on a throwaway
   PostgreSQL 16, incl. the 146-check authorization matrix and the raw-path
   DB-boundary suite (RPC-only writes, note-publish authority, tenant/eligibility
   triggers, meal-image storage visibility)

@@ -15,13 +15,17 @@ this repository alone.
    - `pnpm build` — production build succeeds
 
 2. **Schema / RLS / RPC / trigger suite (no network required)**
-   - `./tests/sql/run_verification.sh` — all **11** `verify_*.sql` suites pass
-     on a throwaway PostgreSQL 16 built from `supabase/migrations/0001`–`0031`,
+   - `./tests/sql/run_verification.sh` — all **12** `verify_*.sql` suites pass
+     on a throwaway PostgreSQL 16 built from `supabase/migrations/0001`–`0032`,
      including the **146-check authorization matrix** and the **DB-boundary**
      suite: raw `serving_records` writes are denied (RPC is the only path);
-     classroom staff cannot publish notes; only Super Admin changes
-     `operational_status` or moves a Student/Class institution; a Parent cannot
-     read an unrelated unpublished meal image.
+     classroom staff cannot publish notes and School Admin cannot publish a note
+     at all; only Super Admin changes `operational_status`, moves a Student/Class
+     institution, or records/publishes outside the classroom-staff path; a
+     Student's class must share the Student's institution; a `student_parents`
+     guardian must be a `parent`; a `class_staff` member must be
+     `classroom_staff` in the class's institution; a Parent cannot read an
+     unrelated unpublished meal image.
 
 3. **Live boundary tests (where Supabase egress is available)**
    - `pnpm test:e2e` with seeded accounts — the current specs pass:
