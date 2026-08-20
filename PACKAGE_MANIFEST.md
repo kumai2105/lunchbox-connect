@@ -2,11 +2,11 @@
 
 **Packaged:** 2026-08-20
 **Branch:** `claude/new-session-k5dd5u`
-**Release commit:** `41a2000`
-**Package identity:** the ZIP is named `lunchbox-connect-41a2000.zip`, and this
-manifest and `docs/VERIFICATION_FINAL.md` both reference `41a2000`. The manifest
+**Release commit:** `ec9c969`
+**Package identity:** the ZIP is named `lunchbox-connect-ec9c969.zip`, and this
+manifest and `docs/VERIFICATION_FINAL.md` both reference `ec9c969`. The manifest
 and the regenerated report are committed as a thin packaging layer on top of
-`41a2000` (that is the commit whose code they describe); the archive contains
+`ec9c969` (that is the commit whose code they describe); the archive contains
 that layer so the delivered docs are the current ones.
 
 ---
@@ -19,13 +19,15 @@ All gates were run immediately before packaging.
 | ---- | ------- | ------ |
 | Types | `pnpm typecheck` | **PASS** — no errors |
 | Lint | `pnpm lint` | **PASS** — no errors, no warnings |
-| Unit tests | `pnpm test:unit` | **PASS — 66/66** across 7 files |
+| Unit tests | `pnpm test:unit` | **PASS — 83/83** across 8 files |
 | Production build | `pnpm build` | **PASS** — 120 modules |
-| Database suites | `./tests/sql/run_verification.sh` | **PASS — 12 suites** (incl. the 401-check authorization matrix) |
+| Database suites | `./tests/sql/run_verification.sh` | **PASS — 13 suites** (incl. the 498-check authorization matrix) |
 
-Unit files: `calendar.test.ts` (14), `mealAnalytics.test.ts` (16),
-`rbac.test.ts` (11), `format.test.ts` (10, incl. Asia/Dubai boundary),
-`authorization.consistency.test.ts` (9), `kitchen.test.ts` (3, revision
+Unit files: `mealAnalytics.test.ts` (22, incl. the unscored-is-not-0% rule and
+the NOT_YET_DEFINED classification), `format.test.ts` (15, incl. the Asia/Dubai
+boundary and presentation), `calendar.test.ts` (14), `rbac.test.ts` (11),
+`authorization.consistency.test.ts` (9), `pages/parent/shared.test.ts` (6, NEW —
+the child-switch race guard and meal tone), `kitchen.test.ts` (3, revision
 grouping), `status.test.ts` (3).
 
 **Not run:** `pnpm test:e2e` (Playwright) — the suite needs egress to
@@ -36,12 +38,16 @@ included, written to the current architecture, and runnable where both exist.
 ## 2. Database verification
 
 `./tests/sql/run_verification.sh` builds a PostgreSQL 16 cluster from nothing,
-applies `supabase/migrations/0001`–`0033` verbatim, and runs 12 suites. Each
+applies `supabase/migrations/0001`–`0034` verbatim, and runs 13 suites. Each
 suite is mutation-tested (deliberately broken to prove it can fail). This pass
-expands the authorization matrix from 146 to **401** checks (the UPDATE/DELETE
-and read paths it previously skipped) and adds referenced-side + client-boundary
-negatives to `verify_db_boundary`. Full report and the release decision:
-**`docs/VERIFICATION_FINAL.md`**.
+expands the authorization matrix from 401 to **498** checks and adds
+`verify_note_privacy_and_states` — the Parent free-text boundary proven end to
+end on RAW data paths, plus record-state validity, the concern flag, atomic Menu
+resizing and archive-only lifecycle.
+
+Mutation evidence for the headline fix: restoring the table-wide
+`GRANT SELECT ON serving_records` re-opens the leak and fails the matrix for all
+11 roles. Full report and the release decision: **`docs/VERIFICATION_FINAL.md`**.
 
 ## 3. What is in the archive
 
@@ -52,12 +58,13 @@ Everything required to build and run the project, excluding only §5.
   (admin/nursery/kitchen incl. `StaffPage`, `MealLibraryPage`,
   `MenuBuilderPage`, `InstitutionServiceTab`, `InstitutionCalendarTab`),
   `pages/parent/` (mobile parent portal). The retired legacy `MenuPage` is gone.
-- **`supabase/`** — `migrations/0001`–`0033` (schema, RLS, resolution/publish
+- **`supabase/`** — `migrations/0001`–`0034` (schema, RLS, resolution/publish
   engine, meal library RPCs, class_staff, per-meal demand, analytics one-truth,
   the integrity pass 0029/0030/0031, the tenant-integrity + permission
-  correction 0032, and the client-boundary lockdown 0033);
-  `functions/admin-create-user/`; `config.toml`.
-- **`tests/`** — `sql/` (12 `verify_*.sql` suites + shim + actors + runner),
+  correction 0032, the client-boundary lockdown 0033, and the note-privacy /
+  state-validity / atomicity pass 0034); `functions/admin-create-user/`;
+  `config.toml`.
+- **`tests/`** — `sql/` (13 `verify_*.sql` suites + shim + actors + runner),
   `e2e/` (5 Playwright specs + fixtures + global-setup, on the current chain).
 - **`docs/`** — the spec pack, `VERIFICATION_FINAL.md`, `VERIFICATION_DECISION_033.md`.
 - **`remediation/`** — separated, review-gated production scripts + README.
@@ -65,7 +72,7 @@ Everything required to build and run the project, excluding only §5.
   `vitest.config.ts`, `playwright.config.ts`, `tsconfig*.json`,
   `eslint.config.js`, `.prettierrc`, `wrangler.jsonc`, `worker/`,
   `.github/workflows/` (ci + deploy), `index.html`, `README.md`,
-  `scripts/PRODUCTION_APPLY.md`, `.env.example`.
+  `scripts/PRODUCTION_APPLY.md`, `scripts/build-e2e.mjs`, `.env.example`.
 - **`CLAUDE_CODE_GOLIVE.md`** — **retired stub** pointing to
   `scripts/PRODUCTION_APPLY.md`; do not follow the old runbook (it is gone).
 
@@ -98,7 +105,7 @@ pnpm typecheck && pnpm lint && pnpm test:unit && pnpm build
 ./tests/sql/run_verification.sh
 ```
 
-Migrations apply in numerical order, `0001` → `0033`. For production, follow
+Migrations apply in numerical order, `0001` → `0034`. For production, follow
 `scripts/PRODUCTION_APPLY.md` (schema first, then deploy + verify the
 `admin-create-user` Edge Function; service plans / rotation assignments /
 publishing are Admin-UI actions, never migration side effects).
@@ -122,4 +129,7 @@ in this pass.
 > apply only the versions missing from it. Migration `0033` deliberately
 > **stops** if production already holds two service-plan or rotation-assignment
 > rows for the same institution and effective date — it names them rather than
-> guessing which one wins.
+> guessing which one wins. Migration `0034` **archives** every historical
+> `serving_records.note` value into `serving_record_note_archive` before
+> clearing the column: nothing is destroyed, and the archive is the record of
+> what was written.
