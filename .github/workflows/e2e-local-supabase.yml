@@ -296,7 +296,13 @@ jobs:
             curl -sf http://127.0.0.1:4173 >/dev/null && break
             sleep 1
           done
-          PLAYWRIGHT_JSON_OUTPUT_NAME=/tmp/e2e.json pnpm exec playwright test --reporter=list,json
+          # Tee the run so a globalSetup failure can be re-printed at the END of
+          # the job log. Playwright's own output lands mid-log, where it is
+          # easily buried by the Chromium download; pipefail keeps the real exit
+          # code rather than tee's.
+          set -o pipefail
+          PLAYWRIGHT_JSON_OUTPUT_NAME=/tmp/e2e.json \
+            pnpm exec playwright test --reporter=list,json 2>&1 | tee /tmp/e2e.log
 
       # A green suite that ran zero tests is the failure mode this gate exists to
       # prevent: global-setup RETURNS EARLY and skips everything when the env is
@@ -304,6 +310,16 @@ jobs:
       - name: Assert 19 executed, 0 failed, 0 skipped
         if: always()
         run: |
+          # If the suite executed nothing, globalSetup threw. Surface that error
+          # here, at the end of the log, instead of leaving it buried upstream.
+          if [ -s /tmp/e2e.log ]; then
+            EXECUTED=$(jq '.stats.expected + .stats.unexpected + .stats.skipped' /tmp/e2e.json 2>/dev/null || echo 0)
+            if [ "${EXECUTED:-0}" = "0" ]; then
+              echo "----- no tests executed; last 40 lines of the Playwright run -----"
+              tail -40 /tmp/e2e.log
+              echo "------------------------------------------------------------------"
+            fi
+          fi
           [ -f /tmp/e2e.json ] || { echo "::error::No Playwright JSON report was produced — the suite did not run."; exit 1; }
           echo "stats: $(jq -c '.stats' /tmp/e2e.json)"
           OK=$(jq '.stats.expected' /tmp/e2e.json)
@@ -324,6 +340,7 @@ jobs:
           name: playwright-report
           path: |
             /tmp/e2e.json
+            /tmp/e2e.log
             test-results/
             playwright-report/
           retention-days: 7
