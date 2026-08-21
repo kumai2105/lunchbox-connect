@@ -207,30 +207,24 @@ test.describe('acceptance — Menu Builder authoring', () => {
 test.describe('acceptance — creating the things an Institution runs on', () => {
   test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
 
-  /**
-   * NARROWED, DELIBERATELY, AND THE REASON MATTERS.
-   *
-   * This began as "create a Class and assert it lands in the right
-   * Institution". It failed five CI rounds. Two causes were mine and are fixed
-   * (bare /classes leaves institutionId empty so the submit can never enable;
-   * s.institutionId is not a key the fixture writes, so the URL became
-   * "?institution=undefined" — truthy enough to ENABLE the button and then fail
-   * the foreign key). After both fixes the clicks all resolve, the institution
-   * is a real UUID, the modal is correct on inspection, and still no row
-   * appears. I could not determine from CI logs whether the remaining fault is
-   * mine or the product's.
-   *
-   * So this asserts what it can actually establish — that the screen gates
-   * creation on an Institution correctly — and stops short of the insert.
-   * `docs/OPEN_FINDINGS.md` records that creating a Class through the UI is
-   * NOT interactively proven, and that the cause is unknown. Leaving a
-   * permanently red gate would have hidden the 41 assertions that do hold;
-   * pretending this one passed would have been worse.
-   */
-  test('the Create class dialog is correctly scoped to one Institution', async ({ page }) => {
+  test('a Super Admin creates a Class, and it lands in the right Institution', async ({ page }) => {
     const s = seeded();
     const db = adminDb();
+    const name = `E2E-Class-${Date.now()}`;
 
+    await login(page, s.superAdminEmail);
+    // Derive the institution from a key the fixture ACTUALLY writes.
+    //
+    // Two mistakes stacked here. First, /classes without ?institution= leaves
+    // institutionId empty and the submit is disabled={... || !institutionId},
+    // so the button could never enable — the app being right, since a Class
+    // belongs to exactly one Institution. Then I "fixed" that with
+    // s.institutionId, which .seeded.json does not contain: I had matched a
+    // local variable name in global-setup, not a key. The URL became
+    // "?institution=undefined", a string truthy enough to ENABLE the button,
+    // so the click succeeded and the insert failed on the foreign key — no
+    // locator error, just no row. Reading the value from the seeded class
+    // removes the guess entirely.
     const seedClass = await db
       .from('classes')
       .select('institution_id')
@@ -239,29 +233,46 @@ test.describe('acceptance — creating the things an Institution runs on', () =>
     const institutionId = seedClass.data?.institution_id as string | undefined;
     expect(institutionId, 'could not resolve the seeded institution').toBeTruthy();
 
-    // Without an Institution in scope the submit must stay disabled: a Class
-    // belongs to exactly one Institution (0032 enforces it with a trigger), so
-    // the screen refusing to create an unscoped one is the correct behaviour.
-    await login(page, s.superAdminEmail);
-    await page.goto('/classes');
-    await page.getByRole('button', { name: '+ Create class', exact: true }).click();
-    await page.getByPlaceholder('e.g. 1-A').fill(`E2E-Unscoped-${Date.now()}`);
-    await expect(
-      page.getByRole('button', { name: 'Create class', exact: true }),
-      'an unscoped Class must not be creatable',
-    ).toBeDisabled();
-
-    // With one in scope, the Institution select is pinned to it and disabled —
-    // you cannot retarget the Class at another tenant from this dialog — and
-    // the submit becomes available.
     await page.goto(`/classes?institution=${institutionId}`);
-    await page.getByRole('button', { name: '+ Create class', exact: true }).click();
-    await page.getByPlaceholder('e.g. 1-A').fill(`E2E-Scoped-${Date.now()}`);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
-    const select = page.locator('select').first();
-    await expect(select).toHaveValue(institutionId!);
-    await expect(select, 'the tenant must not be changeable here').toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Create class', exact: true })).toBeEnabled();
+    // exact: true is load bearing. "+ Create class" (opens the dialog) and
+    // "Create class" (submits it) both contain "Create class", and accessible
+    // names match by SUBSTRING — an unqualified lookup matches two controls and
+    // fails strict mode. The opener carries the leading "+".
+    await page.getByRole('button', { name: '+ Create class', exact: true }).click();
+    await page.getByPlaceholder('e.g. 1-A').fill(name);
+    await page.getByRole('button', { name: 'Create class', exact: true }).click();
+
+    // Tenancy is the thing worth asserting, not merely existence: 0032 installs
+    // a trigger keeping a class inside one Institution, and a class created
+    // against the wrong tenant is a data-integrity failure, not a UI nit.
+    // SURFACE THE APP'S OWN ERROR instead of only reporting "no row".
+    //
+    // Three rounds of this test failed with "the created class never appeared",
+    // which says the insert did not happen but not WHY — and the page was
+    // showing the reason the whole time, in a .banner.err that the test never
+    // read. Polling for a row is the assertion; reading the banner first is
+    // what makes a failure diagnosable instead of another guess.
+    const banner = page.locator('.banner.err');
+    if (await banner.count()) {
+      const text = (await banner.first().textContent())?.trim();
+      if (text) throw new Error(`the app refused to create the class: ${text}`);
+    }
+
+    await expect
+      .poll(
+        async () => {
+          const r = await db
+            .from('classes')
+            .select('id, institution_id')
+            .eq('name', name)
+            .maybeSingle();
+          return r.data?.institution_id ?? null;
+        },
+        { message: 'the created class never appeared in the scoped institution' },
+      )
+      .toBe(institutionId);
   });
 
   test('a Nursery Admin provisions classroom staff, and the account is real', async ({ page }) => {

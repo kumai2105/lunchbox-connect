@@ -26,6 +26,14 @@ on:
         required: true
         default: 'claude/new-session-k5dd5u'
         type: string
+      grep:
+        description: >-
+          Run ONLY tests whose title matches this (Playwright --grep). Leave
+          blank for the whole suite. Isolating one failure is far cheaper than
+          re-running 42 tests to look at one of them.
+        required: false
+        default: ''
+        type: string
 #
 # paths-ignore: a Markdown-only commit cannot change what the browser does, so
 # it does not run the browser suite. This is not a gate being weakened — every
@@ -377,8 +385,16 @@ jobs:
           # and arrive in minutes. It cannot mask a real pass: the gate below
           # requires expected == the full --list total, so an early stop still
           # fails the job.
+          GREP='${{ inputs.grep }}'
+          EXTRA=""
+          if [ -n "$GREP" ]; then
+            # Isolating: keep every trace, not just on retry, and do not stop
+            # early — the whole point is to see this one test in full.
+            EXTRA="--grep=$GREP --trace=on --retries=0"
+            echo "ISOLATING: $GREP"
+          fi
           PLAYWRIGHT_JSON_OUTPUT_NAME=/tmp/e2e.json \
-            pnpm exec playwright test --reporter=list,json --max-failures=12 2>&1 | tee /tmp/e2e.log
+            pnpm exec playwright test --reporter=list,json --max-failures=12 $EXTRA 2>&1 | tee /tmp/e2e.log
 
       # A green suite that ran zero tests is the failure mode this gate exists to
       # prevent: global-setup RETURNS EARLY and skips everything when the env is
@@ -407,6 +423,25 @@ jobs:
               awk '/^ *[0-9]+\) /{n++} n>=1 && n<=6' /tmp/e2e.log | head -400
               echo "----------------------------------------"
             fi
+          fi
+          # Emit every failure as a WORKFLOW ANNOTATION carrying the test title,
+          # its file:line and the first error message.
+          #
+          # The detail was always printed, but mid-log — behind the Chromium
+          # download and 42 tests of list output — and anything reading only the
+          # log tail never saw it. Three diagnosis rounds were spent on "one
+          # test failed" without knowing which or why. Annotations are retrievable
+          # independently of position in the log, so the answer is always one
+          # request away.
+          if [ -f /tmp/e2e.json ]; then
+            jq -r '
+              [.. | objects | select(has("ok") and has("tests") and .ok == false)][]
+              | (.file // "?") as $f | (.line // 0) as $l | (.title // "?") as $t
+              | ([.tests[]?.results[]?.error?.message // empty] | join(" ~ "))
+              | gsub("\u001b\\[[0-9;]*m"; "")
+              | gsub("[\n\r]+"; " ")
+              | "::error::FAILED \($f):\($l) › \($t) :: \(.[0:700])"
+            ' /tmp/e2e.json 2>/dev/null || echo "::warning::could not parse failures out of the JSON report"
           fi
           [ -f /tmp/e2e.json ] || { echo "::error::No Playwright JSON report was produced — the suite did not run."; exit 1; }
           # Take the expected total from the suite itself rather than a number
