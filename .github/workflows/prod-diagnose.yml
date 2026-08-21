@@ -230,6 +230,56 @@ jobs:
           echo "  NOTE: Workers Builds configuration is primarily a dashboard surface;"
           echo "        absence of a result here is not proof the integration is absent."
 
+      # Authoritative DNS, read from the public internet rather than from the
+      # Cloudflare API. The API path (2d) needs a Zone-scoped token and the
+      # deploy credential is Workers-scoped, so it answers "Authentication
+      # error" and tells us nothing. `dig` needs no credential at all and
+      # answers the only question that decides where the fix belongs: whose
+      # nameservers is this domain delegated to, and what does the apex point at?
+      #
+      # It also prints MX and TXT. Those are mail delivery and domain
+      # verification. They must be READ before anyone edits this zone, so that
+      # removing the apex record cannot quietly take email with it.
+      - name: 2c2 · Authoritative DNS for the zone (no credential required)
+        if: always()
+        run: |
+          Z="$ZONE_NAME"
+          echo "### DNS for $Z" >> "$GITHUB_STEP_SUMMARY"
+          for q in NS SOA A AAAA CNAME MX TXT CAA; do
+            echo "--- $q $Z ---"
+            dig +short "$q" "$Z" | sed 's/^/    /'
+          done
+          echo "--- A www.$Z ---";     dig +short A "www.$Z"     | sed 's/^/    /'
+          echo "--- CNAME www.$Z ---"; dig +short CNAME "www.$Z" | sed 's/^/    /'
+
+          {
+            echo '```'
+            echo "nameservers : $(dig +short NS "$Z" | paste -sd' ' -)"
+            echo "apex A      : $(dig +short A "$Z" | paste -sd' ' -)"
+            echo "apex CNAME  : $(dig +short CNAME "$Z" | paste -sd' ' -)"
+            echo "www         : $(dig +short CNAME "www.$Z" | paste -sd' ' -)$(dig +short A "www.$Z" | paste -sd' ' -)"
+            echo "MX          : $(dig +short MX "$Z" | paste -sd' ' -)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # What does the bare domain actually SERVE? The Founder reported a GoDaddy
+      # "Launching Soon" placeholder there while www serves the application.
+      # Headers name the origin; the body confirms it.
+      - name: 2c3 · What the bare domain serves right now
+        if: always()
+        run: |
+          Z="$ZONE_NAME"
+          for h in "https://$Z" "https://www.$Z"; do
+            echo "=== $h ==="
+            curl -sSI -m 25 "$h/" 2>&1 | sed -n '1,15p' | sed 's/^/    /' || true
+            body=$(curl -sSL -m 25 "$h/" 2>/dev/null | tr -d '\n' | head -c 4000)
+            for needle in "Launching Soon" godaddy airo "LunchBox Connect" "<div id=\"root\">"; do
+              case "$body" in
+                *"$needle"*) echo "    BODY CONTAINS: $needle" ;;
+              esac
+            done
+          done
+
       - name: 2d · Zone, DNS and Custom Domains — READ ONLY, nothing modified
         if: steps.cf.outputs.have == 'true'
         run: |
