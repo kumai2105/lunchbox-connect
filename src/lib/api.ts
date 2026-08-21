@@ -1184,23 +1184,6 @@ export async function upsertServingNote(
   body: string,
   published: boolean,
 ): Promise<ApiResult<ServingNote>> {
-  // `serving_notes.created_by` is NOT NULL with no default and no trigger
-  // (0002), so the writer has to name itself. This call did not, which meant
-  // every FIRST save of a note failed outright:
-  //
-  //   null value in column "created_by" of relation "serving_notes"
-  //   violates not-null constraint
-  //
-  // Nothing caught it: the SQL suites insert notes directly with an explicit
-  // created_by, so they never exercise this payload, and the browser suite had
-  // never executed. Authorship is also the thing the note-publication boundary
-  // is built on — who wrote it decides who may publish it — so it has to be the
-  // real author, not a default someone could spoof or omit.
-  const { data: auth } = await supabase.auth.getUser();
-  const authorId = auth.user?.id;
-  if (!authorId) {
-    return { data: null, error: 'You must be signed in to save a note.' };
-  }
   const existing = await supabase
     .from('serving_notes')
     .select('id')
@@ -1214,7 +1197,6 @@ export async function upsertServingNote(
         serving_record_id: servingRecordId,
         body,
         published_at: published ? new Date().toISOString() : null,
-        created_by: authorId,
       },
       { onConflict: 'serving_record_id' },
     )

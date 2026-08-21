@@ -535,29 +535,49 @@ export default async function globalSetup(): Promise<void> {
   const breakfastRecId = await recId('breakfast');
   const lunchRecId = await recId('lunch');
 
+  // Serving notes cannot be seeded with the service-role key.
+  //
+  // 0031 stamps authorship server-side — `serving_notes_stamp_creator` sets
+  // created_by := app_current_user_id() BEFORE INSERT, deliberately, so a
+  // client cannot claim to be someone else. A service-role write has no app
+  // user, so the trigger stamps NULL and the NOT NULL constraint rejects it.
+  // Passing created_by in the payload does not help: the trigger overwrites it.
+  //
+  // So seed these the way they are really created — signed in as the people
+  // entitled to create them. That also exercises the insert policy for real:
+  //   * classroom staff may create an INTERNAL note only (published_at null);
+  //   * only an admin may create one already published.
+  const asUser = async (email: string) => {
+    const client = createClient(url, anonKey, { auth: { persistSession: false } });
+    const { error } = await client.auth.signInWithPassword({ email, password: PASS });
+    if (error) throw new Error(`[e2e] fixture sign-in failed for ${email}: ${error.message}`);
+    return client;
+  };
+
+  const asStaff = await asUser('e2e.classroom@lunchbox.app');
   mustOk(
-    'seed serving notes (one published, one draft)',
-    await db.from('serving_notes').upsert(
-    [
-      // created_by is NOT NULL with no default (0002). The seeder writes with
-      // the service-role key, where auth.uid() is null, so it has to name the
-      // author explicitly — the classroom staff member who would really have
-      // written these notes.
-      {
-        serving_record_id: breakfastRecId,
-        body: 'E2E published note',
-        published_at: new Date().toISOString(),
-        created_by: classroomId,
-      },
-      {
-        serving_record_id: lunchRecId,
-        body: 'E2E draft — must stay invisible',
-        published_at: null,
-        created_by: classroomId,
-      },
-      ],
-      { onConflict: 'serving_record_id' },
-    ),
+    'seed the DRAFT serving note as classroom staff (must stay unpublished)',
+    await asStaff
+      .from('serving_notes')
+      .upsert(
+        { serving_record_id: lunchRecId, body: 'E2E draft — must stay invisible', published_at: null },
+        { onConflict: 'serving_record_id' },
+      ),
+  );
+
+  const asAdmin = await asUser('e2e.super-admin@lunchbox.app');
+  mustOk(
+    'seed the PUBLISHED serving note as an admin (only they may publish)',
+    await asAdmin
+      .from('serving_notes')
+      .upsert(
+        {
+          serving_record_id: breakfastRecId,
+          body: 'E2E published note',
+          published_at: new Date().toISOString(),
+        },
+        { onConflict: 'serving_record_id' },
+      ),
   );
 
   // ---- deterministic references for the specs ------------------------------
