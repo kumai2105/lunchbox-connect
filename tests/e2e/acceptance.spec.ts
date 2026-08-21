@@ -173,23 +173,31 @@ test.describe('acceptance — read-only management surfaces render real data', (
 test.describe('acceptance — Menu Builder authoring', () => {
   test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
 
-  test('the Menu Builder opens a rotation and shows its week/slot grid', async ({ page }) => {
+  test('a Super Admin creates a rotation and gets a planning grid', async ({ page }) => {
     const s = seeded();
+    const name = `E2E Rotation ${Date.now()}`;
+
     await login(page, s.superAdminEmail);
     await page.goto('/menu-builder');
-
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
-    // The grid does NOT render on arrival, and my first version of this test
-    // failed for exactly that reason: it asserted a planning grid on a screen
-    // that legitimately shows a rotation PICKER first. The canvas only appears
-    // once a rotation is selected, so the test has to do what a planner does.
-    const rotation = page.locator('.menu-list-item').first();
-    await expect(rotation, 'no rotation to open — the seed should provide one').toBeVisible();
-    await rotation.click();
+    // The fixture seeds NO rotation, which is why my previous two attempts here
+    // failed: first I asserted a grid on arrival (the screen shows a picker),
+    // then I clicked `.menu-list-item` (there was never one to click). Creating
+    // the rotation is the better test anyway — it exercises the authoring path
+    // instead of depending on fixture data that does not exist.
+    await page.getByPlaceholder('e.g. Spring 2026').waitFor({ state: 'hidden' }).catch(() => {});
+    await page.getByRole('button', { name: /create menu|new menu|create/i }).first().click();
+    await page.getByPlaceholder('e.g. Spring 2026').fill(name);
+    await page
+      .locator('.modal, [role="dialog"]')
+      .getByRole('button', { name: /create/i })
+      .last()
+      .click();
 
-    // Now the canvas, its week tabs and the grid itself must be present. These
-    // are the real class names from the page, read rather than guessed.
+    // Opening it reveals the canvas: the grid, and the week tabs that make a
+    // multi-week rotation navigable. Class names read from the page.
+    await page.locator('.menu-list-item', { hasText: name }).first().click();
     await expect(page.locator('.menu-canvas')).toBeVisible();
     await expect(page.locator('.menu-grid')).toBeVisible();
     await expect(page.locator('.week-tabs')).toBeVisible();
@@ -205,7 +213,11 @@ test.describe('acceptance — creating the things an Institution runs on', () =>
     const name = `E2E-Class-${Date.now()}`;
 
     await login(page, s.superAdminEmail);
-    await page.goto('/classes');
+    // /classes without ?institution= leaves institutionId empty, and the submit
+    // is disabled={... || !institutionId} — so my first attempt clicked a button
+    // that could never enable. That is the app being right: a Class always
+    // belongs to exactly one Institution, so you create it from within one.
+    await page.goto(`/classes?institution=${s.institutionId}`);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
     // exact: true is load bearing. "+ Create class" (opens the dialog) and
@@ -244,9 +256,17 @@ test.describe('acceptance — creating the things an Institution runs on', () =>
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
     await page.getByRole('button', { name: /provision classroom staff/i }).click();
-    await page.getByLabel('Full name').fill('E2E Provisioned Staff');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel(/temporary password/i).fill('E2e-pass!12345');
+
+    // getByLabel() cannot work here, and that is a REAL FINDING rather than a
+    // test detail: components/ui.tsx `Field` renders <label>{label}</label> and
+    // the input as SIBLINGS, with no htmlFor and no nesting. Nothing built with
+    // Field has a programmatic label, so assistive technology announces these
+    // inputs unlabelled. Reported separately; not fixed here, because Field is
+    // shared UI and changing it is a product decision, not a test fix.
+    const field = (label: string) => page.locator('.field', { hasText: label }).locator('input');
+    await field('Full name').fill('E2E Provisioned Staff');
+    await field('Email').fill(email);
+    await field('Temporary password').fill('E2e-pass!12345');
     await page.getByRole('button', { name: /create account/i }).click();
 
     // This is the whole point of the screen: an app_users row with the right
