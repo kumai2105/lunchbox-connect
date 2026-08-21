@@ -539,12 +539,22 @@ export default async function globalSetup(): Promise<void> {
     'seed serving notes (one published, one draft)',
     await db.from('serving_notes').upsert(
     [
+      // created_by is NOT NULL with no default (0002). The seeder writes with
+      // the service-role key, where auth.uid() is null, so it has to name the
+      // author explicitly — the classroom staff member who would really have
+      // written these notes.
       {
         serving_record_id: breakfastRecId,
         body: 'E2E published note',
         published_at: new Date().toISOString(),
+        created_by: classroomId,
       },
-      { serving_record_id: lunchRecId, body: 'E2E draft — must stay invisible', published_at: null },
+      {
+        serving_record_id: lunchRecId,
+        body: 'E2E draft — must stay invisible',
+        published_at: null,
+        created_by: classroomId,
+      },
       ],
       { onConflict: 'serving_record_id' },
     ),
