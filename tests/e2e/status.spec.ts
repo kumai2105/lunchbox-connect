@@ -14,7 +14,9 @@ test.describe('operational status workflow', () => {
     await login(page, s.superAdminEmail);
     await page.goto('/status');
 
-    await expect(page.getByRole('heading', { name: /Status/ })).toBeVisible();
+    // Level 1: the Layout repeats the page title as a topbar <h2>, so an
+    // unqualified heading lookup matches two elements and fails strict mode.
+    await expect(page.getByRole('heading', { level: 1, name: /Status/ })).toBeVisible();
 
     const row = page.locator('tr', { hasText: 'E2E-001' });
     await expect(row).toContainText('Not operationally eligible');
@@ -48,7 +50,9 @@ test.describe('operational status workflow', () => {
     const s = seeded();
     await login(page, s.kitchenEmail);
     await page.goto('/kitchen');
-    await expect(page.getByRole('heading', { name: /Kitchen production/ })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: /Kitchen production/ }),
+    ).toBeVisible();
 
     // Demand is per published MEAL (not a single per-institution number). Today
     // the nursery serves E2E overnight oats (breakfast) and E2E wrap (lunch);

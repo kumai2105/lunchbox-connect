@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth, useRole } from './lib/auth';
-import { canAccessPage, navFor } from './lib/roles';
+import { canAccessPage, navFor, navPath } from './lib/roles';
+import type { AppRole } from './lib/types';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
@@ -32,22 +33,59 @@ import ReportsPage from './pages/ReportsPage';
 import OpsPage from './pages/OpsPage';
 import AbsencesPage from './pages/AbsencesPage';
 
+/**
+ * Where a role belongs when it has nowhere specific to be.
+ *
+ * Uses navPath() rather than `.page`, because a nav entry may route to a URL
+ * that differs from its RBAC resource id — `menubuilder` serves at
+ * `/menu-builder`. Redirecting to the resource id would land on a route the
+ * router never declares.
+ */
+function firstPageFor(role: AppRole): string {
+  const first = navFor(role)[0];
+  return first ? navPath(first) : 'parent';
+}
+
 function Guard({ page, children }: { page: string; children: ReactNode }) {
-  const { session } = useAuth();
+  const { session, loading, profileLoading } = useAuth();
   const role = useRole();
 
+  // Decide nothing until the role is actually known. Rendering the page while
+  // the role is still null showed protected screens for a moment to whoever was
+  // signing in; RLS meant they held no data, but they were on screen.
+  if (loading || profileLoading) return null;
   if (!session) return <Navigate to="/login" replace />;
   if (role && !canAccessPage(role, page)) {
-    return <Navigate to={`/${navFor(role)[0]?.page ?? 'parent'}`} replace />;
+    return <Navigate to={`/${firstPageFor(role)}`} replace />;
   }
   return <>{children}</>;
 }
 
 function Home() {
-  const { session } = useAuth();
+  const { session, loading, profileLoading } = useAuth();
   const role = useRole();
+
+  // WAIT for the role. This previously read `navFor(role ?? 'parent')`, which
+  // treated "not loaded yet" as "is a parent" — and `loading` was already false
+  // by then, because it only ever covered getSession(), never the profile
+  // fetch. So every sign-in was redirected to /parent before the real role
+  // arrived.
+  //
+  // Most roles recovered by accident: Guard bounced them off /parent because
+  // they cannot view it. A SUPER ADMIN did not, because canAccessPage(
+  // 'super_admin', 'parent') is deliberately true — the matrix decides what is
+  // reachable, and a Super Admin may reach everything. So signing in as Super
+  // Admin landed in the Parent portal and stayed there, instead of the Command
+  // Center. Everyone else took a pointless detour through /parent first.
+  if (loading || profileLoading) return null;
   if (!session) return <Navigate to="/login" replace />;
-  const first = navFor(role ?? 'parent')[0]?.page ?? 'parent';
+
+  // A session with no app_users row is a real state (an auth account that was
+  // never provisioned) and no spec says what it should see. Keep the historic
+  // destination rather than invent one; the difference now is that we only get
+  // here once the profile fetch has actually SETTLED, so this means "no role"
+  // and no longer "role not yet known".
+  const first = role ? firstPageFor(role) : 'parent';
   return <Navigate to={`/${first}`} replace />;
 }
 

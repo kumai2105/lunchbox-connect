@@ -10,14 +10,22 @@ test.describe('classroom serving screen (docs/13 Decision 032 — fast tablet wo
     await login(page, s.classroomEmail);
     await page.goto(`/today?class=${s.classForServing}`);
 
-    await expect(page.getByRole('heading', { name: /Today/ })).toBeVisible();
+    // Level 1 specifically. The Layout renders the page title twice — once as
+    // the topbar breadcrumb <h2>, once as the page's own <h1> — so an
+    // unqualified heading lookup matches two elements and fails strict mode.
+    await expect(page.getByRole('heading', { level: 1, name: /Today/ })).toBeVisible();
 
     // §2: only periods with a PUBLISHED service are shown. The seed publishes
     // Breakfast and Lunch today, so those tabs exist and the register is live.
     await expect(page.locator('.period-btn', { hasText: 'Breakfast' })).toBeVisible();
 
-    // First student in the assigned-class roster.
-    await expect(page.locator('.focus-name')).toContainText('Serving');
+    // The register opens focused on the FIRST student in the roster. Assert that
+    // relationship rather than a student's name: every fixture student shares
+    // this class, and the roster is ordered by family name, so "Second Child"
+    // legitimately sorts ahead of "Serving One". Naming a specific student here
+    // only encoded an assumption about sort order that the app never promised.
+    await expect(page.locator('.roster-chip').first()).toHaveClass(/active/);
+    await expect(page.locator('.focus-name')).not.toBeEmpty();
 
     // Fast path: tap 75% eaten, then a behaviour — auto-saves and advances.
     await page.getByRole('button', { name: '75% eaten' }).click();
@@ -42,7 +50,10 @@ test.describe('classroom serving screen (docs/13 Decision 032 — fast tablet wo
 
     await login(page, s.classroomEmail);
     await page.goto(`/today?class=${s.classForServing}`);
-    await expect(page.locator('.focus-name')).toContainText('Serving');
+    // As above: assert the register opened on the first roster entry, not on a
+    // particular child's name.
+    await expect(page.locator('.roster-chip').first()).toHaveClass(/active/);
+    await expect(page.locator('.focus-name')).not.toBeEmpty();
 
     // Normal children never see a reason selector until intake is low.
     await expect(page.getByRole('button', { name: "Didn't like it" })).toHaveCount(0);
