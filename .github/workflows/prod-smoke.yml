@@ -1,0 +1,153 @@
+name: Production smoke (read-only)
+
+# PHASE 9 of the release sequence: prove the LIVE system after the frontend
+# deploy, from outside, over the real public internet.
+#
+# STRICTLY READ-ONLY. Every request in this workflow is a GET. Nothing here
+# creates, updates or deletes a row, an account, a file or a setting. It runs
+# only on an explicit `workflow_dispatch`, never on a push, so it cannot fire
+# by accident.
+#
+# It exists because the authoring sandbox cannot reach *.supabase.co (the
+# network policy answers 403 to CONNECT), so "the live app is up and the
+# boundary holds" has to be asserted somewhere that CAN reach it. A GitHub
+# runner can. The same reasoning already puts the browser E2E suite on a
+# runner.
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: >-
+          The deployed frontend origin, e.g. https://lunchbox-connect.<sub>.workers.dev
+          (no trailing slash).
+        required: true
+        type: string
+
+jobs:
+  smoke:
+    name: Live smoke against production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APP: ${{ inputs.app_url }}
+      SUPA: https://llnofriwvnerntrbpehc.supabase.co
+      # Public by design: RLS is the boundary, not secrecy. This is the same
+      # key the deployed bundle ships to every browser.
+      ANON: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxsbm9mcml3dm5lcm50cmJwZWhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNDUwNjAsImV4cCI6MjEwMjYyMTA2MH0.aE04Weq-Yu2ElnjxZS-JUIGDdC33tArSReeSjYhObYo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refuse anything that is not an https origin
+        run: |
+          case "$APP" in
+            https://*) ;;
+            *) echo "::error::app_url must be an https origin. Got '$APP'."; exit 1;;
+          esac
+          case "$APP" in
+            */) echo "::error::app_url must not end with a slash."; exit 1;;
+          esac
+          echo "Target: $APP"
+
+      # ---- 1. The app shell is actually being served ---------------------
+      - name: The frontend responds and serves the SPA shell
+        run: |
+          code=$(curl -sS -o /tmp/index.html -w '%{http_code}' "$APP/")
+          echo "GET / -> $code"
+          [ "$code" = "200" ] || { echo "::error::The deployed app did not return 200 at /."; exit 1; }
+          grep -q 'id="root"' /tmp/index.html \
+            || { echo "::error::The served HTML has no #root mount point — this is not the built SPA."; exit 1; }
+          grep -q 'LunchBox' /tmp/index.html \
+            || echo "::warning::The shell HTML does not mention LunchBox; check the title."
+          echo "SPA shell served."
+
+      # ---- 2. The bundle points at the RIGHT backend, and leaks nothing ---
+      - name: The shipped bundle targets production Supabase and carries no service key
+        run: |
+          ASSET=$(sed -n 's/.*src="\(\/assets\/[^"]*\.js\)".*/\1/p' /tmp/index.html | head -1)
+          [ -n "$ASSET" ] || { echo "::error::Could not find the module script in the served HTML."; exit 1; }
+          echo "bundle: $ASSET"
+          code=$(curl -sS -o /tmp/app.js -w '%{http_code}' "$APP$ASSET")
+          [ "$code" = "200" ] || { echo "::error::The bundle $ASSET did not return 200 (got $code)."; exit 1; }
+          grep -q 'llnofriwvnerntrbpehc.supabase.co' /tmp/app.js \
+            || { echo "::error::The deployed bundle does not reference the production Supabase project. It is pointed somewhere else."; exit 1; }
+          # A service-role JWT bypasses RLS. It must never reach a browser.
+          if grep -q 'service_role' /tmp/app.js; then
+            echo "::error::The deployed bundle contains the string 'service_role'. A service key must NEVER ship to a browser."
+            exit 1
+          fi
+          echo "Bundle targets production, and no service_role material is present."
+
+      # ---- 3. Deep links resolve (single-page-application fallback) -------
+      - name: A deep link returns the app, not a 404
+        run: |
+          for path in /dashboard /parent/today /kitchen; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' "$APP$path")
+            echo "GET $path -> $code"
+            [ "$code" = "200" ] || { echo "::error::SPA fallback is not working for $path (got $code)."; exit 1; }
+          done
+
+      # ---- 4. The backend is reachable and healthy -----------------------
+      - name: Supabase Auth is up
+        run: |
+          code=$(curl -sS -o /tmp/health -w '%{http_code}' "$SUPA/auth/v1/health" -H "apikey: $ANON")
+          echo "GET /auth/v1/health -> $code"
+          [ "$code" = "200" ] || { echo "::error::Supabase Auth did not return 200 (got $code)."; exit 1; }
+
+      # ---- 5. THE BOUNDARY. An anonymous holder of the public key gets
+      #         nothing. This is the exposure migration 0039 closed, asserted
+      #         here through the real public REST endpoint rather than a
+      #         psql session.
+      - name: An anonymous caller is refused on every tenant-scoped read
+        run: |
+          fail=0
+          probe () {
+            local rel="$1"
+            local body code
+            body=$(curl -sS -m 20 -w '\n%{http_code}' \
+                     "$SUPA/rest/v1/$rel" \
+                     -H "apikey: $ANON" -H "Authorization: Bearer $ANON")
+            code=$(printf '%s' "$body" | tail -1)
+            payload=$(printf '%s' "$body" | sed '$d')
+            case "$code" in
+              401|403|404) echo "  $rel -> $code (refused)";;
+              200)
+                # An empty array is NOT a pass here: RLS returning [] and a
+                # grant refusing outright are different states, and only the
+                # refusal proves the grant is absent. But [] still means no
+                # data escaped, so it is reported, not silently accepted.
+                if [ "$(printf '%s' "$payload" | tr -d '[:space:]')" = "[]" ]; then
+                  echo "::warning::  $rel -> 200 with an empty array (RLS scoped it to nothing; the grant is still open)."
+                else
+                  echo "::error::  $rel -> 200 AND RETURNED DATA to an anonymous caller."
+                  fail=1
+                fi
+                ;;
+              *) echo "::error::  $rel -> unexpected $code"; fail=1;;
+            esac
+          }
+          echo "probing as anon:"
+          probe "institutions?select=id,name"
+          probe "v_dashboard_institutions?select=name,classrooms,active_students"
+          probe "students?select=id,first_name"
+          probe "serving_records?select=id,note"
+          probe "app_users?select=id,email"
+          probe "v_meal_performance?select=*"
+          probe "v_production_demand?select=*"
+          [ "$fail" -eq 0 ] || { echo "::error::An anonymous caller reached tenant data. This is a release blocker."; exit 1; }
+          echo "No tenant data is reachable with the public key alone."
+
+      # ---- 6. The privileged provisioning path refuses the unauthenticated
+      - name: admin-create-user rejects an unauthenticated caller
+        run: |
+          # A GET carries no body, so this cannot create anything even if the
+          # function were wide open. verify_jwt is on, so the platform should
+          # refuse before the function body ever runs.
+          code=$(curl -sS -m 20 -o /tmp/fn -w '%{http_code}' "$SUPA/functions/v1/admin-create-user")
+          echo "GET /functions/v1/admin-create-user (no JWT) -> $code"
+          case "$code" in
+            401|403) echo "Edge Function refuses an unauthenticated caller.";;
+            *) echo "::error::admin-create-user answered $code without a JWT; it must refuse."; exit 1;;
+          esac
+
+      - name: Result
+        run: echo "LIVE SMOKE PASSED — app served, bundle correct, backend healthy, boundary holds."
