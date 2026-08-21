@@ -109,18 +109,55 @@ cross-tenant creation still refused.
 
 ---
 
-## 3. The apex domain does not answer
+## 3. The bare domain serves GoDaddy's "Launching Soon" page
 
-**Status:** open · **Severity:** minor
+**Status:** open · **Severity:** moderate — was recorded as minor, wrongly
+**Needs:** Founder or a Cloudflare token with Zone:DNS — I cannot fix this
 
-`https://lunchboxconnect.com/` returns no response; `https://www.lunchboxconnect.com/`
-serves the app correctly. Someone typing the bare domain gets nothing.
+**CORRECTION.** This entry previously said "`https://lunchboxconnect.com/`
+returns no response". That was wrong. It answers, and what it answers with is
+GoDaddy's parked builder page reading **"Launching Soon"** above a "Contact Us"
+form. Anyone who types the domain without `www` is told the product has not
+launched. Silence would have been better; this actively contradicts the live
+service sitting at `www`.
 
-Closing it needs a Cloudflare Redirect Rule sending apex → `www`. The deploy
-credential available to CI is Workers-scoped and cannot create one, and the DNS
-record list could not be read with it either (`Authentication error`), so the
-zone's MX/SPF/DKIM/DMARC records remain **unread** — they must be enumerated
-before any DNS change, not assumed absent.
+**What is established**
+
+| | |
+|---|---|
+| `lunchboxconnect.com` | `104.21.67.249`, `172.67.183.138` (Cloudflare) |
+| `www.lunchboxconnect.com` | same Cloudflare addresses |
+| bare domain serves | GoDaddy Airo "Launching Soon" placeholder |
+| `www` serves | the application, correctly |
+
+Both names resolve into Cloudflare, so the zone is on Cloudflare and the apex
+record inside it still points at GoDaddy's website builder — left over from
+before the app existed. Cloudflare is proxying GoDaddy's placeholder faithfully.
+
+**Why it is not fixed here.** The Cloudflare credential available to CI is
+Workers-scoped. It can deploy the Worker and it cannot read or write DNS: the
+zone's record list answers `Authentication error`. So the apex record cannot be
+inspected or changed from this repository, and the zone's MX / SPF / DKIM /
+DMARC records remain **unread** — they must be enumerated before any DNS change,
+not assumed absent.
+
+**To close it** (Cloudflare dashboard → the `lunchboxconnect.com` zone):
+
+1. **DNS → Records.** Find the record for the bare name (`@` or
+   `lunchboxconnect.com`) — an A or CNAME pointing at GoDaddy. Leave every MX
+   and TXT record alone; those carry mail delivery and domain verification, and
+   removing one silently breaks email.
+2. Point the apex at the same Worker that serves `www` — Workers & Pages → the
+   Worker → Settings → Domains & Routes → add `lunchboxconnect.com` — **or**
+   keep it simple and redirect: Rules → Redirect Rules → new rule, hostname
+   equals `lunchboxconnect.com`, dynamic redirect to
+   `concat("https://www.lunchboxconnect.com", http.request.uri.path)`, status
+   301, preserve query string.
+3. Re-run `prod-smoke.yml` with `app_url: https://lunchboxconnect.com` to prove
+   it from outside.
+
+A redirect is the better default: one canonical hostname, no duplicate content,
+and nothing to keep in sync between two bindings.
 
 ---
 
