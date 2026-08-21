@@ -134,16 +134,35 @@ jobs:
                   fail=1
                 fi
                 ;;
+              400)
+                # PostgREST answers 400 for an unresolvable column, and
+                # PostgreSQL resolves column names during parse — BEFORE it
+                # checks privileges. So a 400 means this probe never reached
+                # the authorization boundary and proved nothing about it. That
+                # is a broken test, not a passing one, and it fails the job.
+                echo "::error::  $rel -> 400. The probe is malformed (bad column?), so it did not test the boundary at all: $payload"
+                fail=1
+                ;;
               *) echo "::error::  $rel -> unexpected $code"; fail=1;;
             esac
           }
+          # `select=*` on purpose: it asks for every column, so it is both the
+          # strongest possible read and impossible to get wrong by naming a
+          # column that does not exist. An earlier version of this step named
+          # columns by hand, got two of them wrong, and turned a real boundary
+          # assertion into a 400 that tested nothing.
           echo "probing as anon:"
-          probe "institutions?select=id,name"
-          probe "v_dashboard_institutions?select=name,classrooms,active_students"
-          probe "students?select=id,first_name"
-          probe "serving_records?select=id,note"
-          probe "app_users?select=id,email"
+          probe "institutions?select=*"
+          probe "v_dashboard_institutions?select=*"
+          probe "students?select=*"
+          probe "serving_records?select=*"
+          probe "app_users?select=*"
+          probe "student_parents?select=*"
+          probe "classes?select=*"
+          probe "meal_services?select=*"
+          probe "serving_record_note_archive?select=*"
           probe "v_meal_performance?select=*"
+          probe "v_meal_revision_performance?select=*"
           probe "v_production_demand?select=*"
           [ "$fail" -eq 0 ] || { echo "::error::An anonymous caller reached tenant data. This is a release blocker."; exit 1; }
           echo "No tenant data is reachable with the public key alone."
