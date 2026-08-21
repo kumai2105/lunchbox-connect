@@ -78,45 +78,54 @@ test.describe('classroom serving screen (docs/13 Decision 032 — fast tablet wo
     page,
   }) => {
     const s = seeded();
+
+    // START FROM A CLEAN ROSTER, guaranteed by this test rather than inherited
+    // from whatever ran before it.
+    //
+    // The suite runs serially against ONE seeded database, so by the time this
+    // test runs the tests above have already recorded part of this roster. My
+    // previous attempt tried to work around that by selecting the first chip
+    // still showing the unrecorded dot:
+    //
+    //     page.locator('.roster-chip', { hasText: '·' }).first()
+    //
+    // which is a LIVE query. The instant the student was recorded that chip
+    // stopped matching the filter, so `.first()` silently re-resolved to a
+    // different, still-unrecorded chip: the assertion could never pass, and
+    // each retry burned another student until none were left.
+    //
+    // Clearing this class's rows first removes the whole problem. The roster is
+    // fully unrecorded, the first chip is a stable positional locator, and the
+    // test behaves identically on a retry. This is the throwaway CI database
+    // built fresh by `supabase start`; no operational history exists to lose.
+    const db = adminDb();
+    await db.from('serving_records').delete().eq('class_id', s.classForServing);
+
     await login(page, s.classroomEmail);
     await page.goto(`/today?class=${s.classForServing}`);
-    // Same as the tests above — the roster orders by family name, so naming a
-    // student here asserts a sort order the app never promised. (I corrected
-    // two of these three occurrences last pass and missed this one.)
-    await expect(page.locator('.roster-chip').first()).toHaveClass(/active/);
-    await expect(page.locator('.focus-name')).not.toBeEmpty();
+
+    const chip = page.locator('.roster-chip').first();
+    await expect(chip).toHaveClass(/active/);
+    await expect(chip.locator('.status-badge')).toHaveText('·');
 
     // The exception row is always available and needs no % or behaviour first.
     await expect(page.getByRole('button', { name: 'Absent', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Unwell', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Sleeping', exact: true })).toBeVisible();
 
-    // Act on a student NOBODY ELSE IN THIS FILE has recorded. The suite runs
-    // serially against one seeded database, so the first roster entry already
-    // carries a result from the test above — the old assertion was reading a
-    // badge that an earlier test had set, and could not tell whether this test
-    // had changed anything at all. An unrecorded chip renders '·'.
-    const fresh = page.locator('.roster-chip', { hasText: '·' }).first();
-    await fresh.click();
-
-    // One tap records it — no % and no behaviour first.
+    // One tap records it.
     await page.getByRole('button', { name: 'Absent', exact: true }).click();
 
     // The badge stops being the unrecorded dot and takes a state class. It is
-    // NOT asserted to be any particular icon: saveException writes
+    // deliberately NOT pinned to a particular icon: saveException writes
     // served_status 'served' with behavior null, which the badge derivation
-    // renders as checkCircle. Pinning the icon here would freeze a presentation
-    // choice rather than test the rule.
-    //
-    // (The previous assertion, `not.toHaveText('')`, was inverted: a recorded
-    // badge holds an SVG and therefore NO text, while an unrecorded one holds
-    // '·'. It could only ever pass for a student who had not been recorded.)
-    await expect(fresh.locator('.status-badge')).toHaveClass(/sb-/);
+    // renders as checkCircle. Pinning it would freeze a presentation choice
+    // rather than test the rule.
+    await expect(chip.locator('.status-badge')).toHaveClass(/sb-/);
 
-    // The substance of §6, asserted where no icon choice can blur it: the row
-    // exists with the exception reason and with NO eating behaviour and NO
+    // The substance of §6, asserted where no icon choice can blur it: a row
+    // exists carrying the exception reason, with NO eating behaviour and NO
     // consumption figure attached to it.
-    const db = adminDb();
     const { data } = await db
       .from('serving_records')
       .select('behavior, consumption_pct, low_intake_reason')
