@@ -231,9 +231,19 @@ test.describe('acceptance — creating the things an Institution runs on', () =>
     // /rest/v1/classes actually did, and the only way to know is to watch it.
     const netNotes: string[] = [];
     const consoleErrors: string[] = [];
-    page.on('response', (r) => {
+    // FACT 2: the exact payload, body included. createClass() does
+    // supabase.from('classes').insert(input).select().single(), so the POST body
+    // is literally { institution_id, name, grade }.
+    page.on('request', (r) => {
+      if (r.url().includes('/rest/v1/classes') && r.method() === 'POST') {
+        netNotes.push(`POST-BODY ${r.postData() ?? '(none)'}`);
+      }
+    });
+    page.on('response', async (r) => {
       if (r.url().includes('/rest/v1/classes')) {
-        netNotes.push(`${r.request().method()} ${r.status()}`);
+        const body =
+          r.status() >= 400 ? ` body=${(await r.text().catch(() => '')).slice(0, 300)}` : '';
+        netNotes.push(`${r.request().method()} ${r.status()}${body}`);
       }
     });
     page.on('requestfailed', (r) => {
@@ -260,6 +270,9 @@ test.describe('acceptance — creating the things an Institution runs on', () =>
     // fails strict mode. The opener carries the leading "+".
     await page.getByRole('button', { name: '+ Create class', exact: true }).click();
     await page.getByPlaceholder('e.g. 1-A').fill(name);
+    // FACT 1: what the Institution select actually holds immediately before Save.
+    const selBefore = await page.locator('select').first().inputValue().catch(() => '(no select)');
+
     await page.getByRole('button', { name: 'Create class', exact: true }).click();
 
     // Tenancy is the thing worth asserting, not merely existence: 0032 installs
@@ -282,14 +295,26 @@ test.describe('acceptance — creating the things an Institution runs on', () =>
     // diagnosis; "no row and no request was ever made" and "no row and the POST
     // returned 4xx" are different faults with different fixes.
     await page.waitForTimeout(1500);
-    const rowNow = await db.from('classes').select('id').eq('name', name).maybeSingle();
-    if (!rowNow.data) {
+
+    // FACTS 3 and 4, and the uniqueness proof.
+    //
+    // Deliberately select ALL rows with this name rather than maybeSingle():
+    // maybeSingle() collapses "no rows" and "more than one row" into the same
+    // null the assertion was seeing, so it could never have told those apart.
+    // Listing them proves the test is reading the row THIS test created, and
+    // not a stale or duplicate one.
+    const all = await db.from('classes').select('id, institution_id, name').eq('name', name);
+    const rows = all.data ?? [];
+    if (rows.length !== 1 || rows[0].institution_id !== institutionId) {
       const submit = page.getByRole('button', { name: 'Create class', exact: true });
       throw new Error(
-        `class "${name}" was not written. ` +
-          `net=[${netNotes.join(' | ') || 'NO /rest/v1/classes REQUEST AT ALL'}] ` +
-          `console=[${consoleErrors.join(' | ') || 'none'}] ` +
-          `submitDisabled=${await submit.isDisabled().catch(() => 'gone')} ` +
+        `CLASS-CREATE DIAGNOSIS for "${name}":\n` +
+          `  1 UI select before Save : ${selBefore} (expected ${institutionId})\n` +
+          `  2 network               : ${netNotes.join(' | ') || 'NO /rest/v1/classes REQUEST AT ALL'}\n` +
+          `  3 rows in postgres      : ${rows.length} -> ${JSON.stringify(rows)}\n` +
+          `  4 query error           : ${JSON.stringify(all.error)}\n` +
+          `  console                 : ${consoleErrors.join(' | ') || 'none'}\n` +
+          `  submitDisabled=${await submit.isDisabled().catch(() => 'gone')} ` +
           `modalOpen=${await page.locator('.modal, [role="dialog"]').count()}`,
       );
     }
