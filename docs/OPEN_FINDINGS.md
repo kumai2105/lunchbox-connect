@@ -126,3 +126,26 @@ reclaimed. The Founder holds a copy; retention is on them.
 
 Supabase Pro daily backups cover the project going forward, but that is a
 different thing from this specific pre-migration point.
+
+## 5. `app_users_select` carries the same self-referencing shape as the two policies 0040 fixed
+
+`app_users_select` is `using (app_can_see_user(user_id))`, and
+`app_can_see_user()` re-reads `app_users` (`select institution_id from
+app_users target where target.user_id = p_user`, and the linked-guardian
+branch joins `app_users target` again). That is structurally the same defect
+0040 corrected on `classes_select` and `students_select`: under
+`INSERT ... RETURNING` the new row is not visible to the function's snapshot,
+the SELECT check fails, and the whole statement is rolled back with
+`42501 new row violates row-level security policy`.
+
+**Not fixed, deliberately.** Nothing in the client inserts into `app_users` —
+accounts are provisioned by the `admin-create-user` Edge Function under the
+service role, which bypasses RLS entirely — so there is no reachable failure
+and no reproduced defect to correct. 0040 changed only the two policies with a
+demonstrated user-facing failure behind them.
+
+**What would make this live:** any future code path that creates an
+`app_users` row as `authenticated` with a readback (`.insert(...).select()`).
+If that is ever added, this policy must be rewritten the same way first —
+pass the row's own columns into a SECURITY DEFINER helper instead of
+re-reading the row by id.
