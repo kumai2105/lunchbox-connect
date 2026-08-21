@@ -28,7 +28,12 @@ test.describe('classroom serving screen (docs/13 Decision 032 — fast tablet wo
     await expect(page.locator('.focus-name')).not.toBeEmpty();
 
     // Fast path: tap 75% eaten, then a behaviour — auto-saves and advances.
-    await page.getByRole('button', { name: '75% eaten' }).click();
+    // exact: true throughout. Accessible-name matching is SUBSTRING by default,
+    // so { name: '0% eaten' } also matches "50% eaten" and "100% eaten" and
+    // fails strict mode. '75% eaten' happens to be unique, which is exactly why
+    // this line passed while the 0% one below did not — the same latent bug
+    // simply had no collision here.
+    await page.getByRole('button', { name: '75% eaten', exact: true }).click();
     await page.getByRole('button', { name: 'Ate independently' }).click();
 
     // The recorded student's roster chip shows the "recorded ok" icon badge
@@ -58,7 +63,7 @@ test.describe('classroom serving screen (docs/13 Decision 032 — fast tablet wo
     // Normal children never see a reason selector until intake is low.
     await expect(page.getByRole('button', { name: "Didn't like it" })).toHaveCount(0);
 
-    await page.getByRole('button', { name: '0% eaten' }).click();
+    await page.getByRole('button', { name: '0% eaten', exact: true }).click();
     await page.getByRole('button', { name: 'Refused' }).click();
 
     // Now the low-intake reason selector appears (exception-first design).
@@ -82,13 +87,46 @@ test.describe('classroom serving screen (docs/13 Decision 032 — fast tablet wo
     await expect(page.locator('.focus-name')).not.toBeEmpty();
 
     // The exception row is always available and needs no % or behaviour first.
-    await expect(page.getByRole('button', { name: 'Absent' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Unwell' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Sleeping' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Absent', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Unwell', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sleeping', exact: true })).toBeVisible();
 
-    // One tap records it and advances — no contradictory behaviour is possible.
-    await page.getByRole('button', { name: 'Absent' }).click();
-    await expect(page.locator('.roster-chip').first().locator('.status-badge')).not.toHaveText('');
+    // Act on a student NOBODY ELSE IN THIS FILE has recorded. The suite runs
+    // serially against one seeded database, so the first roster entry already
+    // carries a result from the test above — the old assertion was reading a
+    // badge that an earlier test had set, and could not tell whether this test
+    // had changed anything at all. An unrecorded chip renders '·'.
+    const fresh = page.locator('.roster-chip', { hasText: '·' }).first();
+    await fresh.click();
+
+    // One tap records it — no % and no behaviour first.
+    await page.getByRole('button', { name: 'Absent', exact: true }).click();
+
+    // The badge stops being the unrecorded dot and takes a state class. It is
+    // NOT asserted to be any particular icon: saveException writes
+    // served_status 'served' with behavior null, which the badge derivation
+    // renders as checkCircle. Pinning the icon here would freeze a presentation
+    // choice rather than test the rule.
+    //
+    // (The previous assertion, `not.toHaveText('')`, was inverted: a recorded
+    // badge holds an SVG and therefore NO text, while an unrecorded one holds
+    // '·'. It could only ever pass for a student who had not been recorded.)
+    await expect(fresh.locator('.status-badge')).toHaveClass(/sb-/);
+
+    // The substance of §6, asserted where no icon choice can blur it: the row
+    // exists with the exception reason and with NO eating behaviour and NO
+    // consumption figure attached to it.
+    const db = adminDb();
+    const { data } = await db
+      .from('serving_records')
+      .select('behavior, consumption_pct, low_intake_reason')
+      .eq('class_id', s.classForServing)
+      .eq('low_intake_reason', 'absent');
+    expect((data ?? []).length).toBeGreaterThan(0);
+    for (const row of data ?? []) {
+      expect(row.behavior).toBeNull();
+      expect(row.consumption_pct).toBeNull();
+    }
   });
 
   test('a period with NO published Meal is never offered for recording', async ({ page }) => {
