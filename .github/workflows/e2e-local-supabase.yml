@@ -97,6 +97,34 @@ jobs:
           psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c \
             "select version, name from supabase_migrations.schema_migrations order by version;"
 
+      # DIAGNOSTIC: who actually holds privileges on the core tables here?
+      #
+      # The migrations never GRANT anything to `service_role`; they rely on the
+      # platform's default privileges in `public`. Hosted Supabase supplies
+      # those, and tests/sql/00_supabase_shim.sql replicates them for the local
+      # PostgreSQL harness. If this stack does not, the seeder's service-role
+      # writes fail with "permission denied for table institutions" — which is
+      # exactly what runs 2 and 3 produced. Print the ground truth rather than
+      # infer it.
+      - name: Diagnostic — privileges and default ACLs on the local stack
+        run: |
+          PSQL="psql postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          echo "--- role_table_grants on public.institutions ---"
+          $PSQL -c "select grantee, string_agg(privilege_type, ',' order by privilege_type) as privs
+                      from information_schema.role_table_grants
+                     where table_schema='public' and table_name='institutions'
+                     group by grantee order by grantee;"
+          echo "--- default ACLs in schema public ---"
+          $PSQL -c "select pg_get_userbyid(defaclrole) as owner_role, defaclobjtype, defaclacl
+                      from pg_default_acl d
+                      join pg_namespace n on n.oid = d.defaclnamespace
+                     where n.nspname = 'public';"
+          echo "--- table owner + rolbypassrls for the API roles ---"
+          $PSQL -c "select tableowner from pg_tables where schemaname='public' and tablename='institutions';"
+          $PSQL -c "select rolname, rolbypassrls, rolsuper from pg_roles
+                     where rolname in ('anon','authenticated','service_role','postgres','supabase_admin')
+                     order by rolname;"
+
       # Resolve the stack's runtime values and mask the keys before they can
       # appear in any later log line.
       - name: Resolve local API URL and keys
