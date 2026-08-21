@@ -35,9 +35,53 @@ import {
 
 export type ApiResult<T> = { data: T | null; error: string | null };
 
+/**
+ * Turn whatever the data layer rejected with into text a human can act on.
+ *
+ * PostgREST does NOT hand back an Error on the `{ data, error }` path. Reading
+ * @supabase/postgrest-js `processResponse`, a failed request does literally
+ * `error = JSON.parse(await res.text())` — a PLAIN OBJECT shaped
+ * `{ message, details, hint, code }`. `error instanceof Error` is therefore
+ * false for every database refusal the app can encounter, and the previous
+ * `String(error)` fallback rendered all of them as the literal text
+ * "[object Object]".
+ *
+ * That is not a cosmetic problem. Every one of the err() call sites below
+ * feeds a Banner the user reads, so an RLS refusal, a constraint violation and
+ * a network fault were indistinguishable to the operator AND to anyone
+ * diagnosing a failure — a real class-creation refusal was reported as
+ * "[object Object]" for five diagnosis rounds with its cause erased.
+ *
+ * message, details and hint are joined because PostgREST routinely puts the
+ * actionable half in `details` ("Key (institution_id)=(…) is not present in
+ * table …") while `message` carries only the class of fault. The SQLSTATE is
+ * appended so a refusal can be identified exactly (42501 = RLS, 23503 = FK,
+ * 23505 = unique) rather than inferred from prose.
+ */
+export function messageOf(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object') {
+    const e = error as Partial<Record<'message' | 'details' | 'hint' | 'code', unknown>>;
+    const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+    const parts = [text(e.message), text(e.details), text(e.hint)].filter(
+      (x): x is string => x !== null,
+    );
+    const code = text(e.code);
+    if (parts.length) return code ? `${parts.join(' — ')} [${code}]` : parts.join(' — ');
+    // Never fall through to String(): an unrecognised object must still say
+    // something, and its own JSON is infinitely more useful than "[object Object]".
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return 'an unidentifiable error object was returned';
+    }
+  }
+  return String(error);
+}
+
 function err<T>(error: unknown): ApiResult<T> {
-  const message = error instanceof Error ? error.message : String(error);
-  return { data: null, error: message };
+  return { data: null, error: messageOf(error) };
 }
 
 // ---------------------------------------------------------------- institutions

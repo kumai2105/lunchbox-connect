@@ -399,6 +399,75 @@ jobs:
       # A green suite that ran zero tests is the failure mode this gate exists to
       # prevent: global-setup RETURNS EARLY and skips everything when the env is
       # missing. Assert the real numbers instead of trusting the exit code.
+      # Reproduce the class-insert refusal AT THE DATABASE, as the very user the
+      # browser was signed in as.
+      #
+      # The browser run proved: correct institution in the select, correct
+      # institution_id in the POST body, and PostgREST answering
+      #   403 {"code":"42501","message":"new row violates row-level security
+      #        policy for table \"classes\""}
+      # with zero rows written. That is a WITH CHECK failure on classes_insert,
+      # so app_can_manage_institution(institution_id) returned FALSE for a
+      # Super Admin — which reading 0003/0015 says is impossible. When the
+      # source and the server disagree, the server is right; this step asks it
+      # directly instead of reasoning about it again.
+      - name: Diagnostic — reproduce the classes INSERT refusal as the E2E Super Admin
+        if: always()
+        run: |
+          PSQL="psql postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          echo "--- policies on public.classes ---"
+          $PSQL -c "select policyname, cmd, permissive, roles, qual, with_check
+                      from pg_policies where schemaname='public' and tablename='classes'
+                     order by policyname;"
+          echo "--- app_can_manage_institution definition as the server holds it ---"
+          $PSQL -c "select pg_get_functiondef(p.oid) from pg_proc p
+                      join pg_namespace n on n.oid=p.pronamespace
+                     where n.nspname='public' and p.proname='app_can_manage_institution';"
+          echo "--- the fixture Super Admin row ---"
+          $PSQL -c "select user_id, role, institution_id, email from public.app_users
+                     where email='e2e.super-admin@lunchbox.app';"
+          echo "--- evaluate the WITH CHECK expression AS that user ---"
+          $PSQL -v ON_ERROR_STOP=0 <<'SQL'
+          do $$
+          declare
+            uid uuid;
+            inst uuid;
+            claims text;
+            ok boolean;
+          begin
+            select user_id into uid from public.app_users where email='e2e.super-admin@lunchbox.app';
+            select id into inst from public.institutions order by name limit 1;
+            raise notice 'uid=% inst=%', uid, inst;
+            claims := json_build_object('sub', uid, 'role', 'authenticated')::text;
+            perform set_config('request.jwt.claims', claims, true);
+            perform set_config('role', 'authenticated', true);
+            raise notice 'auth.uid() sees %', auth.uid();
+            select public.app_can_manage_institution(inst) into ok;
+            raise notice 'app_can_manage_institution(inst) = %', ok;
+            select public.app_is_super_admin() into ok;
+            raise notice 'app_is_super_admin() = %', ok;
+          end $$;
+          SQL
+          echo "--- attempt the real INSERT as authenticated, capture the error ---"
+          $PSQL -v ON_ERROR_STOP=0 <<'SQL'
+          do $$
+          declare
+            uid uuid;
+            inst uuid;
+          begin
+            select user_id into uid from public.app_users where email='e2e.super-admin@lunchbox.app';
+            select id into inst from public.institutions order by name limit 1;
+            perform set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
+            set local role authenticated;
+            begin
+              insert into public.classes (institution_id, name) values (inst, 'psql-probe-' || extract(epoch from now())::bigint);
+              raise notice 'INSERT SUCCEEDED as authenticated';
+            exception when others then
+              raise notice 'INSERT REFUSED: % / %', sqlstate, sqlerrm;
+            end;
+          end $$;
+          SQL
+
       - name: Assert every test executed, 0 failed, 0 skipped
         if: always()
         run: |
