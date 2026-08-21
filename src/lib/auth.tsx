@@ -9,13 +9,18 @@ interface AuthState {
   /** The auth SESSION is still being restored. Says nothing about the profile. */
   loading: boolean;
   /**
-   * The app_users PROFILE is still being fetched.
+   * The app_users PROFILE for the CURRENT session has not arrived yet.
    *
-   * This is separate from `loading` on purpose, and the distinction is load
-   * bearing. `loading` only ever covered getSession(); it is already false the
-   * moment a sign-in returns, while `profile` — and therefore the role — is
-   * still null for at least one render. Anything that routes on the role in
-   * that window is routing on a value that has not arrived yet.
+   * Separate from `loading` on purpose, and the distinction is load bearing.
+   * `loading` only ever covered getSession(); it is already false the moment a
+   * sign-in returns, while `profile` — and therefore the role — is still null.
+   * Anything that routes on the role in that window routes on a value that has
+   * not arrived.
+   *
+   * It is DERIVED during render rather than set by the fetching effect,
+   * because an effect runs only after the render that first observes the new
+   * session — and that render is precisely the one that decides where to send
+   * the user. A flag set inside the effect is still false when it matters.
    */
   profileLoading: boolean;
   /** Set when the auth service itself was unreachable, so the UI can say so. */
@@ -29,9 +34,14 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<AppUser | null>(null);
+  // Which user the value in `profile` describes. Comparing it to the live
+  // session id is what makes "profile known" answerable synchronously.
+  const [profileFor, setProfileFor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [profileLoading, setProfileLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+
+  const userId = session?.user?.id ?? null;
+  const profileLoading = userId !== null && profileFor !== userId;
 
   useEffect(() => {
     let active = true;
@@ -68,37 +78,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    if (!session?.user) {
+    if (!userId) {
       setProfile(null);
-      setProfileLoading(false);
+      setProfileFor(null);
       return;
     }
-
-    // Mark the profile in flight BEFORE awaiting. A consumer that renders
-    // between the session arriving and this fetch settling would otherwise see
-    // profileLoading === false with profile === null, which reads as "this user
-    // has no role" rather than "the role is not known yet".
-    setProfileLoading(true);
 
     void (async () => {
       const { data } = await supabase
         .from('app_users')
         .select('*')
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
         .maybeSingle();
-      if (active) setProfile((data as AppUser | null) ?? null);
-    })()
-      .catch(() => {
-        if (active) setProfile(null);
-      })
-      .finally(() => {
-        if (active) setProfileLoading(false);
-      });
+      if (!active) return;
+      // Both together: the profile and the identity it belongs to. Setting
+      // `profileFor` is what flips profileLoading false, so it must never
+      // happen before the value it vouches for is in place.
+      setProfile((data as AppUser | null) ?? null);
+      setProfileFor(userId);
+    })().catch(() => {
+      if (!active) return;
+      // A failed lookup has still SETTLED. Record it against this user so the
+      // app stops waiting; it now means "no profile", not "not known yet".
+      setProfile(null);
+      setProfileFor(userId);
+    });
 
     return () => {
       active = false;
     };
-  }, [session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   async function signIn(email: string, password: string): Promise<string | null> {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
