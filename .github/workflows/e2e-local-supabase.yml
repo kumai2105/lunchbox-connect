@@ -10,8 +10,14 @@ name: E2E (ephemeral local Supabase)
 # THIS repository's supabase/config.toml and migrations 0001..NNNN, runs the
 # suite against it, and throws it away. Nothing outside the runner is touched.
 #
-# Manual dispatch only: it is a release gate you run deliberately, not something
-# that fires on every push.
+# Triggers. `workflow_dispatch` is the intended way to run this — but GitHub only
+# registers a dispatchable workflow from the DEFAULT branch, and this file does
+# not exist on main. Until it does, the dispatch entry is inert and the
+# branch-scoped push trigger below is what actually runs the gate. Both are kept
+# so that the moment this file reaches main, manual runs work with no edit.
+#
+# The push trigger is deliberately scoped to the release-candidate branch. It
+# builds and tests only; it deploys nothing.
 on:
   workflow_dispatch:
     inputs:
@@ -20,6 +26,8 @@ on:
         required: true
         default: 'claude/new-session-k5dd5u'
         type: string
+  push:
+    branches: [claude/new-session-k5dd5u]
 
 concurrency:
   group: e2e-local-supabase
@@ -39,11 +47,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          # inputs.ref is empty on a push event; fall back to the pushed commit.
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Record the exact tree under test
         run: |
-          echo "ref input : ${{ inputs.ref }}"
+          echo "ref input : ${{ inputs.ref || github.sha }}"
           echo "commit    : $(git rev-parse HEAD)"
           echo "migrations: $(ls supabase/migrations/*.sql | wc -l) files, newest $(ls supabase/migrations/*.sql | sed 's#.*/##' | sort | tail -1)"
 
