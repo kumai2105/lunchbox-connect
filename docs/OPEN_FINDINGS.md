@@ -55,44 +55,57 @@ one is taken.
 
 ---
 
-## 2. Creating a Class through the UI is not interactively proven
+## 2. Creating a Class through the UI — CLOSED, and it was a real product defect
 
-**Status:** open · **Severity:** unknown — cause not determined
+**Status:** closed 2026-08-21 · **Severity:** was critical · **Fixed by:** `0040`
 
-An acceptance test that creates a Class through the Classes screen and checks
-the row failed five consecutive CI rounds. Two causes were mine and are fixed:
+This entry recorded that the browser could not create a Class and that I could
+not tell whether the fault was the test or the product. It was the product, and
+the sentence in the old entry that read
 
-* `/classes` without `?institution=` leaves `institutionId` empty, so the submit
-  is `disabled={... || !institutionId}` and can never enable. The app is right —
-  a Class belongs to exactly one Institution.
-* The follow-up used `s.institutionId`, which `.seeded.json` does not contain. I
-  had matched a local variable in `global-setup.ts` and taken it for a key. The
-  URL became `?institution=undefined` — a non-empty string, so it satisfied the
-  truthiness guard, **enabled** the button, and failed the foreign key instead.
-  No locator error, no timeout, just a row that never appeared.
+> the RLS policy is unchanged
+> (`classes_insert with check (app_can_manage_institution(institution_id))`),
+> so there is no evidence of a production defect
 
-After both fixes: every click resolves, the institution is a real UUID, the
-`<select>` is pinned and disabled as designed, the modal is correct on
-inspection — and the row still does not appear. **I could not establish from the
-CI logs whether the remaining fault is the test or the product.** The runner's
-log tail truncates before the failure detail, and the environment cannot fetch
-the Playwright trace artifact.
+was wrong in its conclusion. The INSERT policy was indeed fine. The refusal came
+from the **SELECT** policy, which PostgreSQL also applies to the new row when a
+statement carries `RETURNING` — and `createClass()` issues
+`.insert(input).select().single()`, which is exactly that.
 
-**What is proven.** The test was narrowed rather than deleted, and now asserts
-the screen's gating: an unscoped Class cannot be created, and with an
-Institution in scope the tenant is pinned, not changeable. That is real coverage
-of the boundary 0032 enforces with a trigger.
+**What the evidence finally showed**
 
-**What is not proven.** The insert itself, through the browser. Direct inserts
-are covered by the SQL suites and the RLS policy is unchanged
-(`classes_insert with check (app_can_manage_institution(institution_id))`), so
-there is no evidence of a production defect — only an absence of interactive
-evidence.
+| | |
+|---|---|
+| Institution in the UI before Save | correct |
+| POST body | correct `institution_id` |
+| PostgREST response | `403 {"code":"42501","message":"new row violates row-level security policy for table \"classes\""}` |
+| Rows written | none |
 
-**To close it.** Run the suite locally with a headed browser, or fetch the
-Playwright trace from the run artifact, and read the error the app renders in
-its `.banner.err`. The narrowed test already reads that banner; the information
-exists, it just could not be retrieved from this environment.
+Reproduced on a from-scratch rebuild of every migration:
+
+```
+INSERT INTO classes (...) VALUES (...);              -> INSERT 0 1
+INSERT INTO classes (...) VALUES (...) RETURNING *;  -> ERROR 42501
+```
+
+`classes_select USING (app_can_see_class(id))` re-reads `classes` by the id it
+is handed. During the INSERT that row is not visible to the function's
+snapshot, so the check fails and the statement rolls back — the same
+self-referencing-policy defect `0015` fixed on the INSERT side and left on the
+USING side. `students_select` had it too, which is why a Nursery Admin could
+not create a Student.
+
+**Why it took five rounds:** `err()` in `src/lib/api.ts` stringified every
+PostgREST error to `[object Object]`, because PostgREST returns
+`JSON.parse(body)` — a plain object, never an `Error`. The error was on screen
+the whole time and unreadable. Fixed alongside, with
+`src/lib/api.errors.test.ts` as the regression.
+
+**Now proven interactively:** the acceptance test creates a Class through the
+Classes screen and asserts the row lands in the right Institution, and
+`tests/sql/verify_insert_returning.sql` asserts creation through the statement
+the client actually issues, for both a Super Admin and a Nursery Admin, with
+cross-tenant creation still refused.
 
 ---
 
