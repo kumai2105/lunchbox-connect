@@ -20,7 +20,7 @@ Reproduce: `./tests/sql/run_verification.sh` then
 > overtaken by the release itself and are corrected here rather than edited in
 > place:
 >
-> 1. **Browser E2E is no longer blocked.** All **27 tests pass** on
+> 1. **Browser E2E is no longer blocked.** All **33 tests pass** on
 >    `.github/workflows/e2e-local-supabase.yml` against an ephemeral local
 >    Supabase stack on the GitHub runner. §5 below describes why they could not
 >    run *in the authoring sandbox*, which remains true and is not a release
@@ -298,7 +298,16 @@ no `continue-on-error`, and that the triggers remain `workflow_dispatch` + `v*`.
 
 ---
 
-## 5. BLOCKED_BY_ENVIRONMENT
+## 5. BLOCKED_BY_ENVIRONMENT *(superseded — see below)*
+
+> **SUPERSEDED 2026-08-21.** The browser suite is no longer blocked anywhere
+> that matters. It runs on `.github/workflows/e2e-local-supabase.yml` against an
+> ephemeral local Supabase stack on a GitHub runner, and now stands at
+> **33 tests across 7 specs, 33 PASS / 0 FAIL / 0 skipped / 0 flaky** — the
+> original 27 plus 6 tablet and mobile tests added in the final acceptance pass.
+> What remains true is only the narrow statement that follows: this *authoring
+> sandbox* cannot reach `*.supabase.co`. That is a property of the authoring
+> environment, not a limitation of the release.
 
 - **The 27 Playwright tests IN THIS SANDBOX** — 6 specs: `login.roles` (10),
   `serving` (4), `parent-portal` (3), `rls` (4), `schedule` (3), `status` (3).
@@ -319,10 +328,14 @@ account editing/deactivation; cross-institution Student/Class transfer;
 per-institution timezones; production lock before serving;
 Packing/Dispatch/Delivery; multi-kitchen routing.
 
-## 7. Production — unchanged; nothing pushed
+## 7. Production — unchanged; nothing pushed *(superseded)*
 
-*(Superseded 2026-08-21 — see the status addendum at the top. Production now
-holds every migration through `0039`.)*
+> **SUPERSEDED 2026-08-21.** This section describes the state on 2026-08-20 and
+> is kept as the record of that day. It is no longer current in any respect:
+> production holds every migration through **`0039`**, the frontend is deployed
+> and serving at `https://lunchbox-connect.koumai-2105.workers.dev`, and the
+> branch is pushed. The authoritative current-state document is
+> `docs/RELEASE_2026-08-21.md`.
 
 Migrations `0021`–`0037` are not applied. `scripts/PRODUCTION_APPLY.md` remains
 ledger-first: inspect the production migration ledger, then apply only the

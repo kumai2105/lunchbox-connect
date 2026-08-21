@@ -36,7 +36,7 @@ this repository alone.
      rewritten or deleted from any client session.
 
 3. **Live boundary tests (where Supabase egress is available)**
-   - `pnpm test:e2e` with seeded accounts — **6 specs, 27 tests**, all of which
+   - `pnpm test:e2e` with seeded accounts — **7 specs, 33 tests**, all of which
      must pass: `login.roles` (10), `serving` (4), `parent-portal` (3), `rls` (4),
      `schedule` (3), `status` (3). This list previously omitted `schedule`
      entirely, so a verifier reading it would have signed off on five of the six

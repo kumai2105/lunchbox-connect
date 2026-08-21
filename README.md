@@ -3,7 +3,9 @@
 [![CI](https://github.com/Kumai2105/lunchbox-connect/actions/workflows/ci.yml/badge.svg)](https://github.com/Kumai2105/lunchbox-connect/actions)
 
 **Live:** https://lunchbox-connect.koumai-2105.workers.dev — released
-2026-08-21 against production schema `0039`. The full release record, with the
+2026-08-21 against production schema `0039`. **Before real meals can flow, six
+business decisions must be entered in the app — see
+`docs/FOUNDER_GO_LIVE_CHECKLIST.md`.** The full release record, with the
 executed evidence and the open items, is `docs/RELEASE_2026-08-21.md`.
 
 Institutional child-nutrition operations platform. One authoritative system
@@ -94,7 +96,7 @@ pnpm test:e2e
 The global setup seeds its own namespaced users/data idempotently (never your
 real data) on the current architecture — Meal → Menu → published Meal Service →
 class_staff → Classroom record → Parent result — and writes
-`tests/e2e/.seeded.json` (gitignored). 6 specs, **27 tests** — `login.roles` is
+`tests/e2e/.seeded.json` (gitignored). 7 specs, **33 tests** — `login.roles` is
 parameterised over the nine role domains, so it contributes 10 of them. Take the
 number from `pnpm exec playwright test --list` rather than from any document.
 
