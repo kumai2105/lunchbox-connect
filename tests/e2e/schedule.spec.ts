@@ -19,7 +19,7 @@ test.describe('Institution published schedule (read-only)', () => {
 
     await page.goto('/schedule');
     await expect(page).toHaveURL(/\/schedule/);
-    await expect(page.getByText('Published menu')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Published menu' })).toBeVisible();
 
     // The fixture publishes breakfast + lunch for TODAY at this institution.
     await expect(page.getByText('E2E overnight oats').first()).toBeVisible();
@@ -33,7 +33,7 @@ test.describe('Institution published schedule (read-only)', () => {
     const s = seeded();
     await login(page, s.schoolAdminEmail);
     await page.goto('/schedule');
-    await expect(page.getByText('Published menu')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Published menu' })).toBeVisible();
 
     // Menu authorship stays with the Super Admin: nothing here creates, edits
     // or publishes, and the Menu Builder route remains closed to this role.

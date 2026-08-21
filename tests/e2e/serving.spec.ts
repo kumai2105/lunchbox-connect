@@ -75,7 +75,11 @@ test.describe('classroom serving screen (docs/13 Decision 032 — fast tablet wo
     const s = seeded();
     await login(page, s.classroomEmail);
     await page.goto(`/today?class=${s.classForServing}`);
-    await expect(page.locator('.focus-name')).toContainText('Serving');
+    // Same as the tests above — the roster orders by family name, so naming a
+    // student here asserts a sort order the app never promised. (I corrected
+    // two of these three occurrences last pass and missed this one.)
+    await expect(page.locator('.roster-chip').first()).toHaveClass(/active/);
+    await expect(page.locator('.focus-name')).not.toBeEmpty();
 
     // The exception row is always available and needs no % or behaviour first.
     await expect(page.getByRole('button', { name: 'Absent' })).toBeVisible();
@@ -87,46 +91,43 @@ test.describe('classroom serving screen (docs/13 Decision 032 — fast tablet wo
     await expect(page.locator('.roster-chip').first().locator('.status-badge')).not.toHaveText('');
   });
 
-  test('a period with NO published Meal cannot be recorded — UI, controls and RPC', async ({
-    page,
-  }) => {
+  test('a period with NO published Meal is never offered for recording', async ({ page }) => {
     const s = seeded();
-    // The seed publishes BREAKFAST and LUNCH for today at this institution, and
-    // deliberately nothing for the afternoon snack. That period is the negative
-    // condition. (This test previously only asserted the Today page loaded,
-    // which the page does whether or not anything is published.)
+
+    // WHAT THIS TEST USED TO ASSUME, AND WHY IT WAS WRONG
+    //
+    // It navigated to `?period=afternoon_snack` and expected the register to
+    // sit on that unpublished period showing "No published Meal is available".
+    // TodayPage does neither, deliberately:
+    //
+    //   * it never reads `period` from the URL — the period is component state
+    //     that starts at breakfast;
+    //   * an effect actively keeps the selection on a published period
+    //     ("never leave the register pointed at an unpublished slot");
+    //   * that empty state is the DAY-level case — nothing published at all —
+    //     not the per-period one.
+    //
+    // So the state the test demanded is unreachable BY DESIGN, and the test was
+    // failing the app for refusing to enter it. What §2/§35 actually guarantees
+    // is that an unpublished period is never OFFERED, which is the stronger
+    // property: you cannot record against a meal that does not exist because
+    // you can never select it.
     await login(page, s.classroomEmail);
-    await page.goto(`/today?class=${s.classForServing}&period=afternoon_snack`);
+    await page.goto(`/today?class=${s.classForServing}`);
 
-    // 1. The UI says so plainly, in role-correct terms.
-    await expect(page.getByText(/No published Meal is available/i)).toBeVisible();
+    // The seed publishes Breakfast and Lunch today and deliberately nothing for
+    // the afternoon snack.
+    await expect(page.locator('.period-btn', { hasText: 'Breakfast' })).toBeVisible();
+    await expect(page.locator('.period-btn', { hasText: 'Lunch' })).toBeVisible();
 
-    // 2. No recording control is offered for that period.
-    for (const label of [/^100%$/, /^75%$/, /^50%$/, /^25%$/, /^0%$/, /Not served/i]) {
-      await expect(page.getByRole('button', { name: label })).toHaveCount(0);
-    }
+    // The negative condition: the unpublished period is absent from the bar.
+    await expect(page.locator('.period-btn', { hasText: 'Afternoon snack' })).toHaveCount(0);
 
-    // 3. A DIRECT RPC call is refused by the database, not merely hidden.
-    const rpc = await page.evaluate(async () => {
-      const w = window as unknown as {
-        __sb?: { rpc: (fn: string, args: unknown) => Promise<{ error: { message: string } | null }> };
-      };
-      if (!w.__sb) return { skipped: true as const };
-      const res = await w.__sb.rpc('record_serving_batch', {
-        p_class: null,
-        p_rows: [],
-        p_date: null,
-      });
-      return { skipped: false as const, error: res.error?.message ?? null };
-    });
-    // The page does not expose its Supabase client, so the direct-write proof
-    // lives in SQL where it can attack the real boundary:
-    // tests/sql/verify_correction_order.sql asserts that recording a period
-    // with nothing published raises check_violation, and
-    // verify_db_boundary.sql asserts raw serving_records INSERT is revoked.
-    expect(rpc.skipped || rpc.error !== null).toBeTruthy();
-
-    // 4. Nothing was created for that period.
+    // And nothing exists for it in the database either. The direct-write proof
+    // lives in SQL, where it can attack the real boundary rather than a UI that
+    // has already hidden the control: verify_correction_order.sql asserts that
+    // recording a period with nothing published raises check_violation, and
+    // verify_db_boundary.sql asserts a raw serving_records INSERT is revoked.
     const db = adminDb();
     const { data } = await db
       .from('serving_records')

@@ -29,7 +29,9 @@ test.describe('AT-030 / AT-031 — role isolation', () => {
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByText('Institutions — serving today')).toBeVisible();
     await page.goto('/users');
-    await expect(page.getByText('Users & roles')).toBeVisible();
+    // Level 1: the Layout repeats every page title as a topbar <h2>, so a bare
+    // text lookup matches both it and the page's own <h1> and fails strict mode.
+    await expect(page.getByRole('heading', { level: 1, name: 'Users & roles' })).toBeVisible();
   });
 
   test('a Nursery Admin can reach the institution-scoped Staff screen (§4)', async ({ page }) => {
@@ -45,6 +47,13 @@ test.describe('AT-030 / AT-031 — role isolation', () => {
     const s = seeded();
     await login(page, s.superAdminEmail);
     await page.goto('/today');
-    await expect(page.getByText('Select a class…')).toBeVisible();
+    // The placeholder is an <option> inside a closed <select>. Playwright does
+    // not consider options visible — they have no layout box until the select
+    // is opened — so toBeVisible() on it could never pass. Assert the picker
+    // itself is on screen and that it leads with the placeholder, which is what
+    // "opens on a class picker" actually means.
+    const picker = page.getByRole('combobox').first();
+    await expect(picker).toBeVisible();
+    await expect(picker.locator('option').first()).toHaveText('Select a class…');
   });
 });

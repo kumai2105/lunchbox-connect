@@ -359,9 +359,11 @@ jobs:
               # minutes, so surfacing a single failure per cycle turns one
               # afternoon's diagnosis into four. The names of every failure are
               # in the summary above; these are the details behind them.
-              echo "----- first four failures in detail -----"
-              awk '/^ *[0-9]+\) /{n++} n>=1 && n<=4' /tmp/e2e.log | head -160
-              echo "-----------------------------------------"
+              # head -160 truncated this to barely one failure last run, which
+              # defeated the point of widening it. Six failures, generous cap.
+              echo "----- first six failures in detail -----"
+              awk '/^ *[0-9]+\) /{n++} n>=1 && n<=6' /tmp/e2e.log | head -400
+              echo "----------------------------------------"
             fi
           fi
           [ -f /tmp/e2e.json ] || { echo "::error::No Playwright JSON report was produced — the suite did not run."; exit 1; }
