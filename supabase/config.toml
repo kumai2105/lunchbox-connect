@@ -11,15 +11,20 @@ additional_redirect_urls = []
 enable_signup = false
 
 [auth.email]
-# Sign-UP is closed on purpose: accounts are created by an admin through the
-# Edge Function, never by public self-registration.
-enable_signup = false
-# Sign-IN must still work — every account signs in with email + password, which
-# is how all nine roles reach the app. Without this the local stack answers
-# "Email logins are disabled" and nobody can log in at all. Production has the
-# email provider enabled in its own dashboard settings; this line makes a
-# CLI-built stack match it instead of silently diverging.
-enabled = true
+# `[auth.email].enable_signup` does NOT mean "allow registration" here — in the
+# CLI it gates the email PROVIDER itself, so setting it false turned off email
+# logins entirely and the stack answered "Email logins are disabled" to every
+# sign-in. Adding `enabled = true` alongside it did not override that.
+#
+# Public self-registration is still closed, by `[auth] enable_signup = false`
+# above: that is the flag that maps to GoTrue's DISABLE_SIGNUP. Accounts are
+# still created only by an admin through the Edge Function.
+#
+# The provider has to be on because every account — all nine roles — reaches the
+# app by signing in with email and password. Production has it enabled in its
+# own dashboard settings; this makes a CLI-built stack match rather than
+# silently diverge.
+enable_signup = true
 
 [functions.admin-create-user]
 verify_jwt = true

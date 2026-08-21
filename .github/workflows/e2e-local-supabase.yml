@@ -268,6 +268,25 @@ jobs:
             echo "::warning::admin-create-user is not served locally (HTTP $CODE). Browser flows that provision accounts would fail; the rest of the suite is unaffected."
           fi
 
+      # Every one of the 19 tests signs in with email and password, so the auth
+      # provider being off blocks the whole suite. GoTrue publishes its own
+      # effective settings; assert against those rather than against what
+      # config.toml appears to say — the mapping from config keys to GoTrue
+      # flags is not obvious and I have already been wrong about it twice.
+      - name: Assert email sign-in is actually enabled
+        run: |
+          SETTINGS=$(curl -sf "$E2E_SUPABASE_URL/auth/v1/settings" -H "apikey: $E2E_SUPABASE_ANON_KEY" || echo '{}')
+          echo "GoTrue settings: $SETTINGS"
+          EMAIL_ON=$(printf '%s' "$SETTINGS" | jq -r '.external.email // "unknown"')
+          SIGNUP_OFF=$(printf '%s' "$SETTINGS" | jq -r '.disable_signup // "unknown"')
+          echo "external.email = $EMAIL_ON  (must be true — all 19 tests sign in)"
+          echo "disable_signup = $SIGNUP_OFF (should be true — accounts are admin-created)"
+          [ "$EMAIL_ON" = "true" ] || {
+            echo "::error::Email sign-in is disabled on this stack (external.email=$EMAIL_ON). Every spec signs in with a password, so the whole suite is blocked. Check [auth.email] in supabase/config.toml."
+            exit 1
+          }
+          echo "Email sign-in is enabled."
+
       - name: Cache Playwright browsers
         id: pw-cache
         uses: actions/cache@v4
