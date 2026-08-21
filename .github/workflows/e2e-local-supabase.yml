@@ -110,11 +110,44 @@ jobs:
           echo "::add-mask::$SERVICE"
           [ -n "$API_URL" ] && [ "$API_URL" != "null" ] || { echo "::error::Could not resolve the local API URL."; exit 1; }
           echo "Local API URL: $API_URL"
+          echo "status fields: $(jq -r 'keys[]' /tmp/status.json | tr '\n' ' ')"
           {
             echo "E2E_SUPABASE_URL=$API_URL"
             echo "E2E_SUPABASE_ANON_KEY=$ANON"
             echo "E2E_SUPABASE_SERVICE_ROLE_KEY=$SERVICE"
           } >> "$GITHUB_ENV"
+
+      # The seeder writes with the service-role key. If that key resolves to
+      # anything else — the CLI now also emits sb_publishable_/sb_secret_ style
+      # keys, and the JSON field names have moved before — the writes fail with
+      # "permission denied for table institutions", because 0004 revokes all
+      # privileges on the core tables from `anon`. Decode the ROLE CLAIM (which
+      # is not secret) and refuse to continue on a mismatch, so the failure names
+      # its own cause instead of surfacing as an opaque grant error.
+      - name: Verify the resolved keys carry the roles they claim
+        run: |
+          claim() {
+            case "$1" in
+              sb_publishable_*) echo "new-style publishable (not a JWT)"; return;;
+              sb_secret_*)      echo "new-style secret (not a JWT)"; return;;
+            esac
+            printf '%s' "$1" | cut -d. -f2 | tr '_-' '/+' \
+              | awk '{ while (length($0) % 4) $0 = $0 "="; print }' \
+              | base64 -d 2>/dev/null | jq -r '.role // "unparseable"' 2>/dev/null || echo "unparseable"
+          }
+          ANON_ROLE=$(claim "$E2E_SUPABASE_ANON_KEY")
+          SERVICE_ROLE=$(claim "$E2E_SUPABASE_SERVICE_ROLE_KEY")
+          echo "anon key role claim    : $ANON_ROLE"
+          echo "service key role claim : $SERVICE_ROLE"
+          if [ "$SERVICE_ROLE" != "service_role" ]; then
+            echo "::error::E2E_SUPABASE_SERVICE_ROLE_KEY does not carry the service_role claim (got: $SERVICE_ROLE). The seeder would run as a lesser role and fail on the first insert."
+            exit 1
+          fi
+          if [ "$ANON_ROLE" != "anon" ]; then
+            echo "::error::E2E_SUPABASE_ANON_KEY does not carry the anon claim (got: $ANON_ROLE)."
+            exit 1
+          fi
+          echo "Both keys carry the expected role claims."
 
       # The production-ref guard is PRESERVED verbatim from ci.yml, and a
       # positive assertion is added on top: the target must be loopback. The
