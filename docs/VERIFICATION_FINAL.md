@@ -15,6 +15,29 @@ Vitest; the production bundle was built and type-checked.
 Reproduce: `./tests/sql/run_verification.sh` then
 `pnpm typecheck && pnpm lint && pnpm test:unit && pnpm build`.
 
+> **STATUS ADDENDUM — 2026-08-21.** This report is the record of the 2026-08-20
+> verification run and is left as written. Two of its statements have since been
+> overtaken by the release itself and are corrected here rather than edited in
+> place:
+>
+> 1. **Browser E2E is no longer blocked.** All **27 tests pass** on
+>    `.github/workflows/e2e-local-supabase.yml` against an ephemeral local
+>    Supabase stack on the GitHub runner. §5 below describes why they could not
+>    run *in the authoring sandbox*, which remains true and is not a release
+>    limitation.
+> 2. **Production has since been migrated.** §1 and §7 say production is
+>    unmodified; that was true when written. The release sequence has since
+>    applied the pending versions through **`0039`** under
+>    `scripts/PRODUCTION_APPLY.md`, after a full offline rehearsal on real
+>    production data and a pre-migration snapshot.
+>
+> Post-apply verification of production found one defect not visible in the
+> offline rehearsal: `v_dashboard_institutions` had lost its
+> `security_invoker` option (0033 omitted the `WITH` clause on a
+> `CREATE OR REPLACE VIEW`, which resets reloptions), exposing every
+> institution's name and headcount to the **anon** key. Proven by
+> reproduction, fixed by migration **`0039`**, recorded as **Decision 036**.
+
 ---
 
 ## Verdict vocabulary
@@ -59,7 +82,9 @@ tests caught them:
   to `verify_slot_resize_concurrency`: c2 is FK-satisfied, c3 is the proof.
 
 **Live production database: NOT modified.** Migrations `0021`–`0037` are not
-applied to production. Nothing was pushed.
+applied to production. Nothing was pushed. *(Superseded 2026-08-21 — see the
+status addendum at the top of this report: production has since been migrated
+through `0039`.)*
 
 ---
 
@@ -295,6 +320,9 @@ per-institution timezones; production lock before serving;
 Packing/Dispatch/Delivery; multi-kitchen routing.
 
 ## 7. Production — unchanged; nothing pushed
+
+*(Superseded 2026-08-21 — see the status addendum at the top. Production now
+holds every migration through `0039`.)*
 
 Migrations `0021`–`0037` are not applied. `scripts/PRODUCTION_APPLY.md` remains
 ledger-first: inspect the production migration ledger, then apply only the

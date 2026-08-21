@@ -26,7 +26,7 @@ pnpm · Vitest · Playwright · ESLint · Prettier
 pnpm install
 cp .env.example .env          # fill VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
 supabase link --project-ref <your-ref>
-supabase db push              # migrations 0001–0038
+supabase db push              # migrations 0001–0039
 pnpm dev                      # http://localhost:5173
 ```
 
@@ -119,7 +119,7 @@ src/
             analytics, reports, review, status, users, audit, parent/*
   components/  layout + shared UI (design ported from the approved mockup)
 supabase/
-  migrations/ 0001–0038 (schema, RLS, resolution/publish engine, meal library,
+  migrations/ 0001–0039 (schema, RLS, resolution/publish engine, meal library,
               class_staff, per-meal demand, analytics, DB-boundary integrity,
               historical immutability of referenced meal images)
   functions/admin-create-user/  privileged account creation (super/nursery admin)

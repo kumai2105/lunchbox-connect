@@ -564,7 +564,7 @@ statements in `00_SOURCE_OF_TRUTH.md §26` and `10_DEPLOYMENT_RUNBOOK.md §3`.
 - **Authorization:** PostgreSQL Row Level Security is the enforcement boundary,
   mirrored by an app-level RBAC matrix; privileged writes go through
   SECURITY DEFINER RPCs and BEFORE-write triggers.
-- **Migrations:** Supabase CLI SQL migrations (`supabase/migrations/0001`–`0038`).
+- **Migrations:** Supabase CLI SQL migrations (`supabase/migrations/0001`–`0039`).
 - **Deploy:** Cloudflare Workers serve the built frontend; the database is Supabase.
 - **Tooling:** pnpm · Vitest (unit) · Playwright (E2E) · ESLint · Prettier.
 - **Operational timezone (MVP):** Asia/Dubai (GST, UTC+4, no DST). Per-institution
@@ -610,6 +610,45 @@ record.
 
 **Implemented by:** migration `0037`; asserted in `tests/sql/verify_db_boundary.sql`
 (including a control proving the bucket is reference-guarded, not frozen).
+
+**Status:** ACTIVE
+
+---
+
+## Decision 036 — A view's `security_invoker` option is part of its definition
+
+**Decided:** 2026-08-21 (release verification) · **Status:** ACTIVE
+
+`v_dashboard_institutions` carries no role test of its own. It is safe only
+because `security_invoker = true` makes its base-table reads run as the caller,
+so RLS scopes them. Migration `0031` created it that way. Migration `0033`
+rebuilt it to fix a completion denominator and wrote `create or replace view
+... as`, omitting the `with (security_invoker = true)` clause.
+
+`CREATE OR REPLACE VIEW` **resets reloptions when the clause is absent**. The
+option was dropped silently — no error, no warning, and the view kept returning
+the same rows to an admin, so nothing looked wrong. It had reverted to owner
+rights, and every base-table read inside it ran as `postgres`.
+
+`anon` holds `SELECT` on the view, so the exposure was unauthenticated.
+Reproduced against production before the fix was written: as `anon`,
+`select * from institutions` was refused, while
+`select name, classrooms, active_students from v_dashboard_institutions`
+returned every institution's name, classroom count and eligible-child
+headcount. No child-level data was reachable; tenant identity and headcount
+were.
+
+**Rule:** `security_invoker` is part of a view's security definition, not a
+formatting detail. Any `create or replace view` on a view that has it must
+restate the `with (security_invoker = true)` clause. A view that relies on the
+caller's RLS for its scoping must say so in a `comment on view`, so the next
+person rebuilding it knows the option is load-bearing.
+
+**Implemented by:** migration `0039` (which also sets the option on
+`v_meal_performance`, `v_meal_revision_performance` and `v_production_demand`
+— never exploitable, since each reads a SECURITY DEFINER `*_impl()` that
+checks `auth.uid()` itself, but an explicit refusal beats a silent empty
+result, and it clears the standing linter ERROR).
 
 **Status:** ACTIVE
 

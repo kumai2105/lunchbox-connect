@@ -69,14 +69,14 @@ show:
    does this comparison for you and is the preferred path; applying files by
    hand means doing the comparison yourself first.
 
-   The repository currently contains `0001`–`0038`. Which of those are pending
+   The repository currently contains `0001`–`0039`. Which of those are pending
    depends on the ledger you just read — the expected pending set must agree
    with that verified state, not with any range quoted in a document. If the
    ledger disagrees with what you expect, stop and reconcile before applying
    anything.
 
    For reference, the corrected architecture arrived in migrations
-   `0017`–`0038` (rotation engine, resolver
+   `0017`–`0039` (rotation engine, resolver
    lockdown, meal-service link, planning-RLS tightening, special-period fix,
    dashboard KPI, meal-library RPCs, `class_staff`, legacy-publish retirement,
    per-meal demand, analytics one-truth, served-meal integrity + role de-stale
@@ -116,7 +116,11 @@ show:
    record of what a child was actually served keep resolving to the real
    picture (**0037**); and the migration the CLI had been silently skipping —
    the role merge formerly named `0008b_role_merge.sql`, renamed so
-   `supabase db push` stops ignoring it (**0038**)).
+   `supabase db push` stops ignoring it (**0038**); and the restoration of
+   `security_invoker` on `v_dashboard_institutions`, which 0033 silently
+   dropped by omitting the `WITH` clause on a `CREATE OR REPLACE VIEW`,
+   exposing every institution's name and headcount to the anon key, plus the
+   same option on the three analytics views (**0039**)).
    They are idempotent where they touch data and **publish/assign nothing**.
 
    > ⚠️ **0034 moves data before it locks a column.** It COPIES every historical
@@ -141,6 +145,13 @@ show:
    > Revision references stays removable. If your operators relied on deleting
    > a referenced meal image, that is now refused by design — retention policy
    > for referenced images is still `NOT_YET_DEFINED`.
+
+   > ⚠️ **0039 closes an unauthenticated read, and changes nothing else.** It
+   > is four `alter view ... set (security_invoker = true)` statements — no
+   > policy, grant, column or row is touched. Verify it landed by confirming
+   > that `set role anon; select * from v_dashboard_institutions;` is REFUSED
+   > (`permission denied for table institutions`) rather than returning every
+   > institution's name and headcount, which is what it did before.
 
    > ⚠️ **0033 stops rather than guesses.** It refuses to apply if production
    > already holds two service-plan or rotation-assignment rows for the same
@@ -183,7 +194,7 @@ show:
 `.github/workflows/deploy.yml` will not build or publish a frontend until the
 operator attests which migration production actually holds. Set
 `BACKEND_READY_MIGRATION` — a repository variable, or the `workflow_dispatch`
-input — to the highest migration version applied to production (e.g. `0038`)
+input — to the highest migration version applied to production (e.g. `0039`)
 after completing steps 1–3 above and the Edge Function deploy below. If it is
 missing, or lower than the newest migration in the repository, the job fails
 with an explicit message instead of shipping a frontend against an older
@@ -196,7 +207,7 @@ data, and seeded production E2E is deliberately not part of the gate.
 The deploy is **release-gated**: it runs only after typecheck, lint, unit tests
 and a production build all pass, and only on an explicit release trigger
 (a `v*` tag push or a manual `workflow_dispatch`) — never merely because a
-branch was pushed. The corrected frontend expects the `0021`–`0038` schema and
+branch was pushed. The corrected frontend expects the `0021`–`0039` schema and
 the deployed `admin-create-user` Edge Function (steps 2–3 above), so **apply the
 migrations and deploy the function before — or together with — the frontend
 deploy**, or the live app will call tables/RPCs (`class_staff`,

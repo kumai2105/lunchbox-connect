@@ -69,7 +69,7 @@ README only. The full spec pack introduced corrections:
 The stack is **approved** (A1–A3) and recorded in `docs/13` **Decision 034**:
 TypeScript · React 18 + Vite (SPA) · Supabase (PostgreSQL, Auth, Storage, Edge
 Functions) · Row Level Security as the boundary · Supabase CLI migrations
-(`0001`–`0038`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
+(`0001`–`0039`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
 Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
 `TECHNICAL_STACK = NOT_YET_DEFINED` statements are SUPERSEDED.
 

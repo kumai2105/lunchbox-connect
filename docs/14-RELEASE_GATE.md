@@ -21,7 +21,7 @@ this repository alone.
 
 2. **Schema / RLS / RPC / trigger suite (no network required)**
    - `./tests/sql/run_verification.sh` — all **16** `verify_*.sql` suites pass
-     on a throwaway PostgreSQL 16 built from `supabase/migrations/0001`–`0038`,
+     on a throwaway PostgreSQL 16 built from `supabase/migrations/0001`–`0039`,
      including the **520-check authorization matrix** and the **DB-boundary**
      suite: raw `serving_records` writes are denied (RPC is the only path);
      classroom staff cannot publish notes and School Admin cannot publish a note

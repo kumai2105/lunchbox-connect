@@ -16,7 +16,7 @@ on:
     inputs:
       backend_ready_migration:
         description: >-
-          Highest migration version ALREADY APPLIED to production (e.g. 0038).
+          Highest migration version ALREADY APPLIED to production (e.g. 0039).
           Attests that PRODUCTION_APPLY.md steps 1-5 are complete for this
           release. The deploy refuses to run without it.
         required: true
