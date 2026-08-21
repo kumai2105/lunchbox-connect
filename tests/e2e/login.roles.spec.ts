@@ -19,7 +19,8 @@ test.describe('login matrix — nine roles', () => {
     { role: 'operations_manager', key: 'operationsEmail', href: '/ops', nav: /Ops/ },
     { role: 'finance_owner', key: 'financeEmail', href: '/reports', nav: /Reports/ },
     { role: 'viewer', key: 'viewerEmail', href: '/reports', nav: /Reports/ },
-    { role: 'parent', key: 'parentEmail', href: '/parent', nav: /My child/ },
+    // The parent shell's own bottom-nav label for its first tab.
+    { role: 'parent', key: 'parentEmail', href: '/parent', nav: /Home/ },
     { role: 'classroom_staff', key: 'classroomEmail', href: '/today', nav: /Today/ },
     { role: 'kitchen', key: 'kitchenEmail', href: '/kitchen', nav: /Production/ },
     { role: 'driver', key: 'driverEmail', href: '/deliveries', nav: /My deliveries/ },
@@ -38,8 +39,20 @@ test.describe('login matrix — nine roles', () => {
           message: `${c.role} should land on ${c.href}`,
         })
         .toMatch(new RegExp(`^${c.href}`));
-      await expect(page.locator('.side-foot .u-role')).toHaveText(new RegExp(c.role, 'i'));
-      await expect(page.locator('.nav a.active')).toHaveText(c.nav);
+
+      if (c.role === 'parent') {
+        // The Parent portal is a SEPARATE shell by design — ParentShell says so
+        // outright: "mobile-first: bottom navigation, no administrative
+        // chrome". It has no sidebar, so `.side-foot .u-role` and `.nav a.active`
+        // do not exist there and never could. Asserting them for this role only
+        // encoded an assumption that all nine roles share the admin frame.
+        // Assert the parent shell's own equivalent instead.
+        await expect(page.locator('.parent-nav')).toBeVisible();
+        await expect(page.locator('.parent-nav-item.active')).toHaveText(c.nav);
+      } else {
+        await expect(page.locator('.side-foot .u-role')).toHaveText(new RegExp(c.role, 'i'));
+        await expect(page.locator('.nav a.active')).toHaveText(c.nav);
+      }
     });
   }
 

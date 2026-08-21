@@ -326,6 +326,9 @@ jobs:
           # code rather than tee's.
           set -o pipefail
           # --max-failures stops the run once a systemic breakage is obvious.
+          # Raised to 12 as the suite got healthier: with fewer failures the run
+          # finishes well inside the step cap, and a higher ceiling means one
+          # cycle shows the whole picture instead of a truncated slice.
           # With 60s timeouts, 2 retries and 1 worker, a suite where every test
           # fails needs ~81 minutes — longer than the job may run, so it reports
           # NOTHING. Eight identical failures diagnose exactly as well as 27 do,
@@ -333,7 +336,7 @@ jobs:
           # requires expected == the full --list total, so an early stop still
           # fails the job.
           PLAYWRIGHT_JSON_OUTPUT_NAME=/tmp/e2e.json \
-            pnpm exec playwright test --reporter=list,json --max-failures=8 2>&1 | tee /tmp/e2e.log
+            pnpm exec playwright test --reporter=list,json --max-failures=12 2>&1 | tee /tmp/e2e.log
 
       # A green suite that ran zero tests is the failure mode this gate exists to
       # prevent: global-setup RETURNS EARLY and skips everything when the env is
@@ -352,9 +355,13 @@ jobs:
               echo "----- last 80 lines of the Playwright run -----"
               tail -80 /tmp/e2e.log
               echo "-----------------------------------------------"
-              echo "----- first failure in detail -----"
-              awk '/^ *[0-9]+\) /{n++} n==1' /tmp/e2e.log | head -45
-              echo "-----------------------------------"
+              # The FIRST FOUR failures, not just one. Each run costs several
+              # minutes, so surfacing a single failure per cycle turns one
+              # afternoon's diagnosis into four. The names of every failure are
+              # in the summary above; these are the details behind them.
+              echo "----- first four failures in detail -----"
+              awk '/^ *[0-9]+\) /{n++} n>=1 && n<=4' /tmp/e2e.log | head -160
+              echo "-----------------------------------------"
             fi
           fi
           [ -f /tmp/e2e.json ] || { echo "::error::No Playwright JSON report was produced — the suite did not run."; exit 1; }
