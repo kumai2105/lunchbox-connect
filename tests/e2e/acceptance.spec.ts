@@ -213,11 +213,27 @@ test.describe('acceptance — creating the things an Institution runs on', () =>
     const name = `E2E-Class-${Date.now()}`;
 
     await login(page, s.superAdminEmail);
-    // /classes without ?institution= leaves institutionId empty, and the submit
-    // is disabled={... || !institutionId} — so my first attempt clicked a button
-    // that could never enable. That is the app being right: a Class always
-    // belongs to exactly one Institution, so you create it from within one.
-    await page.goto(`/classes?institution=${s.institutionId}`);
+    // Derive the institution from a key the fixture ACTUALLY writes.
+    //
+    // Two mistakes stacked here. First, /classes without ?institution= leaves
+    // institutionId empty and the submit is disabled={... || !institutionId},
+    // so the button could never enable — the app being right, since a Class
+    // belongs to exactly one Institution. Then I "fixed" that with
+    // s.institutionId, which .seeded.json does not contain: I had matched a
+    // local variable name in global-setup, not a key. The URL became
+    // "?institution=undefined", a string truthy enough to ENABLE the button,
+    // so the click succeeded and the insert failed on the foreign key — no
+    // locator error, just no row. Reading the value from the seeded class
+    // removes the guess entirely.
+    const seedClass = await db
+      .from('classes')
+      .select('institution_id')
+      .eq('id', s.classForServing)
+      .single();
+    const institutionId = seedClass.data?.institution_id as string | undefined;
+    expect(institutionId, 'could not resolve the seeded institution').toBeTruthy();
+
+    await page.goto(`/classes?institution=${institutionId}`);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
     // exact: true is load bearing. "+ Create class" (opens the dialog) and
@@ -241,9 +257,9 @@ test.describe('acceptance — creating the things an Institution runs on', () =>
             .maybeSingle();
           return r.data?.institution_id ?? null;
         },
-        { message: 'the created class never appeared with an institution' },
+        { message: 'the created class never appeared in the scoped institution' },
       )
-      .not.toBeNull();
+      .toBe(institutionId);
   });
 
   test('a Nursery Admin provisions classroom staff, and the account is real', async ({ page }) => {
