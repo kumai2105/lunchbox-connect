@@ -26,8 +26,15 @@ on:
         required: true
         default: 'claude/new-session-k5dd5u'
         type: string
+#
+# paths-ignore: a Markdown-only commit cannot change what the browser does, so
+# it does not run the browser suite. This is not a gate being weakened — every
+# path that builds, ships or is tested still triggers it. It is here because a
+# release-day sequence of documentation commits produced a run per commit, and
+# a gate that cries wolf on a README edit stops being read.
   push:
     branches: [claude/new-session-k5dd5u]
+    paths-ignore: ['**/*.md']
 
 concurrency:
   group: e2e-local-supabase
@@ -70,10 +77,45 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # `version: latest` made supabase/setup-cli resolve the release through
+      # the GitHub API with NO credentials. That quota is per runner IP and is
+      # shared across all of GitHub Actions, so it is exhausted by strangers:
+      # this gate failed with
+      #     Failed to resolve latest Supabase CLI release: rate limit exceeded
+      # on a documentation-only commit, having run 27/27 green minutes earlier.
+      # The suite never started. An unauthenticated call to a third party's
+      # release API is not a dependable step in a release gate.
+      #
+      # The runner's own GITHUB_TOKEN lifts the limit, so resolve the tag here
+      # and hand the action an explicit version. Retries cover the transient
+      # case; failing to resolve after five tries fails loudly rather than
+      # silently installing something unexpected.
+      - name: Resolve the Supabase CLI version (authenticated)
+        id: cli
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            TAG=$(curl -sS \
+                    -H "Authorization: Bearer $GH_TOKEN" \
+                    -H "Accept: application/vnd.github+json" \
+                    https://api.github.com/repos/supabase/cli/releases/latest \
+                  | jq -r '.tag_name // empty') || TAG=""
+            [ -n "$TAG" ] && break
+            echo "attempt $attempt: could not resolve a CLI release; retrying"
+            sleep $((attempt * 5))
+          done
+          [ -n "$TAG" ] || { echo "::error::Could not resolve a Supabase CLI release after 5 attempts."; exit 1; }
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "resolved Supabase CLI ${TAG#v}"
+
       - name: Install the Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: ${{ steps.cli.outputs.version }}
+
+      - name: Confirm the CLI is actually on PATH
+        run: supabase --version
 
       # `supabase start` creates a fresh Postgres and applies every file in
       # supabase/migrations in ascending order. If any migration is broken this
