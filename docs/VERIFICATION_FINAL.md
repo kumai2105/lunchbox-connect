@@ -115,12 +115,19 @@ the retired 5,000-row cap), `kitchen` (3), `status` (3).
 (0 warnings) · `pnpm build` PASS · `wrangler deploy --dry-run` PASS (config
 validation only — no upload, no deploy).
 
-### E2E — 19 tests across 6 specs: 0 executed, 19 BLOCKED_BY_ENVIRONMENT
+### E2E — 27 tests across 6 specs
 
-`login.roles` (2), `serving` (4), `parent-portal` (3), `rls` (4), `schedule` (3),
-`status` (3). None executed: there is no approved non-production Supabase
-project, and this sandbox blocks `*.supabase.co`. **No spec skips for any other
-reason** — the two that previously would have (child-switch needing a second
+`login.roles` (10), `serving` (4), `parent-portal` (3), `rls` (4), `schedule` (3),
+`status` (3). **The count was wrong in every previous release document**, which
+said 19. `login.roles` parameterises over the nine roles, so it is 10 tests, not
+2 — a discrepancy that could only surface once the suite actually executed. The
+CI gate now derives the expected total from `playwright test --list`.
+
+This sandbox still cannot run them: it blocks `*.supabase.co` and the container
+registries. They execute instead on GitHub Actions against an ephemeral local
+Supabase stack started on the runner
+(`.github/workflows/e2e-local-supabase.yml`), which is `127.0.0.1` only and
+never a hosted project. **No spec skips for any reason** — the two that previously would have (child-switch needing a second
 child; the no-published-meal test that only checked the page loaded) are fixed
 in items 16 and 17.
 
@@ -268,13 +275,13 @@ no `continue-on-error`, and that the triggers remain `workflow_dispatch` + `v*`.
 
 ## 5. BLOCKED_BY_ENVIRONMENT
 
-- **All 19 Playwright tests** — 6 specs: `login.roles` (2), `serving` (4),
-  `parent-portal` (3), `rls` (4), `schedule` (3), `status` (3). **0 executed,
-  19 blocked, 0 skipped for any other reason.** Specs, fixtures and the bundle-build wiring are
-  in place and type-checked, but execution needs an approved non-production
-  Supabase project and egress to it. This sandbox has neither, and production is
-  refused by the seeder, by `build:e2e` and by CI. No external environment was
-  created. This is not reported as PASS.
+- **The 27 Playwright tests IN THIS SANDBOX** — 6 specs: `login.roles` (10),
+  `serving` (4), `parent-portal` (3), `rls` (4), `schedule` (3), `status` (3).
+  This sandbox blocks `*.supabase.co` and the container registries, so nothing
+  runs here. That is a limitation of this environment, not of the release: the
+  suite is executed by `.github/workflows/e2e-local-supabase.yml`, which starts
+  a throwaway Supabase stack on the GitHub runner. No hosted project was
+  created, and production is refused by the seeder, by `build:e2e` and by CI.
 
 ## 6. BLOCKED_BY_SPEC (not invented)
 

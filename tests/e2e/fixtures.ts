@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Page } from 'playwright/test';
 
 export const PASS = process.env.E2E_PASSWORD ?? 'E2e-pass!12345';
@@ -14,8 +15,18 @@ export const e2eReady = Boolean(
     process.env.E2E_SUPABASE_ANON_KEY,
 );
 
+// This package is `"type": "module"`, so `__dirname` does not exist at runtime.
+// It USED to be referenced here, and it made every spec throw
+// `ReferenceError: __dirname is not defined` the moment it called seeded().
+// Nothing caught it: @types/node declares __dirname as a global, so typecheck
+// was happy, and typescript-eslint turns off `no-undef`, so lint was too. Only
+// executing the suite could find it — which is exactly what this gate is for.
+// global-setup.ts always resolved its own directory correctly; this file must
+// resolve to the SAME directory, because that is where it writes .seeded.json.
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+
 export function seeded(): Record<string, string> {
-  const file = path.join(__dirname, '.seeded.json');
+  const file = path.join(HERE, '.seeded.json');
   if (!fs.existsSync(file)) throw new Error('.seeded.json missing — run global-setup first');
   return JSON.parse(fs.readFileSync(file, 'utf8')) as Record<string, string>;
 }

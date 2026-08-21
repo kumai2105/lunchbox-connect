@@ -42,12 +42,14 @@ analytics paging past 5,000 rows), `kitchen.test.ts` (3), `status.test.ts` (3), 
 Worker's runtime bindings must be DECLARED in `wrangler.jsonc`, not merely
 asserted by the Worker's own local `interface Env`).
 
-**Not run:** `pnpm test:e2e` (Playwright, 6 specs / 19 tests) —
-BLOCKED_BY_ENVIRONMENT. The suite needs egress to `*.supabase.co`, which this
-sandbox blocks, and an approved NON-PRODUCTION Supabase project (it refuses the
-production project outright). The specs are included, type-checked by
-`tsconfig.e2e.json`, written to the current architecture, and runnable where
-both exist.
+**Not run in this sandbox:** `pnpm test:e2e` (Playwright, 6 specs / **27**
+tests — the figure was recorded as 19 until the suite was executed; `login.roles`
+parameterises over the nine roles). This sandbox blocks `*.supabase.co` and the
+container registries, so the suite runs on GitHub Actions instead
+(`.github/workflows/e2e-local-supabase.yml`), against an ephemeral Supabase
+stack started on the runner. That target is `127.0.0.1`; the production project
+is refused outright by the seeder, by `build:e2e` and by the workflow's own
+guard.
 
 ## 2. Database verification
 

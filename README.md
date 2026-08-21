@@ -90,7 +90,13 @@ pnpm test:e2e
 The global setup seeds its own namespaced users/data idempotently (never your
 real data) on the current architecture — Meal → Menu → published Meal Service →
 class_staff → Classroom record → Parent result — and writes
-`tests/e2e/.seeded.json` (gitignored). Specs:
+`tests/e2e/.seeded.json` (gitignored). 6 specs, **27 tests** — `login.roles` is
+parameterised over the nine role domains, so it contributes 10 of them. Take the
+number from `pnpm exec playwright test --list` rather than from any document.
+
+No Supabase project of your own is required: `.github/workflows/e2e-local-supabase.yml`
+starts a throwaway local stack on a GitHub runner and runs the whole suite
+against it. Specs:
 
 - `login.roles.spec.ts` — the nine approved role domains sign in and land on
   their scoped first page; the account-creation role list is verified.

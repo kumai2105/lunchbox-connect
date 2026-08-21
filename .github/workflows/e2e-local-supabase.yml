@@ -1,6 +1,6 @@
 name: E2E (ephemeral local Supabase)
 
-# Runs the COMPLETE 19-test Playwright suite against a throwaway Supabase stack
+# Runs the COMPLETE Playwright suite against a throwaway Supabase stack
 # started on the runner itself.
 #
 # Why this exists: the suite needs a real Supabase backend (GoTrue auth,
@@ -35,7 +35,7 @@ concurrency:
 
 jobs:
   e2e:
-    name: 19 browser tests · local Supabase
+    name: Browser suite · local Supabase
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -268,7 +268,7 @@ jobs:
             echo "::warning::admin-create-user is not served locally (HTTP $CODE). Browser flows that provision accounts would fail; the rest of the suite is unaffected."
           fi
 
-      # Every one of the 19 tests signs in with email and password, so the auth
+      # Every test signs in with email and password, so the auth
       # provider being off blocks the whole suite. GoTrue publishes its own
       # effective settings; assert against those rather than against what
       # config.toml appears to say — the mapping from config keys to GoTrue
@@ -279,7 +279,7 @@ jobs:
           echo "GoTrue settings: $SETTINGS"
           EMAIL_ON=$(printf '%s' "$SETTINGS" | jq -r '.external.email // "unknown"')
           SIGNUP_OFF=$(printf '%s' "$SETTINGS" | jq -r '.disable_signup // "unknown"')
-          echo "external.email = $EMAIL_ON  (must be true — all 19 tests sign in)"
+          echo "external.email = $EMAIL_ON  (must be true — every test signs in)"
           echo "disable_signup = $SIGNUP_OFF (should be true — accounts are admin-created)"
           [ "$EMAIL_ON" = "true" ] || {
             echo "::error::Email sign-in is disabled on this stack (external.email=$EMAIL_ON). Every spec signs in with a password, so the whole suite is blocked. Check [auth.email] in supabase/config.toml."
@@ -326,20 +326,34 @@ jobs:
       # A green suite that ran zero tests is the failure mode this gate exists to
       # prevent: global-setup RETURNS EARLY and skips everything when the env is
       # missing. Assert the real numbers instead of trusting the exit code.
-      - name: Assert 19 executed, 0 failed, 0 skipped
+      - name: Assert every test executed, 0 failed, 0 skipped
         if: always()
         run: |
-          # If the suite executed nothing, globalSetup threw. Surface that error
-          # here, at the end of the log, instead of leaving it buried upstream.
+          # Surface the real cause at the END of the log on ANY failure — a
+          # globalSetup throw (nothing executed) or actual test failures. The
+          # detail otherwise sits mid-log behind the Chromium download and the
+          # per-test output, which is exactly where it is hardest to read.
           if [ -s /tmp/e2e.log ]; then
+            BAD_N=$(jq '.stats.unexpected' /tmp/e2e.json 2>/dev/null || echo 0)
             EXECUTED=$(jq '.stats.expected + .stats.unexpected + .stats.skipped' /tmp/e2e.json 2>/dev/null || echo 0)
-            if [ "${EXECUTED:-0}" = "0" ]; then
-              echo "----- no tests executed; last 40 lines of the Playwright run -----"
-              tail -40 /tmp/e2e.log
-              echo "------------------------------------------------------------------"
+            if [ "${EXECUTED:-0}" = "0" ] || [ "${BAD_N:-0}" != "0" ]; then
+              echo "----- last 80 lines of the Playwright run -----"
+              tail -80 /tmp/e2e.log
+              echo "-----------------------------------------------"
+              echo "----- first failure in detail -----"
+              awk '/^ *[0-9]+\) /{n++} n==1' /tmp/e2e.log | head -45
+              echo "-----------------------------------"
             fi
           fi
           [ -f /tmp/e2e.json ] || { echo "::error::No Playwright JSON report was produced — the suite did not run."; exit 1; }
+          # Take the expected total from the suite itself rather than a number
+          # written down by hand. The docs said 19 for months; `--list` reports
+          # 27, because login.roles parameterises over the nine roles. A gate
+          # that asserts a stale hand-counted number can pass while whole specs
+          # silently stop being collected.
+          TOTAL=$(pnpm exec playwright test --list 2>/dev/null | sed -n 's/^Total: \([0-9]*\) tests.*/\1/p')
+          [ -n "$TOTAL" ] && [ "$TOTAL" -gt 0 ] || { echo "::error::Could not determine the expected test count."; exit 1; }
+          echo "suite declares $TOTAL tests"
           echo "stats: $(jq -c '.stats' /tmp/e2e.json)"
           OK=$(jq '.stats.expected' /tmp/e2e.json)
           BAD=$(jq '.stats.unexpected' /tmp/e2e.json)
@@ -347,7 +361,7 @@ jobs:
           FLAKY=$(jq '.stats.flaky' /tmp/e2e.json)
           echo "passed=$OK failed=$BAD skipped=$SKIP flaky=$FLAKY"
           FAILED=0
-          [ "$OK" = "19" ]  || { echo "::error::Expected 19 passing tests, got $OK."; FAILED=1; }
+          [ "$OK" = "$TOTAL" ] || { echo "::error::Expected $TOTAL passing tests, got $OK."; FAILED=1; }
           [ "$BAD" = "0" ]  || { echo "::error::$BAD test(s) failed."; FAILED=1; }
           [ "$SKIP" = "0" ] || { echo "::error::$SKIP test(s) skipped. No silent skips are permitted in this gate."; FAILED=1; }
           exit $FAILED

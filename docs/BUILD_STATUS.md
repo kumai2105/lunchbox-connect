@@ -87,8 +87,10 @@ Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
   DB-boundary suite (RPC-only writes, note-publish authority, tenant/eligibility
   triggers, meal-image storage visibility, meal-image historical immutability,
   and audit-log tamper resistance)
-- `pnpm test:e2e` — current-architecture specs written; BLOCKED_BY_ENVIRONMENT
-  until an APPROVED NON-PRODUCTION Supabase target and egress to it exist
-  (production is refused outright by both the seeder and CI)
+- `pnpm test:e2e` — 6 specs / **27** tests (not 19: `login.roles` runs once per
+  role). Executed by `.github/workflows/e2e-local-supabase.yml` against an
+  ephemeral Supabase stack started on the GitHub runner, because this sandbox
+  blocks `*.supabase.co`. The target is `127.0.0.1`; production is refused
+  outright by the seeder, by `build:e2e` and by the workflow guard
 - Full report: `docs/VERIFICATION_FINAL.md`
   before claiming completion.

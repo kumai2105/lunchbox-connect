@@ -36,13 +36,20 @@ this repository alone.
      rewritten or deleted from any client session.
 
 3. **Live boundary tests (where Supabase egress is available)**
-   - `pnpm test:e2e` with seeded accounts — **6 specs, 19 tests**, all of which
-     must pass: `login.roles` (2), `serving` (4), `parent-portal` (3), `rls` (4),
+   - `pnpm test:e2e` with seeded accounts — **6 specs, 27 tests**, all of which
+     must pass: `login.roles` (10), `serving` (4), `parent-portal` (3), `rls` (4),
      `schedule` (3), `status` (3). This list previously omitted `schedule`
      entirely, so a verifier reading it would have signed off on five of the six
      specs and never noticed the read-only published-menu surface was untested.
-   - Until an approved non-production Supabase project and egress to it exist,
-     all 19 are BLOCKED_BY_ENVIRONMENT and **must not be recorded as PASS**.
+   - The count was recorded as **19** in every release document until the suite
+     was actually executed. It was never 19: `login.roles` is a parameterised
+     test that runs once per role, so it contributes 10 tests, not 2. Take the
+     number from `pnpm exec playwright test --list`, never from prose — the CI
+     gate now does exactly that rather than asserting a hand-written constant.
+   - The executor is `.github/workflows/e2e-local-supabase.yml`, which starts a
+     throwaway Supabase stack on the runner itself. It never touches a hosted
+     project: the target is `127.0.0.1`, and the seeder refuses the production
+     ref outright.
      Seeding the production project is refused by the seeder, by `build:e2e`
      and by CI.
 
