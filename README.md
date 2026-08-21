@@ -2,8 +2,9 @@
 
 [![CI](https://github.com/Kumai2105/lunchbox-connect/actions/workflows/ci.yml/badge.svg)](https://github.com/Kumai2105/lunchbox-connect/actions)
 
-**Live:** https://lunchbox-connect.koumai-2105.workers.dev — released
-2026-08-21 against production schema `0039`. **Before real meals can flow, six
+**Live:** https://www.lunchboxconnect.com — released 2026-08-21 against
+production schema `0039`. The Worker also answers on its origin
+`https://lunchbox-connect.koumai-2105.workers.dev`, kept as a rollback path. **Before real meals can flow, six
 business decisions must be entered in the app — see
 `docs/FOUNDER_GO_LIVE_CHECKLIST.md`.** The full release record, with the
 executed evidence and the open items, is `docs/RELEASE_2026-08-21.md`.
