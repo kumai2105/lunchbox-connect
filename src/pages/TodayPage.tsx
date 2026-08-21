@@ -35,7 +35,12 @@ import {
   PageHead,
   Spinner,
 } from '../components/ui';
-import { BEHAVIOR_LABEL, LOW_INTAKE_REASON_LABEL, isLowIntake } from '../lib/mealAnalytics';
+import {
+  BEHAVIOR_LABEL,
+  LOW_INTAKE_REASON_LABEL,
+  isLowIntake,
+  isNonPreferenceReason,
+} from '../lib/mealAnalytics';
 import { initials, todayISO } from '../lib/format';
 import { Icon, type IconName } from '../components/icons';
 
@@ -446,15 +451,31 @@ export default function TodayPage() {
           <div className="roster-strip">
             {roster.map((s, i) => {
               const r = byStudent[s.id];
+              // An ABSENT/UNWELL/SLEEPING child is stored as served_status
+              // 'served' — the meal WAS available — with the reason carrying the
+              // fact that the child did not eat it. That is the correct data
+              // model and it is not changed here. But it meant the roster chip
+              // fell through to 'checkCircle': a child who was not even in the
+              // room showed the same green tick as a child who ate the lot, so
+              // the one glance the strip exists to give was factually wrong, and
+              // a teacher scanning for who still needs recording saw a class
+              // that looked done.
+              //
+              // isNonPreferenceReason() is the same predicate analytics already
+              // uses to exclude these from intake figures, reused rather than
+              // restated so the two can never drift into disagreeing about what
+              // counts as eating.
               const badge: IconName | null = !r
                 ? null
                 : r.served_status === 'not_served'
                   ? 'clock'
                   : r.concern_observed
                     ? 'alertTriangle'
-                    : r.behavior === 'refused'
-                      ? 'xCircle'
-                      : 'checkCircle';
+                    : isNonPreferenceReason(r.low_intake_reason)
+                      ? 'x'
+                      : r.behavior === 'refused'
+                        ? 'xCircle'
+                        : 'checkCircle';
               return (
                 <button
                   key={s.id}

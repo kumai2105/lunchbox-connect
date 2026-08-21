@@ -116,12 +116,22 @@ test.describe('classroom serving screen (docs/13 Decision 032 — fast tablet wo
     // One tap records it.
     await page.getByRole('button', { name: 'Absent', exact: true }).click();
 
-    // The badge stops being the unrecorded dot and takes a state class. It is
-    // deliberately NOT pinned to a particular icon: saveException writes
-    // served_status 'served' with behavior null, which the badge derivation
-    // renders as checkCircle. Pinning it would freeze a presentation choice
-    // rather than test the rule.
+    // The badge stops being the unrecorded dot and takes a state class.
     await expect(chip.locator('.status-badge')).toHaveClass(/sb-/);
+
+    // ...and it must NOT be the badge that means "ate". This is the rule, not a
+    // preference about which icon is prettier: a child who was not in the room
+    // and a child who ate the lot are different facts, and the roster strip
+    // exists to convey exactly that at a glance.
+    //
+    // The earlier version of this test declined to assert anything here, on the
+    // grounds that pinning an icon would freeze a presentation choice. That
+    // reasoning let the actual defect through: saveException stores
+    // served_status 'served' (the meal WAS available) with the reason carrying
+    // the absence, so the derivation fell through to checkCircle and an absent
+    // child showed the same green tick as one who ate. Asserting the negative
+    // pins the rule while leaving the icon free to change.
+    await expect(chip.locator('.status-badge')).not.toHaveClass(/sb-checkCircle/);
 
     // The substance of §6, asserted where no icon choice can blur it: a row
     // exists carrying the exception reason, with NO eating behaviour and NO
