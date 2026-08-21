@@ -2,6 +2,10 @@
 
 [![CI](https://github.com/Kumai2105/lunchbox-connect/actions/workflows/ci.yml/badge.svg)](https://github.com/Kumai2105/lunchbox-connect/actions)
 
+**Live:** https://lunchbox-connect.koumai-2105.workers.dev — released
+2026-08-21 against production schema `0039`. The full release record, with the
+executed evidence and the open items, is `docs/RELEASE_2026-08-21.md`.
+
 Institutional child-nutrition operations platform. One authoritative system
 across the chain: **Institution → Student → Eligibility → Kitchen Production →
 Classroom Serving → Parent Visibility → Analytics**. Menus are reusable Meals

@@ -6,6 +6,11 @@ of each approved area and every honest shell.
 
 Legend: ✅ built · ⬜ honest shell (BLOCKED_BY_SPEC) · ⬣ claimed-with-caution
 
+**Released to production 2026-08-21** — frontend live at
+https://lunchbox-connect.koumai-2105.workers.dev, database at migration `0039`.
+See `docs/RELEASE_2026-08-21.md` for the executed evidence, the defect found
+during the release, and the open items.
+
 ## Reconciliation notes (why things changed)
 
 The earlier build (this session's first pass) was written from a summarizing
