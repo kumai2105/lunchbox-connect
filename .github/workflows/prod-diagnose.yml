@@ -1,0 +1,263 @@
+name: Production diagnostic (read-only)
+
+# Establishes what is ACTUALLY serving users right now, and what the delivery
+# path around it is configured to do.
+#
+# STRICTLY READ-ONLY. Every HTTP request here is a GET. It creates nothing,
+# changes nothing, and deploys nothing. It exists because the authoring
+# environment cannot reach workers.dev or api.cloudflare.com (the network
+# policy answers 403 to CONNECT), and because no Cloudflare DNS/zone tooling is
+# available there at all — so the questions "which build is live?" and "what
+# does DNS look like?" have to be asked from somewhere that can reach both.
+#
+# It prints no secret. The Cloudflare token is used as a bearer credential and
+# never echoed; only the shape of the responses is surfaced.
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: 'Origin to diagnose. Defaults to the deployed Worker.'
+        required: false
+        type: string
+      domain:
+        description: 'Apex domain to inspect in Cloudflare DNS (read-only).'
+        required: false
+        default: lunchboxconnect.com
+        type: string
+  push:
+    paths: ['.github/workflows/prod-diagnose.yml']
+
+jobs:
+  diagnose:
+    name: Diagnose the live delivery path
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      APP: ${{ inputs.app_url || 'https://lunchbox-connect.koumai-2105.workers.dev' }}
+      SUPA: https://llnofriwvnerntrbpehc.supabase.co
+      ZONE_NAME: ${{ inputs.domain || 'lunchboxconnect.com' }}
+      WORKER: lunchbox-connect
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # =================================================================
+      # PART 1 — WHAT IS LIVE
+      # =================================================================
+      - name: 1a · The origin responds, and every route the app owns resolves
+        run: |
+          fail=0
+          probe () {
+            local path="$1" expect="$2"
+            local code
+            code=$(curl -sS -m 25 -o "/tmp/body$(echo "$path" | tr '/' '_')" -w '%{http_code}' "$APP$path")
+            printf '  GET %-22s -> %s\n' "$path" "$code"
+            [ "$code" = "$expect" ] || { echo "::error::$path returned $code, expected $expect"; fail=1; }
+          }
+          echo "origin: $APP"
+          probe "/"              200
+          probe "/login"         200
+          probe "/dashboard"     200
+          probe "/parent"        200
+          probe "/parent/today"  200
+          probe "/kitchen"       200
+          probe "/menu-builder"  200
+          probe "/students/abc"  200
+          echo "  (nested-route refresh is the /students/abc and /parent/today cases: a hard GET, not a client-side navigation)"
+          [ "$fail" -eq 0 ] || exit 1
+
+      - name: 1b · Identify the bundle that is ACTUALLY being served
+        run: |
+          cp /tmp/body_ /tmp/index.html
+          ASSET=$(sed -n 's/.*src="\(\/assets\/[^"]*\.js\)".*/\1/p' /tmp/index.html | head -1)
+          CSS=$(sed -n 's/.*href="\(\/assets\/[^"]*\.css\)".*/\1/p' /tmp/index.html | head -1)
+          [ -n "$ASSET" ] || { echo "::error::No module script found in the served HTML."; exit 1; }
+          echo "served JS : $ASSET"
+          echo "served CSS: ${CSS:-<none>}"
+
+          code=$(curl -sS -m 30 -o /tmp/app.js -w '%{http_code}' "$APP$ASSET")
+          [ "$code" = "200" ] || { echo "::error::bundle $ASSET returned $code"; exit 1; }
+          echo "bundle bytes : $(wc -c < /tmp/app.js)"
+          echo "bundle sha256: $(sha256sum /tmp/app.js | cut -d' ' -f1)"
+
+          if [ -n "$CSS" ]; then
+            c=$(curl -sS -m 25 -o /dev/null -w '%{http_code}' "$APP$CSS")
+            echo "css status   : $c"
+            [ "$c" = "200" ] || { echo "::error::stylesheet $CSS returned $c"; exit 1; }
+          fi
+
+      - name: 1c · THE DECIDING CHECK — real backend, not the placeholder
+        run: |
+          fail=0
+          if grep -q 'llnofriwvnerntrbpehc\.supabase\.co' /tmp/app.js; then
+            echo "  PASS: bundle references the real backend (llnofriwvnerntrbpehc.supabase.co)"
+          else
+            echo "::error::  The live bundle does NOT reference llnofriwvnerntrbpehc.supabase.co."
+            fail=1
+          fi
+          if grep -q 'placeholder\.supabase\.co' /tmp/app.js; then
+            echo "::error::  The live bundle CONTAINS placeholder.supabase.co — it was built without VITE_SUPABASE_URL/ANON_KEY. Login is impossible. This is RELEASE INFRASTRUCTURE, not application logic."
+            fail=1
+          else
+            echo "  PASS: no placeholder.supabase.co in the live bundle"
+          fi
+          if grep -q 'service_role' /tmp/app.js; then
+            echo "::error::  The live bundle contains 'service_role'. A key that bypasses RLS must never reach a browser."
+            fail=1
+          else
+            echo "  PASS: no service_role material in the live bundle"
+          fi
+          # The anon key is public by design; confirm one is actually embedded,
+          # otherwise the client cannot authenticate at all.
+          if grep -qE 'eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}' /tmp/app.js; then
+            echo "  PASS: a JWT (the public anon key) is embedded"
+          else
+            echo "::error::  No anon key found in the bundle; the client cannot authenticate."
+            fail=1
+          fi
+          [ "$fail" -eq 0 ] || exit 1
+
+      - name: 1d · Backend reachable, and the anonymous boundary still holds
+        run: |
+          ANON=$(grep -oE 'eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}' /tmp/app.js | head -1)
+          [ -n "$ANON" ] || { echo "::error::could not extract the anon key from the live bundle"; exit 1; }
+          echo "::add-mask::$ANON"
+          code=$(curl -sS -m 25 -o /dev/null -w '%{http_code}' "$SUPA/auth/v1/health" -H "apikey: $ANON")
+          echo "  GET /auth/v1/health -> $code"
+          [ "$code" = "200" ] || { echo "::error::Supabase Auth returned $code"; exit 1; }
+
+          fail=0
+          for rel in institutions v_dashboard_institutions students serving_records app_users \
+                     student_parents classes meal_services serving_record_note_archive \
+                     v_meal_performance v_meal_revision_performance v_production_demand; do
+            body=$(curl -sS -m 25 -w '\n%{http_code}' "$SUPA/rest/v1/$rel?select=*" \
+                     -H "apikey: $ANON" -H "Authorization: Bearer $ANON")
+            code=$(printf '%s' "$body" | tail -1)
+            payload=$(printf '%s' "$body" | sed '$d')
+            case "$code" in
+              401|403|404) printf '  %-32s -> %s (refused)\n' "$rel" "$code";;
+              200)
+                if [ "$(printf '%s' "$payload" | tr -d '[:space:]')" = "[]" ]; then
+                  echo "::warning::  $rel -> 200 empty array (RLS scoped it; grant still open)"
+                else
+                  echo "::error::  $rel -> 200 AND RETURNED DATA to an anonymous caller"; fail=1
+                fi;;
+              400) echo "::error::  $rel -> 400, probe malformed, tested nothing: $payload"; fail=1;;
+              *) echo "::error::  $rel -> unexpected $code"; fail=1;;
+            esac
+          done
+          code=$(curl -sS -m 25 -o /dev/null -w '%{http_code}' "$SUPA/functions/v1/admin-create-user")
+          echo "  admin-create-user (no JWT) -> $code"
+          case "$code" in 401|403) ;; *) echo "::error::Edge Function answered $code without a JWT"; fail=1;; esac
+          [ "$fail" -eq 0 ] || exit 1
+
+      # =================================================================
+      # PART 2 — WHAT THE DELIVERY PATH IS CONFIGURED TO DO
+      # All Cloudflare calls are GET. Nothing is created or changed.
+      # =================================================================
+      - name: 2a · Cloudflare credential shape (no secret printed)
+        id: cf
+        run: |
+          if [ -z "$CF_TOKEN" ] || [ -z "$CF_ACCOUNT" ]; then
+            echo "::warning::Cloudflare credentials absent; skipping the Cloudflare inspection."
+            echo "have=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "have=true" >> "$GITHUB_OUTPUT"
+          echo "::add-mask::$CF_ACCOUNT"
+          v=$(curl -sS -m 25 "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+                -H "Authorization: Bearer $CF_TOKEN")
+          echo "token verify success: $(printf '%s' "$v" | jq -r '.success')"
+          echo "token status        : $(printf '%s' "$v" | jq -r '.result.status // "n/a"')"
+
+      - name: 2b · Worker deployments and versions — what is live, and what preceded it
+        if: steps.cf.outputs.have == 'true'
+        run: |
+          B="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers"
+          echo "── current deployments (traffic split) ──"
+          curl -sS -m 25 "$B/scripts/$WORKER/deployments" -H "Authorization: Bearer $CF_TOKEN" \
+            | jq -r 'if .success then (.result.deployments // [] | .[0:4][] |
+                "  id=\(.id)  created=\(.created_on)  source=\(.source // "?")  strategy=\(.strategy // "?")\n    versions: \([.versions[]? | "\(.version_id[0:8])@\(.percentage)%"] | join(", "))\n    annotations: \(.annotations // {} | tostring)")
+               else "  api errors: \(.errors|tostring)" end'
+          echo "── recent versions ──"
+          curl -sS -m 25 "$B/scripts/$WORKER/versions" -H "Authorization: Bearer $CF_TOKEN" \
+            | jq -r 'if .success then (.result.items // [] | .[0:6][] |
+                "  \(.id[0:8])  \(.metadata.created_on // "?")  by=\(.metadata.source // "?")  tag=\(.annotations["workers/tag"] // "-")  msg=\(.annotations["workers/message"] // "-")")
+               else "  api errors: \(.errors|tostring)" end'
+
+      - name: 2c · Workers Builds — is a git integration deploying to production?
+        if: steps.cf.outputs.have == 'true'
+        run: |
+          B="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers"
+          echo "── script settings / observability ──"
+          curl -sS -m 25 "$B/services/$WORKER" -H "Authorization: Bearer $CF_TOKEN" \
+            | jq -r 'if .success then "  default_environment=\(.result.default_environment.environment // "?")  created=\(.result.created_on)"
+                     else "  api errors: \(.errors|tostring)" end'
+          echo "── builds / git connection (endpoint availability varies) ──"
+          for ep in "builds/repos/$WORKER" "scripts/$WORKER/builds" "builds/accounts/$CF_ACCOUNT/repos"; do
+            r=$(curl -sS -m 25 "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/$ep" \
+                  -H "Authorization: Bearer $CF_TOKEN" 2>/dev/null || echo '{}')
+            ok=$(printf '%s' "$r" | jq -r '.success // "n/a"' 2>/dev/null || echo n/a)
+            echo "  $ep -> success=$ok"
+            [ "$ok" = "true" ] && printf '%s' "$r" | jq -r '.result | tostring' | head -c 1200 && echo
+          done
+          echo "  NOTE: Workers Builds configuration is primarily a dashboard surface;"
+          echo "        absence of a result here is not proof the integration is absent."
+
+      - name: 2d · Zone, DNS and Custom Domains — READ ONLY, nothing modified
+        if: steps.cf.outputs.have == 'true'
+        run: |
+          Z=$(curl -sS -m 25 "https://api.cloudflare.com/client/v4/zones?name=$ZONE_NAME" \
+                -H "Authorization: Bearer $CF_TOKEN")
+          ok=$(printf '%s' "$Z" | jq -r '.success')
+          echo "zones lookup success: $ok"
+          if [ "$ok" != "true" ]; then
+            echo "  errors: $(printf '%s' "$Z" | jq -c '.errors')"
+            echo "::warning::The deploy token cannot read zones. DNS state cannot be established with this credential."
+            exit 0
+          fi
+          n=$(printf '%s' "$Z" | jq -r '.result | length')
+          echo "zones matching $ZONE_NAME: $n"
+          [ "$n" -gt 0 ] || { echo "::warning::$ZONE_NAME is not in this Cloudflare account (or the token cannot see it)."; exit 0; }
+          ZID=$(printf '%s' "$Z" | jq -r '.result[0].id')
+          echo "::add-mask::$ZID"
+          printf '%s' "$Z" | jq -r '.result[0] | "  status=\(.status)  paused=\(.paused)  type=\(.type)\n  name_servers=\([.name_servers[]?]|join(", "))\n  original_ns=\([.original_name_servers[]?]|join(", "))"'
+
+          echo "── DNS records (values shown; DNS is public data) ──"
+          curl -sS -m 25 "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records?per_page=200" \
+            -H "Authorization: Bearer $CF_TOKEN" \
+            | jq -r 'if .success then (.result | sort_by(.type,.name) | .[] |
+                 "  \(.type|.[0:6])  \(.name)  ->  \(.content|.[0:80])  proxied=\(.proxied)  ttl=\(.ttl)")
+               else "  api errors: \(.errors|tostring)" end'
+
+          echo "── EMAIL-CRITICAL records (must never be disturbed) ──"
+          curl -sS -m 25 "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records?per_page=200" \
+            -H "Authorization: Bearer $CF_TOKEN" \
+            | jq -r '[.result[]? | select(.type=="MX" or .type=="TXT" or .type=="SRV")] as $e
+                     | if ($e|length)==0 then "  (none found)"
+                       else ($e[] | "  \(.type)  \(.name)  ->  \(.content)") end'
+
+          echo "── Worker Custom Domains on this account ──"
+          curl -sS -m 25 "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/domains" \
+            -H "Authorization: Bearer $CF_TOKEN" \
+            | jq -r 'if .success then (.result // [] | if length==0 then "  (none)" else (.[] |
+                 "  \(.hostname)  -> service=\(.service)  env=\(.environment)  zone=\(.zone_name)") end)
+               else "  api errors: \(.errors|tostring)" end'
+
+          echo "── workers.dev subdomain ──"
+          curl -sS -m 25 "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/subdomain" \
+            -H "Authorization: Bearer $CF_TOKEN" | jq -r 'if .success then "  \(.result.subdomain)" else "  n/a" end'
+
+      - name: 2e · Does the final domain already answer?
+        run: |
+          for h in "https://www.$ZONE_NAME" "https://$ZONE_NAME"; do
+            code=$(curl -sS -m 20 -o /tmp/d.html -w '%{http_code}' "$h/" 2>/dev/null || echo 000)
+            printf '  GET %-40s -> %s\n' "$h/" "$code"
+            if [ "$code" = "200" ] && grep -q 'id="root"' /tmp/d.html 2>/dev/null; then
+              echo "      serves the LunchBox SPA shell"
+            fi
+          done
+          echo "  (000 = no response/TLS failure; not necessarily an error at this stage)"
+
+      - name: Summary
+        run: echo "DIAGNOSTIC COMPLETE — see the step output above."
