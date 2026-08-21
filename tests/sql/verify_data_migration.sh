@@ -11,7 +11,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/../.." &
 PSQL="psql -h $SOCK -p $PORT -U postgres -q -v ON_ERROR_STOP=1"
 $PSQL -d postgres -c "drop database if exists lbc_datamig;" -c "create database lbc_datamig;"
 $PSQL -d lbc_datamig -f "$HERE/00_supabase_shim.sql" >/dev/null
-for n in 0001 0002 0003 0004 0005 0006 0007 0008 0008b 0009 0010 0011 0012 0013 0014 0015 0016; do
+for n in 0001 0002 0003 0004 0005 0006 0007 0008 0009 0010 0011 0012 0013 0014 0015 0016; do
   f=$(ls "$ROOT"/supabase/migrations/${n}_*.sql 2>/dev/null || true); [ -z "$f" ] && continue
   $PSQL -d lbc_datamig -f "$f" >/dev/null
 done

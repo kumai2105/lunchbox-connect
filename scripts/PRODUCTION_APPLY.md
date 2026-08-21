@@ -69,14 +69,14 @@ show:
    does this comparison for you and is the preferred path; applying files by
    hand means doing the comparison yourself first.
 
-   The repository currently contains `0001`–`0037`. Which of those are pending
+   The repository currently contains `0001`–`0038`. Which of those are pending
    depends on the ledger you just read — the expected pending set must agree
    with that verified state, not with any range quoted in a document. If the
    ledger disagrees with what you expect, stop and reconcile before applying
    anything.
 
    For reference, the corrected architecture arrived in migrations
-   `0017`–`0037` (rotation engine, resolver
+   `0017`–`0038` (rotation engine, resolver
    lockdown, meal-service link, planning-RLS tightening, special-period fix,
    dashboard KPI, meal-library RPCs, `class_staff`, legacy-publish retirement,
    per-meal demand, analytics one-truth, served-meal integrity + role de-stale
@@ -114,7 +114,9 @@ show:
    the closure sweep — a meal image referenced by any Meal Revision can no
    longer be deleted or overwritten, so historical Meal Services and the Parent
    record of what a child was actually served keep resolving to the real
-   picture (**0037**)).
+   picture (**0037**); and the migration the CLI had been silently skipping —
+   the role merge formerly named `0008b_role_merge.sql`, renamed so
+   `supabase db push` stops ignoring it (**0038**)).
    They are idempotent where they touch data and **publish/assign nothing**.
 
    > ⚠️ **0034 moves data before it locks a column.** It COPIES every historical
@@ -122,6 +124,16 @@ show:
    > then clears the column, so nothing is destroyed — retention/deletion is
    > still `NOT_YET_DEFINED`. Confirm the archive row count matches the number
    > of non-null legacy notes before you continue.
+
+   > ⚠️ **0038 is a RENAME, not new work.** Production already holds this
+   > migration under its old identity (version `20260818121633`, name
+   > `0008b_role_merge`). The Supabase CLI was skipping the file because
+   > `0008b` is not a digits-only prefix, so every CLI-built environment was
+   > missing it. Renamed to `0038`, the version is one production has not seen,
+   > so a push applies it once more. That is a no-op: the UPDATE matches no rows
+   > (the merge happened on 2026-08-18) and the constraint it re-adds is
+   > byte-for-byte what `0013_kitchen_entity.sql` already installed. Expect one
+   > extra ledger row and no data or schema change.
 
    > ⚠️ **0037 removes a deletion authority, not data.** It replaces 0024's
    > blanket `for all` meal-images policy with reference-guarded UPDATE and
@@ -171,7 +183,7 @@ show:
 `.github/workflows/deploy.yml` will not build or publish a frontend until the
 operator attests which migration production actually holds. Set
 `BACKEND_READY_MIGRATION` — a repository variable, or the `workflow_dispatch`
-input — to the highest migration version applied to production (e.g. `0037`)
+input — to the highest migration version applied to production (e.g. `0038`)
 after completing steps 1–3 above and the Edge Function deploy below. If it is
 missing, or lower than the newest migration in the repository, the job fails
 with an explicit message instead of shipping a frontend against an older
@@ -184,7 +196,7 @@ data, and seeded production E2E is deliberately not part of the gate.
 The deploy is **release-gated**: it runs only after typecheck, lint, unit tests
 and a production build all pass, and only on an explicit release trigger
 (a `v*` tag push or a manual `workflow_dispatch`) — never merely because a
-branch was pushed. The corrected frontend expects the `0021`–`0037` schema and
+branch was pushed. The corrected frontend expects the `0021`–`0038` schema and
 the deployed `admin-create-user` Edge Function (steps 2–3 above), so **apply the
 migrations and deploy the function before — or together with — the frontend
 deploy**, or the live app will call tables/RPCs (`class_staff`,

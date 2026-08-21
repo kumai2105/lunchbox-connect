@@ -18,7 +18,7 @@ create table app_users (
   created_at timestamptz not null default now(),
   -- staff roles must be anchored to an institution; super_admin and parents are not.
   -- Written as valid boolean SQL ("A implies B"  ==  "NOT A OR B"). This constraint
-  -- is reconciled to the final merged role set in 0008b after the role merge.
+  -- is reconciled to the final merged role set in 0038 after the role merge.
   constraint app_users_staff_needs_institution
     check (role not in ('school_admin', 'nurse', 'teacher') or institution_id is not null)
 );

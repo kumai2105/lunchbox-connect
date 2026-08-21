@@ -564,7 +564,7 @@ statements in `00_SOURCE_OF_TRUTH.md §26` and `10_DEPLOYMENT_RUNBOOK.md §3`.
 - **Authorization:** PostgreSQL Row Level Security is the enforcement boundary,
   mirrored by an app-level RBAC matrix; privileged writes go through
   SECURITY DEFINER RPCs and BEFORE-write triggers.
-- **Migrations:** Supabase CLI SQL migrations (`supabase/migrations/0001`–`0037`).
+- **Migrations:** Supabase CLI SQL migrations (`supabase/migrations/0001`–`0038`).
 - **Deploy:** Cloudflare Workers serve the built frontend; the database is Supabase.
 - **Tooling:** pnpm · Vitest (unit) · Playwright (E2E) · ESLint · Prettier.
 - **Operational timezone (MVP):** Asia/Dubai (GST, UTC+4, no DST). Per-institution

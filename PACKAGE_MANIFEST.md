@@ -52,7 +52,7 @@ both exist.
 ## 2. Database verification
 
 `./tests/sql/run_verification.sh` builds a PostgreSQL 16 cluster from nothing,
-applies `supabase/migrations/0001`–`0037` verbatim, and runs 16 suites. Each
+applies `supabase/migrations/0001`–`0038` verbatim, and runs 16 suites. Each
 suite is mutation-tested (deliberately broken to prove it can fail).
 
 Per-suite named assertions: `db_boundary` 51 · `note_privacy_and_states` 40 ·
@@ -94,7 +94,7 @@ Everything required to build and run the project, excluding only §5.
   `InstitutionCalendarTab`), `pages/parent/` (mobile parent portal), and
   `InstitutionSchedulePage` — the Founder-approved READ-ONLY published-menu
   view for a Nursery/School Admin. The retired legacy `MenuPage` is gone.
-- **`supabase/`** — `migrations/0001`–`0037` (schema, RLS, resolution/publish
+- **`supabase/`** — `migrations/0001`–`0038` (schema, RLS, resolution/publish
   engine, meal library RPCs, class_staff, per-meal demand, analytics one-truth,
   the integrity pass 0029/0030/0031, the tenant-integrity + permission
   correction 0032, the client-boundary lockdown 0033, the note-privacy /
@@ -145,7 +145,7 @@ pnpm typecheck && pnpm lint && pnpm test:unit && pnpm build
 ./tests/sql/run_verification.sh
 ```
 
-Migrations apply in numerical order, `0001` → `0037`. For production, follow
+Migrations apply in numerical order, `0001` → `0038`. For production, follow
 `scripts/PRODUCTION_APPLY.md` (schema first, then deploy + verify the
 `admin-create-user` Edge Function; service plans / rotation assignments /
 publishing are Admin-UI actions, never migration side effects). The frontend

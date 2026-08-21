@@ -2,7 +2,7 @@
 -- 0029 — Correction order: classroom integrity, canonical models, and
 -- de-staling the role helpers.
 --
--- (A) Role de-stale. 0008b merged the legacy 'nurse'/'teacher' roles into
+-- (A) Role de-stale. 0038 merged the legacy 'nurse'/'teacher' roles into
 --     'classroom_staff', but several SECURITY DEFINER helpers still named the
 --     pre-merge roles. Post-merge no user carries those names, so those
 --     clauses silently EXCLUDED classroom_staff from institution-scoped
