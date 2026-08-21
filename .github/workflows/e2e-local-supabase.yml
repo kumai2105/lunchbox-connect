@@ -385,16 +385,26 @@ jobs:
           # and arrive in minutes. It cannot mask a real pass: the gate below
           # requires expected == the full --list total, so an early stop still
           # fails the job.
+          # ARRAY, not a string. This was a plain string expanded unquoted,
+          # so the dispatch input word-split on every space: "acceptance —"
+          # became `--grep=acceptance` plus a stray positional `—`, which
+          # Playwright reads as a FILE filter, matching nothing —
+          #     Total: 0 tests in 0 files
+          # and "creates a Class" became `--grep=creates` plus positionals `a`
+          # and `Class`, which by coincidence still listed the three "creates
+          # a ..." tests and looked like it had worked. An isolation switch
+          # that silently runs a different set than you asked for is worse
+          # than one that fails, because it answers a question you did not ask.
           GREP='${{ inputs.grep }}'
-          EXTRA=""
+          EXTRA=()
           if [ -n "$GREP" ]; then
             # Isolating: keep every trace, not just on retry, and do not stop
             # early — the whole point is to see this one test in full.
-            EXTRA="--grep=$GREP --trace=on --retries=0"
+            EXTRA=(--grep="$GREP" --trace=on --retries=0)
             echo "ISOLATING: $GREP"
           fi
           PLAYWRIGHT_JSON_OUTPUT_NAME=/tmp/e2e.json \
-            pnpm exec playwright test --reporter=list,json --max-failures=12 $EXTRA 2>&1 | tee /tmp/e2e.log
+            pnpm exec playwright test --reporter=list,json --max-failures=12 "${EXTRA[@]}" 2>&1 | tee /tmp/e2e.log
 
       # A green suite that ran zero tests is the failure mode this gate exists to
       # prevent: global-setup RETURNS EARLY and skips everything when the env is
@@ -453,9 +463,13 @@ jobs:
           # the last isolated run reported "Expected 42 passing tests, got 2",
           # which is noise masquerading as a failure. Grade a subset against what
           # the subset declares.
-          LIST_ARGS=""
-          [ -n "${{ inputs.grep }}" ] && LIST_ARGS="--grep=${{ inputs.grep }}"
-          TOTAL=$(pnpm exec playwright test --list $LIST_ARGS 2>/dev/null | sed -n 's/^Total: \([0-9]*\) tests.*/\1/p')
+          # Same array treatment as the run step above, and for the same
+          # reason: an unquoted expansion here graded the subset against a
+          # count taken from a DIFFERENT selection than the one that ran.
+          GREP='${{ inputs.grep }}'
+          LIST_ARGS=()
+          [ -n "$GREP" ] && LIST_ARGS=(--grep="$GREP")
+          TOTAL=$(pnpm exec playwright test --list "${LIST_ARGS[@]}" 2>/dev/null | sed -n 's/^Total: \([0-9]*\) tests.*/\1/p')
           [ -n "$TOTAL" ] && [ "$TOTAL" -gt 0 ] || { echo "::error::Could not determine the expected test count."; exit 1; }
           echo "suite declares $TOTAL tests"
           echo "stats: $(jq -c '.stats' /tmp/e2e.json)"
