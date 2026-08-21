@@ -225,6 +225,24 @@ test.describe('acceptance — creating the things an Institution runs on', () =>
     // so the click succeeded and the insert failed on the foreign key — no
     // locator error, just no row. Reading the value from the seeded class
     // removes the guess entirely.
+    // INSTRUMENT THE BROWSER. The row never appears and the app shows NO error
+    // banner, which rules out both an RLS refusal and a validation refusal —
+    // either would have been rendered. So the question is what the POST to
+    // /rest/v1/classes actually did, and the only way to know is to watch it.
+    const netNotes: string[] = [];
+    const consoleErrors: string[] = [];
+    page.on('response', (r) => {
+      if (r.url().includes('/rest/v1/classes')) {
+        netNotes.push(`${r.request().method()} ${r.status()}`);
+      }
+    });
+    page.on('requestfailed', (r) => {
+      if (r.url().includes('/rest/v1/')) netNotes.push(`REQFAIL ${r.method()} ${r.url()}`);
+    });
+    page.on('console', (m) => {
+      if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 200));
+    });
+
     const seedClass = await db
       .from('classes')
       .select('institution_id')
@@ -258,6 +276,22 @@ test.describe('acceptance — creating the things an Institution runs on', () =>
     if (await banner.count()) {
       const text = (await banner.first().textContent())?.trim();
       if (text) throw new Error(`the app refused to create the class: ${text}`);
+    }
+
+    // Let the request land, then report EVERYTHING observed. "No row" is not a
+    // diagnosis; "no row and no request was ever made" and "no row and the POST
+    // returned 4xx" are different faults with different fixes.
+    await page.waitForTimeout(1500);
+    const rowNow = await db.from('classes').select('id').eq('name', name).maybeSingle();
+    if (!rowNow.data) {
+      const submit = page.getByRole('button', { name: 'Create class', exact: true });
+      throw new Error(
+        `class "${name}" was not written. ` +
+          `net=[${netNotes.join(' | ') || 'NO /rest/v1/classes REQUEST AT ALL'}] ` +
+          `console=[${consoleErrors.join(' | ') || 'none'}] ` +
+          `submitDisabled=${await submit.isDisabled().catch(() => 'gone')} ` +
+          `modalOpen=${await page.locator('.modal, [role="dialog"]').count()}`,
+      );
     }
 
     await expect

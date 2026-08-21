@@ -449,7 +449,13 @@ jobs:
           # 27, because login.roles parameterises over the nine roles. A gate
           # that asserts a stale hand-counted number can pass while whole specs
           # silently stop being collected.
-          TOTAL=$(pnpm exec playwright test --list 2>/dev/null | sed -n 's/^Total: \([0-9]*\) tests.*/\1/p')
+          # When isolating with --grep, the full-suite total is the wrong yardstick:
+          # the last isolated run reported "Expected 42 passing tests, got 2",
+          # which is noise masquerading as a failure. Grade a subset against what
+          # the subset declares.
+          LIST_ARGS=""
+          [ -n "${{ inputs.grep }}" ] && LIST_ARGS="--grep=${{ inputs.grep }}"
+          TOTAL=$(pnpm exec playwright test --list $LIST_ARGS 2>/dev/null | sed -n 's/^Total: \([0-9]*\) tests.*/\1/p')
           [ -n "$TOTAL" ] && [ "$TOTAL" -gt 0 ] || { echo "::error::Could not determine the expected test count."; exit 1; }
           echo "suite declares $TOTAL tests"
           echo "stats: $(jq -c '.stats' /tmp/e2e.json)"
