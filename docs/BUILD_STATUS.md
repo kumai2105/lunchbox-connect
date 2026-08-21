@@ -74,7 +74,7 @@ README only. The full spec pack introduced corrections:
 The stack is **approved** (A1–A3) and recorded in `docs/13` **Decision 034**:
 TypeScript · React 18 + Vite (SPA) · Supabase (PostgreSQL, Auth, Storage, Edge
 Functions) · Row Level Security as the boundary · Supabase CLI migrations
-(`0001`–`0039`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
+(`0001`–`0040`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
 Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
 `TECHNICAL_STACK = NOT_YET_DEFINED` statements are SUPERSEDED.
 
@@ -87,7 +87,7 @@ Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
   child-switch selection/readiness invariant, the four factual dashboard
   completion states, exhaustive analytics pagination past 5,000 rows, and the
   nav-link/route reachability check)
-- `./tests/sql/run_verification.sh` — **16 SQL suites** (182 assertions) on a throwaway
+- `./tests/sql/run_verification.sh` — **17 SQL suites** (189 assertions) on a throwaway
   PostgreSQL 16, incl. the 520-check authorization matrix and the raw-path
   DB-boundary suite (RPC-only writes, note-publish authority, tenant/eligibility
   triggers, meal-image storage visibility, meal-image historical immutability,
