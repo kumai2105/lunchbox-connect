@@ -247,6 +247,19 @@ test.describe('acceptance — creating the things an Institution runs on', () =>
     // Tenancy is the thing worth asserting, not merely existence: 0032 installs
     // a trigger keeping a class inside one Institution, and a class created
     // against the wrong tenant is a data-integrity failure, not a UI nit.
+    // SURFACE THE APP'S OWN ERROR instead of only reporting "no row".
+    //
+    // Three rounds of this test failed with "the created class never appeared",
+    // which says the insert did not happen but not WHY — and the page was
+    // showing the reason the whole time, in a .banner.err that the test never
+    // read. Polling for a row is the assertion; reading the banner first is
+    // what makes a failure diagnosable instead of another guess.
+    const banner = page.locator('.banner.err');
+    if (await banner.count()) {
+      const text = (await banner.first().textContent())?.trim();
+      if (text) throw new Error(`the app refused to create the class: ${text}`);
+    }
+
     await expect
       .poll(
         async () => {
