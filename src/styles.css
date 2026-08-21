@@ -1521,16 +1521,38 @@ tbody tr:last-child td {
   .nav .nav-group,
   .side-card,
   .side-foot .u-name,
-  .side-foot .u-role,
-  .side-foot button {
+  .side-foot .u-role {
     display: none;
   }
   .nav a {
     justify-content: center;
   }
+
+  /* THE LOG OUT BUTTON IS NOT DECORATION AND MUST NEVER BE HIDDEN HERE.
+     It used to be listed in the display:none rule above, alongside the
+     name and role text. Those are labels; this is the ONLY way any staff
+     or admin role can end a session — Layout.tsx renders no other, and
+     the avatar next to it is a plain <div>, not a control. So on every
+     phone and most tablets in portrait, a Super Admin, Nursery Admin,
+     Classroom Staff or Kitchen user could sign in and then had no way to
+     sign out at all. Parents were unaffected only because the Parent
+     portal carries its own Sign out on the profile screen.
+
+     Stacked rather than restored to the row: the rail is 64px wide, so
+     the avatar and the button do not fit side by side. */
   .side-foot {
+    flex-direction: column;
     justify-content: center;
-    padding: 12px 0;
+    gap: 8px;
+    padding: 12px 4px;
+  }
+  .side-foot button {
+    margin-left: 0;
+    width: 100%;
+    min-height: 32px;
+    padding: 6px 4px;
+    font-size: 10px;
+    white-space: nowrap;
   }
   .topbar {
     padding: 12px 16px;

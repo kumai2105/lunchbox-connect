@@ -118,6 +118,71 @@ test.describe('tablet — the Classroom register is the workflow it claims to be
   });
 });
 
+/**
+ * SIGNING OUT MUST BE POSSIBLE ON THE DEVICE YOU SIGNED IN ON.
+ *
+ * The responsive pass above checked that screens render and controls are
+ * reachable, and still missed this: below 901px the stylesheet collapsed the
+ * sidebar to a 64px rail and put `.side-foot button` — the Log out control —
+ * in the same `display: none` rule as the user's name and role. Those are
+ * labels. That is the only way any staff or admin role can end a session,
+ * because Layout renders no other and the avatar beside it is a plain div.
+ *
+ * So a Super Admin on a phone could sign in and never sign out. On a shared
+ * classroom tablet that is not a cosmetic issue: the next person to pick the
+ * device up inherits the previous person's session.
+ *
+ * Asserted per role rather than once, because the roles do not share a shell —
+ * a Parent has its own Sign out on the profile screen and would have hidden
+ * the staff regression behind a passing test.
+ */
+test.describe('every signed-in role can sign out on a small screen', () => {
+  test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
+
+  for (const viewport of [
+    { name: 'tablet', size: TABLET },
+    { name: 'mobile', size: MOBILE },
+  ]) {
+    test(`a Super Admin can reach Log out on ${viewport.name}`, async ({ page }) => {
+      const s = seeded();
+      await page.setViewportSize(viewport.size);
+      await login(page, s.superAdminEmail);
+
+      const logout = page.getByRole('button', { name: /log out/i });
+      await expectUsable(page, logout, 'the Log out button');
+
+      // And it actually ends the session, rather than merely being present.
+      await logout.click();
+      await expect(page).toHaveURL(/\/login/);
+    });
+
+    test(`Classroom staff can reach Log out on ${viewport.name}`, async ({ page }) => {
+      const s = seeded();
+      await page.setViewportSize(viewport.size);
+      await login(page, s.classroomEmail);
+
+      await expectUsable(
+        page,
+        page.getByRole('button', { name: /log out/i }),
+        'the Log out button',
+      );
+    });
+  }
+
+  test('a Parent can sign out from the profile screen on mobile', async ({ page }) => {
+    const s = seeded();
+    await page.setViewportSize(MOBILE);
+    await login(page, s.parentEmail);
+    await page.goto('/parent/profile');
+
+    await expectUsable(
+      page,
+      page.getByRole('button', { name: /sign out/i }),
+      'the parent Sign out button',
+    );
+  });
+});
+
 test.describe('mobile — login and the Parent portal', () => {
   test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
 
