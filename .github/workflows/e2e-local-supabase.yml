@@ -82,6 +82,19 @@ jobs:
       - name: Start the ephemeral local Supabase stack
         run: supabase start
 
+      # Apply the local-only grants EXPLICITLY rather than trusting the CLI to
+      # run supabase/seed.sql. config.toml now declares [db.seed], but the CLI's
+      # seed semantics have already moved under this project twice (the skipped
+      # 0008b migration, the new-style key names), and a gate that silently does
+      # not run is the failure mode this whole job exists to eliminate. The file
+      # is the single source of truth; this step just guarantees it executed.
+      # Every statement in it is idempotent, so applying it twice is harmless.
+      - name: Apply supabase/seed.sql explicitly (local grants)
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 -f supabase/seed.sql
+          echo "seed.sql applied."
+
       - name: Verify the migration ledger reached the release ceiling
         run: |
           CEILING=$(ls supabase/migrations/*.sql | sed 's#.*/##' | sort | tail -1 | cut -d_ -f1)

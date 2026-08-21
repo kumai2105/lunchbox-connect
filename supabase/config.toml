@@ -15,3 +15,13 @@ enable_signup = false
 
 [functions.admin-create-user]
 verify_jwt = true
+
+# Local/CI only. `supabase start` and `db reset` run these files after the
+# migrations; `supabase db push` never does, so nothing here reaches a hosted
+# project. Without this block the CLI has no configured seed path and
+# supabase/seed.sql is silently ignored — which is exactly what happened, and
+# why every service-role write failed with "permission denied for table
+# institutions" on a CLI-built stack.
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
