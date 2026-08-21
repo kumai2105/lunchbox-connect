@@ -125,6 +125,26 @@ jobs:
                      where rolname in ('anon','authenticated','service_role','postgres','supabase_admin')
                      order by rolname;"
 
+      # Assert, rather than hope, that supabase/seed.sql restored the
+      # server-side grants — and that it did NOT widen the client boundary the
+      # suite exists to test. Both halves matter: a green suite running against
+      # an over-permissive database is worse than a red one.
+      - name: Assert seed.sql restored service_role without widening clients
+        run: |
+          PSQL="psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -At"
+          SVC=$($PSQL -c "select count(*) from information_schema.role_table_grants
+                           where table_schema='public' and table_name='institutions'
+                             and grantee='service_role' and privilege_type='INSERT';")
+          AUTH=$($PSQL -c "select string_agg(privilege_type, ',' order by privilege_type)
+                             from information_schema.role_table_grants
+                            where table_schema='public' and table_name='institutions'
+                              and grantee='authenticated';")
+          echo "service_role INSERT on institutions: $SVC (expect 1)"
+          echo "authenticated privileges on institutions: $AUTH (expect SELECT only)"
+          [ "$SVC" = "1" ] || { echo "::error::service_role still lacks INSERT on institutions — seed.sql did not run or did not take effect."; exit 1; }
+          [ "$AUTH" = "SELECT" ] || { echo "::error::authenticated holds '$AUTH' on institutions, expected SELECT only. Something widened the client boundary; the suite would be testing a more permissive database than production."; exit 1; }
+          echo "Server-side access restored; client boundary unchanged."
+
       # Resolve the stack's runtime values and mask the keys before they can
       # appear in any later log line.
       - name: Resolve local API URL and keys
