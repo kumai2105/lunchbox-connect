@@ -196,3 +196,76 @@ test.describe('acceptance — Menu Builder authoring', () => {
       .toBe(true);
   });
 });
+
+test.describe('acceptance — creating the things an Institution runs on', () => {
+  test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
+
+  test('a Super Admin creates a Class, and it lands in the right Institution', async ({ page }) => {
+    const s = seeded();
+    const db = adminDb();
+    const name = `E2E-Class-${Date.now()}`;
+
+    await login(page, s.superAdminEmail);
+    await page.goto('/classes');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+
+    // exact: true is load bearing. "+ Create class" (opens the dialog) and
+    // "Create class" (submits it) both contain "Create class", and accessible
+    // names match by SUBSTRING — an unqualified lookup matches two controls and
+    // fails strict mode. The opener carries the leading "+".
+    await page.getByRole('button', { name: '+ Create class', exact: true }).click();
+    await page.getByPlaceholder('e.g. 1-A').fill(name);
+    await page.getByRole('button', { name: 'Create class', exact: true }).click();
+
+    // Tenancy is the thing worth asserting, not merely existence: 0032 installs
+    // a trigger keeping a class inside one Institution, and a class created
+    // against the wrong tenant is a data-integrity failure, not a UI nit.
+    await expect
+      .poll(
+        async () => {
+          const r = await db
+            .from('classes')
+            .select('id, institution_id')
+            .eq('name', name)
+            .maybeSingle();
+          return r.data?.institution_id ?? null;
+        },
+        { message: 'the created class never appeared with an institution' },
+      )
+      .not.toBeNull();
+  });
+
+  test('a Nursery Admin provisions classroom staff, and the account is real', async ({ page }) => {
+    const s = seeded();
+    const db = adminDb();
+    const email = `e2e.staff.${Date.now()}@lunchbox.app`;
+
+    await login(page, s.schoolAdminEmail);
+    await page.goto('/staff');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+
+    await page.getByRole('button', { name: /provision classroom staff/i }).click();
+    await page.getByLabel('Full name').fill('E2E Provisioned Staff');
+    await page.getByLabel('Email').fill(email);
+    await page.getByLabel(/temporary password/i).fill('E2e-pass!12345');
+    await page.getByRole('button', { name: /create account/i }).click();
+
+    // This is the whole point of the screen: an app_users row with the right
+    // role, in the admin's OWN institution. The Edge Function is the only
+    // server-side account path, so this also proves that path works end to end
+    // rather than just that the form submits.
+    await expect
+      .poll(
+        async () => {
+          const r = await db
+            .from('app_users')
+            .select('role, institution_id')
+            .eq('email', email)
+            .maybeSingle();
+          return r.data?.role ?? null;
+        },
+        { message: 'the provisioned staff account never appeared' },
+      )
+      .toBe('classroom_staff');
+  });
+});
