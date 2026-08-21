@@ -285,11 +285,18 @@ test.describe('acceptance — creating the things an Institution runs on', () =>
     // showing the reason the whole time, in a .banner.err that the test never
     // read. Polling for a row is the assertion; reading the banner first is
     // what makes a failure diagnosable instead of another guess.
+    // Read the banner but DO NOT throw on it yet.
+    //
+    // The previous version threw the instant a banner appeared, which fired
+    // before the network/database facts below were collected — so the run that
+    // finally proved the app IS refusing the write reported only the banner
+    // text ("[object Object]") and nothing about WHY. One failed run must yield
+    // every fact at once; a diagnostic that short-circuits the diagnosis is
+    // worse than none.
     const banner = page.locator('.banner.err');
-    if (await banner.count()) {
-      const text = (await banner.first().textContent())?.trim();
-      if (text) throw new Error(`the app refused to create the class: ${text}`);
-    }
+    const bannerText = (await banner.count())
+      ? ((await banner.first().textContent())?.trim() ?? '')
+      : '';
 
     // Let the request land, then report EVERYTHING observed. "No row" is not a
     // diagnosis; "no row and no request was ever made" and "no row and the POST
@@ -305,7 +312,7 @@ test.describe('acceptance — creating the things an Institution runs on', () =>
     // not a stale or duplicate one.
     const all = await db.from('classes').select('id, institution_id, name').eq('name', name);
     const rows = all.data ?? [];
-    if (rows.length !== 1 || rows[0].institution_id !== institutionId) {
+    if (bannerText || rows.length !== 1 || rows[0].institution_id !== institutionId) {
       const submit = page.getByRole('button', { name: 'Create class', exact: true });
       throw new Error(
         `CLASS-CREATE DIAGNOSIS for "${name}":\n` +
@@ -313,6 +320,7 @@ test.describe('acceptance — creating the things an Institution runs on', () =>
           `  2 network               : ${netNotes.join(' | ') || 'NO /rest/v1/classes REQUEST AT ALL'}\n` +
           `  3 rows in postgres      : ${rows.length} -> ${JSON.stringify(rows)}\n` +
           `  4 query error           : ${JSON.stringify(all.error)}\n` +
+          `  banner                  : ${bannerText || 'none'}\n` +
           `  console                 : ${consoleErrors.join(' | ') || 'none'}\n` +
           `  submitDisabled=${await submit.isDisabled().catch(() => 'gone')} ` +
           `modalOpen=${await page.locator('.modal, [role="dialog"]').count()}`,
