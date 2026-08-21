@@ -28,7 +28,16 @@ test.describe('login matrix — nine roles', () => {
   for (const c of cases) {
     test(`${c.role} signs in and lands on their first page`, async ({ page }) => {
       await login(page, seeded()[c.key]);
-      await expect(page).toHaveURL(new RegExp(`^${c.href}`));
+      // Assert on the PATHNAME. toHaveURL() matches a RegExp against the whole
+      // URL, so `^/dashboard` could never match "http://127.0.0.1:4173/dashboard"
+      // — the same trap that made login() wait out its full timeout on every
+      // role. A predicate over url.pathname keeps the anchor honest, and still
+      // fails if a role lands on somebody else's first page.
+      await expect
+        .poll(() => new URL(page.url()).pathname, {
+          message: `${c.role} should land on ${c.href}`,
+        })
+        .toMatch(new RegExp(`^${c.href}`));
       await expect(page.locator('.side-foot .u-role')).toHaveText(new RegExp(c.role, 'i'));
       await expect(page.locator('.nav a.active')).toHaveText(c.nav);
     });

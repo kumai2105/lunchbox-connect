@@ -38,16 +38,45 @@ export function adminDb() {
   return createClient(url, serviceKey, { auth: { persistSession: false } });
 }
 
+// Every role lands on its own first page. Routes reflect the CURRENT app:
+// no /menu (retired); kitchen → /kitchen, ops → /ops, reports → /reports.
+const FIRST_PAGE =
+  /^\/(dashboard|today|parent|classes|staff|students|status|kitchen|reports|ops|deliveries|meals|menu-builder|analytics|users|institutions)/;
+
 export async function login(page: Page, email: string): Promise<void> {
   await page.goto('/login');
   await page.locator(SEL.email).fill(email);
   await page.locator(SEL.password).fill(PASS);
   await page.getByRole('button', { name: /enter the platform/i }).click();
-  // Every role lands on its own first page. Routes reflect the CURRENT app:
-  // no /menu (retired); kitchen → /kitchen, ops → /ops, reports → /reports.
-  await page.waitForURL(
-    /^\/(dashboard|today|parent|classes|staff|students|status|kitchen|reports|ops|deliveries|meals|menu-builder|analytics|users|institutions)/,
-  );
+
+  // Match on the PATHNAME via a predicate, not on a bare RegExp.
+  //
+  // waitForURL() tests a RegExp against the WHOLE url — "http://127.0.0.1:4173/
+  // dashboard" — so the `^\/` anchor above could never match one. This helper
+  // used to pass FIRST_PAGE directly, and the wait therefore ran to the full
+  // 60s test timeout on EVERY login, for every role, in every spec. With
+  // retries that is roughly 81 minutes of dead waiting, so the job hit its cap
+  // before it could report anything. A predicate over url.pathname keeps the
+  // anchored intent and cannot be misread the same way.
+  //
+  // The explicit timeout matters too: a sign-in that has not landed in 15s has
+  // failed, and waiting the remaining 45s only delays the report.
+  try {
+    await page.waitForURL((url) => FIRST_PAGE.test(url.pathname), { timeout: 15_000 });
+  } catch {
+    // Say what actually happened rather than "timeout exceeded". The login form
+    // renders its own error, and that error is usually the real story.
+    const shown = await page
+      .locator('[role="alert"], .error, .form-error')
+      .first()
+      .textContent()
+      .catch(() => null);
+    throw new Error(
+      `[e2e] login did not reach a first page for ${email}. ` +
+        `Landed on ${page.url()}` +
+        (shown ? `; the page said: ${shown.trim()}` : '; the page showed no error'),
+    );
+  }
 }
 
 export const SEL = {

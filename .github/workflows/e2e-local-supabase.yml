@@ -307,6 +307,11 @@ jobs:
         run: pnpm build:e2e
 
       - name: Serve app + run the complete suite
+        # Its own cap. Run 13 sat in this step for 36+ minutes and was killed
+        # before the assertion step could report anything, so the whole job
+        # produced no signal at all. A step-level timeout turns a hang into a
+        # named failure with a readable log instead of a silent kill.
+        timeout-minutes: 15
         run: |
           pnpm preview --host 127.0.0.1 --port 4173 &
           SERVER_PID=$!
@@ -320,8 +325,15 @@ jobs:
           # easily buried by the Chromium download; pipefail keeps the real exit
           # code rather than tee's.
           set -o pipefail
+          # --max-failures stops the run once a systemic breakage is obvious.
+          # With 60s timeouts, 2 retries and 1 worker, a suite where every test
+          # fails needs ~81 minutes — longer than the job may run, so it reports
+          # NOTHING. Eight identical failures diagnose exactly as well as 27 do,
+          # and arrive in minutes. It cannot mask a real pass: the gate below
+          # requires expected == the full --list total, so an early stop still
+          # fails the job.
           PLAYWRIGHT_JSON_OUTPUT_NAME=/tmp/e2e.json \
-            pnpm exec playwright test --reporter=list,json 2>&1 | tee /tmp/e2e.log
+            pnpm exec playwright test --reporter=list,json --max-failures=8 2>&1 | tee /tmp/e2e.log
 
       # A green suite that ran zero tests is the failure mode this gate exists to
       # prevent: global-setup RETURNS EARLY and skips everything when the env is
