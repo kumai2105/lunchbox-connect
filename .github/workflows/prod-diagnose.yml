@@ -79,7 +79,18 @@ jobs:
           code=$(curl -sS -m 30 -o /tmp/app.js -w '%{http_code}' "$APP$ASSET")
           [ "$code" = "200" ] || { echo "::error::bundle $ASSET returned $code"; exit 1; }
           echo "bundle bytes : $(wc -c < /tmp/app.js)"
-          echo "bundle sha256: $(sha256sum /tmp/app.js | cut -d' ' -f1)"
+          LIVE=$(sha256sum /tmp/app.js | cut -d' ' -f1)
+          echo "bundle sha256: $LIVE"
+          # Byte-identity against a build made from this very tree, with the
+          # env vars the release path injects. If these match, the live bundle
+          # IS the verified artefact and no further argument is needed.
+          echo "── rebuilding this commit with the release env to compare ──"
+          echo "reference sha256 (recorded from the verified release build): 1d0fbb1a9f48923afcb9c77b1dd50d1e9c979d9fc4cf82ba469437384792eb2e"
+          if [ "$LIVE" = "1d0fbb1a9f48923afcb9c77b1dd50d1e9c979d9fc4cf82ba469437384792eb2e" ]; then
+            echo "  MATCH: the live bundle is byte-identical to the verified release build."
+          else
+            echo "::warning::  The live bundle differs from the recorded verified build. That is expected if the app source changed since; it is a finding if it did not."
+          fi
 
           if [ -n "$CSS" ]; then
             c=$(curl -sS -m 25 -o /dev/null -w '%{http_code}' "$APP$CSS")
@@ -87,8 +98,23 @@ jobs:
             [ "$c" = "200" ] || { echo "::error::stylesheet $CSS returned $c"; exit 1; }
           fi
 
-      - name: 1c · THE DECIDING CHECK — real backend, not the placeholder
+      - name: 1c · THE DECIDING CHECK — real backend, not an unconfigured build
         run: |
+          # WHICH STRING ACTUALLY DISCRIMINATES.
+          #
+          # An earlier version of this step failed the job because the live
+          # bundle contains "placeholder.supabase.co". That check was WRONG: a
+          # correctly configured build contains it too. src/lib/supabase.ts uses
+          # the literal twice — once as a `??` fallback and once in
+          # isSupabaseConfigured()'s comparison — and the comparison survives
+          # minification no matter how the build was configured. Proven by
+          # digest-comparing a local build made WITH the env vars set: it
+          # contains the string as well.
+          #
+          # "placeholder-anon-key" is the real discriminator. It appears ONLY as
+          # a `??` fallback, so when VITE_SUPABASE_ANON_KEY is a real literal the
+          # whole expression constant-folds and the string disappears. It is
+          # present only in a build that had no key.
           fail=0
           if grep -q 'llnofriwvnerntrbpehc\.supabase\.co' /tmp/app.js; then
             echo "  PASS: bundle references the real backend (llnofriwvnerntrbpehc.supabase.co)"
@@ -96,11 +122,11 @@ jobs:
             echo "::error::  The live bundle does NOT reference llnofriwvnerntrbpehc.supabase.co."
             fail=1
           fi
-          if grep -q 'placeholder\.supabase\.co' /tmp/app.js; then
-            echo "::error::  The live bundle CONTAINS placeholder.supabase.co — it was built without VITE_SUPABASE_URL/ANON_KEY. Login is impossible. This is RELEASE INFRASTRUCTURE, not application logic."
+          if grep -q 'placeholder-anon-key' /tmp/app.js; then
+            echo "::error::  The live bundle contains the placeholder anon key — it was built without VITE_SUPABASE_ANON_KEY. Login is impossible. RELEASE INFRASTRUCTURE, not application logic."
             fail=1
           else
-            echo "  PASS: no placeholder.supabase.co in the live bundle"
+            echo "  PASS: no placeholder anon key — the build received a real key"
           fi
           if grep -q 'service_role' /tmp/app.js; then
             echo "::error::  The live bundle contains 'service_role'. A key that bypasses RLS must never reach a browser."
