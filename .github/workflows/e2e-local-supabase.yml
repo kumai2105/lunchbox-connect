@@ -1,0 +1,210 @@
+name: E2E (ephemeral local Supabase)
+
+# Runs the COMPLETE 19-test Playwright suite against a throwaway Supabase stack
+# started on the runner itself.
+#
+# Why this exists: the suite needs a real Supabase backend (GoTrue auth,
+# PostgREST, Storage), and the only non-production one previously available was
+# "a second hosted project someone has to create and pay attention to". This job
+# needs no hosted project at all — `supabase start` builds the whole stack from
+# THIS repository's supabase/config.toml and migrations 0001..NNNN, runs the
+# suite against it, and throws it away. Nothing outside the runner is touched.
+#
+# Manual dispatch only: it is a release gate you run deliberately, not something
+# that fires on every push.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag or commit to test (the frozen release candidate).'
+        required: true
+        default: 'claude/new-session-k5dd5u'
+        type: string
+
+concurrency:
+  group: e2e-local-supabase
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: 19 browser tests · local Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      E2E_BASE_URL: http://127.0.0.1:4173
+      # The local stack's fixed demo password space; global-setup falls back to
+      # this same literal, but set it explicitly so the value is never implicit.
+      E2E_PASSWORD: 'E2e-pass!12345'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Record the exact tree under test
+        run: |
+          echo "ref input : ${{ inputs.ref }}"
+          echo "commit    : $(git rev-parse HEAD)"
+          echo "migrations: $(ls supabase/migrations/*.sql | wc -l) files, newest $(ls supabase/migrations/*.sql | sed 's#.*/##' | sort | tail -1)"
+
+      - name: Install pnpm (from packageManager)
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install the Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # `supabase start` creates a fresh Postgres and applies every file in
+      # supabase/migrations in ascending order. If any migration is broken this
+      # step fails here, before a single browser opens — which is exactly the
+      # "migrations apply cleanly to a fresh database" check.
+      - name: Start the ephemeral local Supabase stack
+        run: supabase start
+
+      - name: Verify the migration ledger reached the release ceiling
+        run: |
+          CEILING=$(ls supabase/migrations/*.sql | sed 's#.*/##' | sort | tail -1 | cut -d_ -f1)
+          echo "Release ceiling from the repository: $CEILING"
+          APPLIED=$(psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -At -c \
+            "select count(*) from supabase_migrations.schema_migrations;")
+          echo "Local ledger rows: $APPLIED"
+          EXPECTED=$(ls supabase/migrations/*.sql | wc -l)
+          if [ "$APPLIED" -lt "$EXPECTED" ]; then
+            echo "::error::Local database applied $APPLIED migrations but the repository ships $EXPECTED. The fresh-database apply is incomplete."
+            exit 1
+          fi
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c \
+            "select version, name from supabase_migrations.schema_migrations order by version;"
+
+      # Resolve the stack's runtime values and mask the keys before they can
+      # appear in any later log line.
+      - name: Resolve local API URL and keys
+        id: stack
+        run: |
+          supabase status -o json > /tmp/status.json
+          API_URL=$(jq -r '.API_URL' /tmp/status.json)
+          ANON=$(jq -r '.ANON_KEY' /tmp/status.json)
+          SERVICE=$(jq -r '.SERVICE_ROLE_KEY' /tmp/status.json)
+          echo "::add-mask::$ANON"
+          echo "::add-mask::$SERVICE"
+          [ -n "$API_URL" ] && [ "$API_URL" != "null" ] || { echo "::error::Could not resolve the local API URL."; exit 1; }
+          echo "Local API URL: $API_URL"
+          {
+            echo "E2E_SUPABASE_URL=$API_URL"
+            echo "E2E_SUPABASE_ANON_KEY=$ANON"
+            echo "E2E_SUPABASE_SERVICE_ROLE_KEY=$SERVICE"
+          } >> "$GITHUB_ENV"
+
+      # The production-ref guard is PRESERVED verbatim from ci.yml, and a
+      # positive assertion is added on top: the target must be loopback. The
+      # negative guard alone would pass for any non-production hosted project;
+      # this job is only ever allowed to talk to the stack on this runner.
+      - name: Guard — target must be local, and must never be production
+        run: |
+          PROD_REFS="llnofriwvnerntrbpehc"
+          for ref in $PROD_REFS; do
+            case "$E2E_SUPABASE_URL" in
+              *"$ref"*)
+                echo "::error::E2E_SUPABASE_URL points at the production project ($ref). Refusing to seed production."
+                exit 1
+                ;;
+            esac
+          done
+          case "$E2E_SUPABASE_URL" in
+            http://127.0.0.1:*|http://localhost:*) ;;
+            *)
+              echo "::error::E2E_SUPABASE_URL ($E2E_SUPABASE_URL) is not the loopback stack. This job only runs against the ephemeral local Supabase."
+              exit 1
+              ;;
+          esac
+          echo "E2E target is the ephemeral local stack, and is not production."
+
+      - name: Confirm the local Edge Function is being served
+        run: |
+          # `supabase start` runs the edge runtime from supabase/functions.
+          # api.ts invokes admin-create-user for account provisioning, so prove
+          # the route exists. An unauthenticated call must NOT 404: 401/403 is a
+          # served function refusing the caller, which is what we want to see.
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            "$E2E_SUPABASE_URL/functions/v1/admin-create-user" \
+            -H 'Content-Type: application/json' -d '{}' || echo 000)
+          echo "admin-create-user responded: HTTP $CODE"
+          if [ "$CODE" = "404" ] || [ "$CODE" = "000" ]; then
+            echo "::warning::admin-create-user is not served locally (HTTP $CODE). Browser flows that provision accounts would fail; the rest of the suite is unaffected."
+          fi
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pw-${{ runner.os }}-
+
+      - name: Install Playwright browser (chromium + deps)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      # build:e2e maps E2E_SUPABASE_URL / ANON onto the Vite variables and
+      # enforces its own refusals (never production; never ship a service_role
+      # key to a browser). Those guards are untouched.
+      - name: Build the frontend against the local stack
+        run: pnpm build:e2e
+
+      - name: Serve app + run the complete suite
+        run: |
+          pnpm preview --host 127.0.0.1 --port 4173 &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID 2>/dev/null || true" EXIT
+          for i in $(seq 1 45); do
+            curl -sf http://127.0.0.1:4173 >/dev/null && break
+            sleep 1
+          done
+          PLAYWRIGHT_JSON_OUTPUT_NAME=/tmp/e2e.json pnpm exec playwright test --reporter=list,json
+
+      # A green suite that ran zero tests is the failure mode this gate exists to
+      # prevent: global-setup RETURNS EARLY and skips everything when the env is
+      # missing. Assert the real numbers instead of trusting the exit code.
+      - name: Assert 19 executed, 0 failed, 0 skipped
+        if: always()
+        run: |
+          [ -f /tmp/e2e.json ] || { echo "::error::No Playwright JSON report was produced — the suite did not run."; exit 1; }
+          echo "stats: $(jq -c '.stats' /tmp/e2e.json)"
+          OK=$(jq '.stats.expected' /tmp/e2e.json)
+          BAD=$(jq '.stats.unexpected' /tmp/e2e.json)
+          SKIP=$(jq '.stats.skipped' /tmp/e2e.json)
+          FLAKY=$(jq '.stats.flaky' /tmp/e2e.json)
+          echo "passed=$OK failed=$BAD skipped=$SKIP flaky=$FLAKY"
+          FAILED=0
+          [ "$OK" = "19" ]  || { echo "::error::Expected 19 passing tests, got $OK."; FAILED=1; }
+          [ "$BAD" = "0" ]  || { echo "::error::$BAD test(s) failed."; FAILED=1; }
+          [ "$SKIP" = "0" ] || { echo "::error::$SKIP test(s) skipped. No silent skips are permitted in this gate."; FAILED=1; }
+          exit $FAILED
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            /tmp/e2e.json
+            test-results/
+            playwright-report/
+          retention-days: 7
+
+      - name: Tear down the ephemeral stack
+        if: always()
+        run: supabase stop --no-backup || true
