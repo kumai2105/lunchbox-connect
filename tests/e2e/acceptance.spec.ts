@@ -47,9 +47,21 @@ test.describe('acceptance — the parent-privacy boundary is an ACTION, not just
 
     // The reviewer must be able to REDACT before approving — that is the whole
     // point of the screen, so publish the edited text, not the original.
-    const redacted = `Approved by acceptance test ${Date.now()}`;
     const box = page.locator('textarea').first();
     await expect(box).toBeVisible();
+
+    // Whitespace is not a note. Asserted HERE rather than in a test of its own:
+    // as a separate test it depended on a draft still being unpublished, which
+    // the test above had already consumed, so it skipped — and this gate
+    // forbids silent skips, correctly. Folding it in removes the ordering
+    // dependency entirely.
+    await box.fill('   ');
+    await expect(
+      page.getByRole('button', { name: /approve for family/i }).first(),
+      'whitespace must not count as a note',
+    ).toBeDisabled();
+
+    const redacted = `Approved by acceptance test ${Date.now()}`;
     await box.fill(redacted);
 
     const approve = page.getByRole('button', { name: /approve for family/i }).first();
@@ -74,25 +86,6 @@ test.describe('acceptance — the parent-privacy boundary is an ACTION, not just
       .toBe(redacted);
   });
 
-  test('an empty note cannot be approved — the button stays disabled', async ({ page }) => {
-    const s = seeded();
-    const db = adminDb();
-
-    // Give the screen something to show, authored the way the app authors it.
-    const drafts = await db.from('serving_notes').select('id').is('published_at', null);
-    test.skip((drafts.data ?? []).length === 0, 'no unpublished note left to assert against');
-
-    await login(page, s.superAdminEmail);
-    await page.goto('/review');
-
-    const box = page.locator('textarea').first();
-    await expect(box).toBeVisible();
-    await box.fill('   '); // whitespace only
-    await expect(
-      page.getByRole('button', { name: /approve for family/i }).first(),
-      'whitespace must not count as a note',
-    ).toBeDisabled();
-  });
 });
 
 test.describe('acceptance — Meal Library authoring', () => {
@@ -180,20 +173,26 @@ test.describe('acceptance — read-only management surfaces render real data', (
 test.describe('acceptance — Menu Builder authoring', () => {
   test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
 
-  test('the Menu Builder loads a rotation with its week/slot grid', async ({ page }) => {
+  test('the Menu Builder opens a rotation and shows its week/slot grid', async ({ page }) => {
     const s = seeded();
     await login(page, s.superAdminEmail);
     await page.goto('/menu-builder');
 
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
-    // The grid is the instrument. If no slot control renders, the screen cannot
-    // be used to plan anything, however healthy it looks.
-    await expect
-      .poll(async () => (await page.locator('.slot, .rotation-slot, table, select').count()) > 0, {
-        message: 'the Menu Builder rendered no planning grid',
-      })
-      .toBe(true);
+    // The grid does NOT render on arrival, and my first version of this test
+    // failed for exactly that reason: it asserted a planning grid on a screen
+    // that legitimately shows a rotation PICKER first. The canvas only appears
+    // once a rotation is selected, so the test has to do what a planner does.
+    const rotation = page.locator('.menu-list-item').first();
+    await expect(rotation, 'no rotation to open — the seed should provide one').toBeVisible();
+    await rotation.click();
+
+    // Now the canvas, its week tabs and the grid itself must be present. These
+    // are the real class names from the page, read rather than guessed.
+    await expect(page.locator('.menu-canvas')).toBeVisible();
+    await expect(page.locator('.menu-grid')).toBeVisible();
+    await expect(page.locator('.week-tabs')).toBeVisible();
   });
 });
 
