@@ -13,15 +13,24 @@ name: Production smoke (read-only)
 # boundary holds" has to be asserted somewhere that CAN reach it. A GitHub
 # runner can. The same reasoning already puts the browser E2E suite on a
 # runner.
+#
+# It also runs on a push that touches THIS FILE, and only this file. That is
+# deliberate for two reasons. GitHub will not register `workflow_dispatch` for
+# a workflow that has never run from a branch, so a dispatch-only smoke on a
+# feature branch is unreachable — the API answers 404. And editing the checks
+# is exactly when you want them re-run against the live system. Every other
+# push is ignored.
 on:
   workflow_dispatch:
     inputs:
       app_url:
         description: >-
           The deployed frontend origin, e.g. https://lunchbox-connect.<sub>.workers.dev
-          (no trailing slash).
-        required: true
+          (no trailing slash). Defaults to the deployed Worker.
+        required: false
         type: string
+  push:
+    paths: ['.github/workflows/prod-smoke.yml']
 
 jobs:
   smoke:
@@ -29,7 +38,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      APP: ${{ inputs.app_url }}
+      # The dispatch input wins; otherwise the deployed Worker origin. Kept as
+      # a literal rather than a repository variable so the smoke cannot be
+      # silently retargeted by an unrelated settings change.
+      APP: ${{ inputs.app_url || 'https://lunchbox-connect.koumai-2105.workers.dev' }}
       SUPA: https://llnofriwvnerntrbpehc.supabase.co
       # Public by design: RLS is the boundary, not secrecy. This is the same
       # key the deployed bundle ships to every browser.
