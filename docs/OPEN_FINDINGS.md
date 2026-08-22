@@ -134,7 +134,7 @@ reclaimed. The Founder holds a copy; retention is on them.
 Supabase Pro daily backups cover the project going forward, but that is a
 different thing from this specific pre-migration point.
 
-## 5. `app_users_select` carries the same self-referencing shape as the two policies 0040 fixed
+## 5. `app_users_select` carries the same self-referencing shape as the two policies 0040 fixed — CLOSED by finding 12
 
 `app_users_select` is `using (app_can_see_user(user_id))`, and
 `app_can_see_user()` re-reads `app_users` (`select institution_id from
@@ -290,5 +290,96 @@ so three correct weeks cannot have come from three weekly entries.
 
 The Service tab now says this on screen, where the operator needs it, instead of
 leaving it to be inferred from a number field.
+
+---
+
+## 10. /dashboard and /audit were refused to the Super Admin — CLOSED
+
+**Status:** closed 2026-08-22 · migration `0042` · **NOT YET APPLIED TO PRODUCTION**
+**Classification:** DATABASE defect. Environment: reproduced on the local CLI
+stack; production status unverified (see below).
+
+Reproduced in a browser, signed in as a Super Admin, on a clean rebuild of
+every migration:
+
+```
+/dashboard -> permission denied for view v_dashboard_institutions [42501]
+/audit     -> permission denied for table audit_log [42501]
+```
+
+Both screens rendered an error banner to the role that owns them. Nothing
+caught it for the life of the project because no test had ever asserted that a
+core screen shows **no** error banner — only that whatever banner it showed was
+readable. The route sweep added in this closure asserts the absence, and found
+both on its first run.
+
+**Cause — the same one as finding 6.** PostgreSQL checks GRANTS before RLS, so
+a policy on an object no role may select from is unreachable however carefully
+it is written. `audit_log` has carried RLS since `0009` with
+`audit_log_select using (app_is_super_admin())` and `revoke all … from anon`,
+and no grant to `authenticated` was ever stated. `v_dashboard_institutions` is
+a `security_invoker` view (`0039`), so the caller needs SELECT on the view
+itself.
+
+**Fixed by `0042`**, which states both grants. Not a widening: the grant makes
+the policy reachable, the policy still decides.
+`tests/sql/verify_read_grants.sql` asserts both halves — a Super Admin reads
+both objects, a Nursery Admin still reads zero audit rows, `anon` holds no
+grant on either.
+
+**Production status: UNVERIFIED.** Hosted Supabase grants `ALL` on `public` to
+`authenticated` through platform default privileges, so production may already
+permit both reads — exactly as it did for `institutions` in finding 6, where I
+generalised a local failure to production and was wrong. The Supabase connector
+was unavailable when this closure ended, so this was not checked. `0042` is
+expected to be a no-op there and remains worth applying, so the permission
+model rests on what this repository states.
+
+---
+
+## 11. Keyboard focus was invisible — CLOSED
+
+**Status:** closed 2026-08-22 · `src/styles.css`
+**Classification:** PRODUCT defect (accessibility). Not environment-specific.
+
+The stylesheet contained no `:focus-visible` rule at all, and five selectors
+set `outline: none`. Two of them — `.filters .search-box input` and
+`.toolbar .search-box input` — also drop the border, so a keyboard user
+focusing either search box saw nothing whatsoever. Everywhere else the app
+depended on the browser default ring, which is not a decision anyone made.
+
+Fixed with one generic `:focus-visible` ring plus the named exceptions, and a
+light ring inside the dark sidebar where the brand blue does not read.
+`:focus-visible` rather than `:focus`, so it appears for keyboard and assistive
+technology and not on every mouse click. No other visual change.
+
+Proved by `controls.spec.ts`, which tabs through a core screen and reports
+every control that takes focus without a visible indicator.
+
+**A correction while fixing it:** my first version of this fix named `.outcome`
+as "the controls the Classroom register is built around". That is wrong —
+`.outcome` is dead CSS rendered by no component. The live controls are
+`.plate-quarter` and `.chip-choice button`, neither of which suppresses the
+outline.
+
+---
+
+## 12. Does `app_users_select` carry the 0040 fault? — INVESTIGATED, NOT A DEFECT
+
+**Status:** settled 2026-08-22 · no change made
+
+Finding 5 recorded a resemblance, not evidence. `tests/sql/verify_app_users_policy.sql`
+settles it with 12 assertions: `app_can_see_user()` resolves the **caller's**
+row, which always already exists, where the `0040` policies resolved the **new**
+row's id. `INSERT … RETURNING` and `UPDATE … RETURNING` both return their row.
+
+Every supported read is asserted — all seven roles reading their own row (the
+login path, without which a role cannot sign in at all), the Super Admin
+directory, School Admin scope including the linked-parent case and the absence
+of a parent directory, a Parent and a Kitchen account each seeing exactly one
+row, and the two **joined** reads the client actually issues, where a policy
+failure would show as a silently blank name rather than an error.
+
+No policy changed. No visibility widened. Finding 5 is closed by this.
 
 ---

@@ -1,0 +1,214 @@
+name: Production browser auth (read-only)
+
+# WHY THIS EXISTS
+#
+# The evidence receipt recorded one gap it could not close: nothing had ever
+# driven a REAL BROWSER through sign-in and sign-out against the live origin.
+# The browser suite proves the whole session lifecycle for nine roles, but it
+# runs against an ephemeral local Supabase stack, by design — seeded E2E must
+# never touch the production project. So "login works in production" rested on
+# the shell returning 200 and on the local suite passing, which is an inference,
+# not evidence.
+#
+# This closes it with the smallest possible thing: ONE verification account,
+# signing in and out against https://www.lunchboxconnect.com, asserting the
+# session really ends and a protected route is refused afterwards. It writes
+# nothing. It records nothing. It reads two screens.
+#
+# CREDENTIALS
+# Two repository secrets are required and the job FAILS CLOSED without them —
+# a green run that silently skipped the whole point would be worse than a red
+# one:
+#
+#   PROD_VERIFY_EMAIL     an account that exists in production
+#   PROD_VERIFY_PASSWORD  its password
+#
+# Use an account created for this purpose. Do NOT reset a real user's password
+# to run this. The password is never echoed; only presence is ever printed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: 'Origin to verify (must be https, no trailing slash).'
+        required: false
+        default: 'https://www.lunchboxconnect.com'
+        type: string
+
+concurrency:
+  group: prod-browser-auth
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Real browser sign-in and sign-out against production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refuse anything that is not an https origin
+        env:
+          APP: ${{ inputs.app_url }}
+        run: |
+          case "$APP" in
+            https://*) ;;
+            *) echo "::error::app_url must be an https origin. Got '$APP'."; exit 1;;
+          esac
+          case "$APP" in
+            */) echo "::error::app_url must not end with a slash."; exit 1;;
+          esac
+          echo "Verifying $APP"
+
+      - name: Require the verification credentials
+        env:
+          V_EMAIL: ${{ secrets.PROD_VERIFY_EMAIL }}
+          V_PASS: ${{ secrets.PROD_VERIFY_PASSWORD }}
+        run: |
+          missing=0
+          [ -n "$V_EMAIL" ] || { echo "::error::PROD_VERIFY_EMAIL is not set. This job exists to PROVE production sign-in; refusing to report success without doing it."; missing=1; }
+          [ -n "$V_PASS" ]  || { echo "::error::PROD_VERIFY_PASSWORD is not set. This job exists to PROVE production sign-in; refusing to report success without doing it."; missing=1; }
+          [ "$missing" -eq 0 ] || exit 1
+          echo "Verification credentials present."
+
+      - name: Install pnpm (from packageManager)
+        uses: pnpm/action-setup@v4
+        with: { run_install: false }
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser (chromium + deps)
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Sign in, sign out, and prove the session ended
+        env:
+          APP: ${{ inputs.app_url }}
+          V_EMAIL: ${{ secrets.PROD_VERIFY_EMAIL }}
+          V_PASS: ${{ secrets.PROD_VERIFY_PASSWORD }}
+        run: |
+          cat > /tmp/prod-auth.mjs <<'JS'
+          import { chromium } from 'playwright';
+
+          const APP = process.env.APP;
+          const EMAIL = process.env.V_EMAIL;
+          const PASS = process.env.V_PASS;
+
+          const fail = (m) => { console.log(`::error::${m}`); process.exitCode = 1; };
+          const ok = (m) => console.log(`PASS: ${m}`);
+
+          // Never print the address itself; a masked shape is enough to confirm
+          // the right kind of account was used.
+          const masked = EMAIL.replace(/^(.).*(@.*)$/, '$1***$2');
+
+          const browser = await chromium.launch();
+          const page = await browser.newPage();
+          const consoleErrors = [];
+          page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
+          page.on('pageerror', (e) => consoleErrors.push(`pageerror: ${e.message}`));
+
+          const sessionKeys = () => page.evaluate(() => {
+            const out = [];
+            try {
+              for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith('sb-') && k.includes('auth-token')) {
+                  const v = localStorage.getItem(k);
+                  if (v && v !== 'null' && v.length > 2) out.push(k);
+                }
+              }
+            } catch { /* storage unavailable */ }
+            return out;
+          });
+
+          try {
+            // ---- /login renders -------------------------------------------
+            await page.goto(`${APP}/login`, { waitUntil: 'domcontentloaded' });
+            const email = page.locator('input[autocomplete="email"]');
+            await email.waitFor({ state: 'visible', timeout: 30000 });
+            ok('/login renders the sign-in form');
+
+            // ---- sign in ---------------------------------------------------
+            await email.fill(EMAIL);
+            await page.locator('input[autocomplete="current-password"]').fill(PASS);
+            await page.getByRole('button', { name: /enter the platform/i }).click();
+
+            await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 30000 });
+            const landed = new URL(page.url()).pathname;
+            ok(`signed in as ${masked} and landed on ${landed}`);
+
+            if ((await sessionKeys()).length === 0) fail('no session was stored after signing in');
+            else ok('a session is stored in the browser');
+
+            // ---- refresh while authenticated -------------------------------
+            await page.reload({ waitUntil: 'domcontentloaded' });
+            if (new URL(page.url()).pathname.startsWith('/login')) {
+              fail('a hard refresh while signed in returned to the login screen');
+            } else {
+              ok('a hard refresh keeps the session');
+            }
+
+            // ---- sign out --------------------------------------------------
+            let out = page.getByRole('button', { name: /log out/i });
+            if ((await out.count()) === 0) {
+              // The Parent shell keeps its Sign out on the profile screen.
+              await page.goto(`${APP}/parent/profile`, { waitUntil: 'domcontentloaded' });
+              out = page.getByRole('button', { name: /sign out/i });
+            }
+            if ((await out.count()) === 0) {
+              fail('no sign-out control was reachable for this account');
+            } else {
+              await out.first().click();
+              await page.waitForURL((u) => u.pathname.startsWith('/login'), { timeout: 30000 });
+              ok('signing out returns to the login screen');
+            }
+
+            // ---- the session is really gone --------------------------------
+            if ((await sessionKeys()).length !== 0) fail('a session survived sign-out in production');
+            else ok('no session remains in the browser');
+
+            // ---- a protected route is refused ------------------------------
+            await page.goto(`${APP}${landed}`, { waitUntil: 'domcontentloaded' });
+            if (!new URL(page.url()).pathname.startsWith('/login')) {
+              fail(`a protected route (${landed}) was served after sign-out`);
+            } else {
+              ok('a protected route is refused after sign-out');
+            }
+
+            // ---- refresh stays signed out ----------------------------------
+            await page.reload({ waitUntil: 'domcontentloaded' });
+            if (!new URL(page.url()).pathname.startsWith('/login')) {
+              fail('a refresh after sign-out restored an authenticated screen');
+            } else {
+              ok('a refresh after sign-out stays signed out');
+            }
+
+            // ---- and signing in again still works --------------------------
+            await page.locator('input[autocomplete="email"]').fill(EMAIL);
+            await page.locator('input[autocomplete="current-password"]').fill(PASS);
+            await page.getByRole('button', { name: /enter the platform/i }).click();
+            await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 30000 });
+            ok('signing in again works after signing out');
+
+            // Leave nothing behind.
+            const again = page.getByRole('button', { name: /log out/i });
+            if (await again.count()) await again.first().click().catch(() => {});
+          } catch (e) {
+            fail(`production browser auth threw: ${e.message}`);
+          } finally {
+            if (consoleErrors.length) {
+              console.log(`::warning::console errors during the run: ${consoleErrors.join(' | ')}`);
+            }
+            await browser.close();
+          }
+          JS
+          node /tmp/prod-auth.mjs
+
+      - name: Result
+        run: echo "Production browser authentication verified against ${{ inputs.app_url }}."
