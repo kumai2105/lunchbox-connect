@@ -46,6 +46,21 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
   // earlier one did not happen.
   test.describe.configure({ mode: 'serial' });
 
+  // FOUR MINUTES, FOR A STATED REASON — not a blind bump to make red go green.
+  //
+  // This single test performs the entire business chain: a Meal, a Menu, 14
+  // slot assignments each opening and closing a picker, an Institution, a
+  // service plan, a rotation assignment, a publish, a Class, a Student, a
+  // staff account, a class assignment, and five separate logins as five
+  // different roles. That is roughly forty UI round trips against a Supabase
+  // stack running on the same runner.
+  //
+  // The default 60s is right for a test that exercises one surface. It is
+  // simply the wrong budget for a narrative that walks the product end to end,
+  // and the previous run died mid-chain with no finding to show for it. The
+  // assertions are untouched; only the clock is.
+  test.setTimeout(240_000);
+
   const stamp = Date.now();
   const INST = `E2E Onboard ${stamp}`;
   const CLASS = `E2E Onboard Class ${stamp}`;
