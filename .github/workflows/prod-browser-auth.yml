@@ -27,6 +27,17 @@ name: Production browser auth (read-only)
 # to run this. The password is never echoed; only presence is ever printed.
 
 on:
+  # GitHub does not register `workflow_dispatch` for a workflow that has never
+  # run from a branch — dispatching it answers 404, which is exactly what
+  # happened here and what happened to prod-smoke.yml before it. A push
+  # trigger scoped to THIS ONE FILE registers it and runs it once; every other
+  # push is ignored.
+  #
+  # Running it once with no credentials is useful in itself: the job fails
+  # closed and names the missing secrets, which settles whether they exist
+  # instead of leaving it as something I believe.
+  push:
+    paths: ['.github/workflows/prod-browser-auth.yml']
   workflow_dispatch:
     inputs:
       app_url:
@@ -49,7 +60,7 @@ jobs:
 
       - name: Refuse anything that is not an https origin
         env:
-          APP: ${{ inputs.app_url }}
+          APP: ${{ inputs.app_url || 'https://www.lunchboxconnect.com' }}
         run: |
           case "$APP" in
             https://*) ;;
@@ -89,7 +100,7 @@ jobs:
 
       - name: Sign in, sign out, and prove the session ended
         env:
-          APP: ${{ inputs.app_url }}
+          APP: ${{ inputs.app_url || 'https://www.lunchboxconnect.com' }}
           V_EMAIL: ${{ secrets.PROD_VERIFY_EMAIL }}
           V_PASS: ${{ secrets.PROD_VERIFY_PASSWORD }}
         run: |
@@ -211,4 +222,4 @@ jobs:
           node /tmp/prod-auth.mjs
 
       - name: Result
-        run: echo "Production browser authentication verified against ${{ inputs.app_url }}."
+        run: echo "Production browser authentication verified against ${{ inputs.app_url || 'https://www.lunchboxconnect.com' }}."
