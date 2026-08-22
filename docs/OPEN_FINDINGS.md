@@ -156,3 +156,27 @@ demonstrated user-facing failure behind them.
 If that is ever added, this policy must be rewritten the same way first —
 pass the row's own columns into a SECURITY DEFINER helper instead of
 re-reading the row by id.
+
+## 6. Production is one migration behind the repository
+
+**Status:** open · **Blocks:** onboarding a nursery through the software
+**Needs:** the Founder, or a reconnected Supabase connector
+
+`0041` grants `authenticated` the INSERT and UPDATE on `institutions` that the
+`0033` policies always assumed. Without it a Super Admin **cannot create or
+rename an Institution through the application** — the first step of onboarding
+a nursery — and gets `42501 permission denied for table institutions`.
+
+It is applied on the CI stack and asserted by
+`verify_super_admin_onboarding.sql` and by the E2E boundary step. It is **not
+yet applied to production**, because the Supabase connector disconnected
+mid-session and this environment cannot reach `*.supabase.co` directly.
+
+**To apply it:** `scripts/PRODUCTION_APPLY.md`, or reconnect the Supabase
+connector and it can be applied and verified from here. The migration is two
+grants and a comment; it moves no boundary, because RLS still restricts both
+statements to `app_is_super_admin()`.
+
+**Until it is applied,** everything already live keeps working — the defect
+only blocks creating a NEW Institution, which has never been possible through
+the UI and was always done by the service role during setup.

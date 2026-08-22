@@ -27,7 +27,7 @@ All gates were run immediately before packaging.
 | Unit tests | `pnpm test:unit` | **PASS — 116** across 12 files |
 | Production build | `pnpm build` | **PASS** |
 | Worker config | `wrangler deploy --dry-run` | **PASS** — prints `env.ASSETS  Assets`; no upload, no deploy |
-| Database suites | `./tests/sql/run_verification.sh` | **PASS — 17 suites**, 189 named assertions + the 520-check authorization matrix |
+| Database suites | `./tests/sql/run_verification.sh` | **PASS — 18 suites**, 196 named assertions + the 520-check authorization matrix |
 
 Unit files: `mealAnalytics.test.ts` (22), `api.errors.test.ts` (6, the
 PostgrestError shape and the "[object Object]" regression), `format.test.ts` (15, Asia/Dubai
@@ -55,7 +55,7 @@ guard.
 ## 2. Database verification
 
 `./tests/sql/run_verification.sh` builds a PostgreSQL 16 cluster from nothing,
-applies `supabase/migrations/0001`–`0040` verbatim, and runs 17 suites. Each
+applies `supabase/migrations/0001`–`0041` verbatim, and runs 18 suites. Each
 suite is mutation-tested (deliberately broken to prove it can fail).
 
 Per-suite named assertions: `db_boundary` 51 · `note_privacy_and_states` 40 ·
@@ -64,7 +64,7 @@ Per-suite named assertions: `db_boundary` 51 · `note_privacy_and_states` 40 ·
 `insert_returning` 7 ·
 `fresh_deploy` 6 · `slot_resize_concurrency` 5 · `class_staff` 3 ·
 `publish_future` 3 · `analytics_volume` 3 · `kitchen_demand` 2 ·
-`special_period` 1 — **189 total**, plus `authorization_matrix`, which reports a
+`special_period` 1 · `super_admin_onboarding` 7 — **196 total**, plus `authorization_matrix`, which reports a
 single aggregate line covering **520 role×resource×action checks**.
 
 New in this release: `verify_publish_record_race` (a REAL second session via
@@ -98,7 +98,7 @@ Everything required to build and run the project, excluding only §5.
   `InstitutionCalendarTab`), `pages/parent/` (mobile parent portal), and
   `InstitutionSchedulePage` — the Founder-approved READ-ONLY published-menu
   view for a Nursery/School Admin. The retired legacy `MenuPage` is gone.
-- **`supabase/`** — `migrations/0001`–`0040` (schema, RLS, resolution/publish
+- **`supabase/`** — `migrations/0001`–`0041` (schema, RLS, resolution/publish
   engine, meal library RPCs, class_staff, per-meal demand, analytics one-truth,
   the integrity pass 0029/0030/0031, the tenant-integrity + permission
   correction 0032, the client-boundary lockdown 0033, the note-privacy /
@@ -151,7 +151,7 @@ pnpm typecheck && pnpm lint && pnpm test:unit && pnpm build
 ./tests/sql/run_verification.sh
 ```
 
-Migrations apply in numerical order, `0001` → `0040`. For production, follow
+Migrations apply in numerical order, `0001` → `0041`. For production, follow
 `scripts/PRODUCTION_APPLY.md` (schema first, then deploy + verify the
 `admin-create-user` Edge Function; service plans / rotation assignments /
 publishing are Admin-UI actions, never migration side effects). The frontend

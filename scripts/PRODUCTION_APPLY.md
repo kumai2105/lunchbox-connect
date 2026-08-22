@@ -69,7 +69,7 @@ show:
    does this comparison for you and is the preferred path; applying files by
    hand means doing the comparison yourself first.
 
-   The repository currently contains `0001`–`0040`. Which of those are pending
+   The repository currently contains `0001`–`0041`. Which of those are pending
    depends on the ledger you just read — the expected pending set must agree
    with that verified state, not with any range quoted in a document. If the
    ledger disagrees with what you expect, stop and reconcile before applying
