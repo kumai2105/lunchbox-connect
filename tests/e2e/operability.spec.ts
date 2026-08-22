@@ -72,6 +72,8 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
   const MENU = `E2E Onboard Menu ${stamp}`;
   const FROM = dubaiToday();
   const TO = dubaiToday(6);
+  const CLOSED = dubaiToday(3);      // a future day inside the window, unserved
+  const OPEN_AFTER = dubaiToday(4);  // the day after it, which must survive
 
   test('the complete chain, Super Admin through to Kitchen', async ({ page }) => {
     const s = seeded();
@@ -444,6 +446,81 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     // This parent has exactly one child — the Student this chain created — so
     // seeing that name is the authorized result reaching the right family.
     await expect(page.getByText(/Onboard/).first()).toBeVisible();
+
+    step('12+14 calendar closure, then re-publish');
+    // ---- 12 & 14. a closure, and what re-publishing does with it -------
+    //
+    // The Rotation defines the normal pattern; the Calendar handles the
+    // exceptions. A public holiday must not require rebuilding the menu, and
+    // per 0016 a closure "never shifts the rotation" — the cycle keeps
+    // counting through a closed day, so week 3 is still week 3 next Monday.
+    //
+    // Precedence, from the resolver itself: closure > override > special
+    // period > normal rotation > nothing.
+    await login(page, s.superAdminEmail);
+    await page.goto(`/institutions/${instId}?tab=calendar`);
+    await page.getByLabel('Type', { exact: true }).selectOption('closure');
+    await page.getByLabel('From', { exact: true }).fill(CLOSED);
+    await page.getByLabel('To', { exact: true }).fill(CLOSED);
+    await page.getByLabel('Reason (optional)', { exact: true }).fill('E2E public holiday');
+    await page.getByRole('button', { name: 'Add rule' }).click();
+    await expect
+      .poll(async () => {
+        const r = await db
+          .from('calendar_exceptions')
+          .select('id')
+          .eq('institution_id', instId)
+          .eq('kind', 'closure');
+        return (r.data ?? []).length;
+      }, { message: 'the calendar closure was never saved' })
+      .toBeGreaterThan(0);
+
+    // A rule only reaches Kitchen, Classroom and Parent once the window is
+    // re-published — the screen says so, and this asserts it rather than
+    // trusting it.
+    await page.goto(`/institutions/${instId}?tab=service`);
+    await page.getByLabel('From', { exact: true }).fill(FROM);
+    await page.getByLabel('To', { exact: true }).fill(TO);
+    await page.getByRole('button', { name: 'Publish window' }).click();
+    await expect(page.getByText(/Published \d+ dated meal services/)).toBeVisible();
+
+    // The closed day carries nothing...
+    await expect
+      .poll(async () => {
+        const r = await db
+          .from('meal_services')
+          .select('id')
+          .eq('institution_id', instId)
+          .eq('service_date', CLOSED)
+          .eq('published', true);
+        return (r.data ?? []).length;
+      }, { message: 'the closed day still has published services' })
+      .toBe(0);
+
+    // ...and the rest of the window is untouched. A closure that quietly wiped
+    // the surrounding days would pass a naive "the closed day is empty" check
+    // and destroy the schedule.
+    const openDay = await db
+      .from('meal_services')
+      .select('period')
+      .eq('institution_id', instId)
+      .eq('service_date', OPEN_AFTER)
+      .eq('published', true);
+    expect(
+      (openDay.data ?? []).map((x) => x.period as string).sort(),
+      'the closure removed services from a day it does not cover',
+    ).toEqual(['breakfast', 'lunch']);
+
+    // And today's ALREADY-SERVED record survived the re-publish untouched.
+    // Republishing must never rewrite operational history.
+    const stillServed = await db
+      .from('serving_records')
+      .select('id')
+      .eq('student_id', studentId);
+    expect(
+      (stillServed.data ?? []).length,
+      're-publishing destroyed a recorded observation',
+    ).toBeGreaterThan(0);
 
     step('19 kitchen demand');
     // ---- 12. the Kitchen receives the production demand ----------------
