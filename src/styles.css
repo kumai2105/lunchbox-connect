@@ -1957,3 +1957,47 @@ tbody tr:last-child td {
 .meal-detail-img { width: 100%; max-height: 200px; object-fit: cover; border-radius: 10px; margin-bottom: 12px; }
 .meal-detail-nutrition { margin-top: 10px; }
 .meal-detail-nutrition ul { margin: 4px 0 0; padding-left: 18px; }
+
+/* ---- keyboard focus (accessibility baseline) ---------------------------
+   Until now this stylesheet had no :focus-visible rule at all, and five
+   places set `outline: none` — the form fields, the review textarea, and both
+   search inputs, which also drop their border and so become completely
+   unindicated on focus. Everywhere else the app relied on the browser default
+   ring, which is not a decision anyone made.
+
+   (The fifth, `.outcome`, is dead CSS: no component renders that class any
+   more. The live Classroom controls are `.plate-quarter` and
+   `.chip-choice button`, neither of which suppresses the outline. They are
+   covered by the generic rule below rather than named here.)
+
+   `:focus-visible` rather than `:focus` is deliberate. It fires for keyboard
+   and assistive-technology focus and not for a mouse click, so this adds an
+   indicator for the people who need one without putting a ring around every
+   button someone taps. Nothing else about the visual design changes. */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* The three places that explicitly removed the outline need it back on
+   keyboard focus. Listed individually rather than by lowering the specificity
+   of the rules above them, so the mouse-click appearance each was tuned for
+   is left exactly as it was. */
+.filters .search-box input:focus-visible,
+.toolbar .search-box input:focus-visible,
+.field input:focus-visible,
+.field select:focus-visible,
+.field textarea:focus-visible,
+.review-body textarea:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* The sidebar sits on a dark ground, so the brand blue does not read against
+   it. A light ring is the same affordance in the colour that works there. */
+.sidebar :focus-visible,
+.side-foot button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}

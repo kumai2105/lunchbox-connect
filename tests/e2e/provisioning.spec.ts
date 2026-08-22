@@ -40,6 +40,46 @@ test.describe('meal images — upload, persist, render, and stay historical', ()
 
   const MEAL = `E2E Image Meal ${stamp}`;
 
+  /**
+   * Does object storage accept the upload at all?
+   *
+   * The first run of this file failed with "the Meal was never created", which
+   * is what the UI does when the image upload is refused: MealLibraryPage
+   * uploads FIRST so one save is one revision, so a storage refusal aborts the
+   * whole save and no Meal row appears. That symptom names the wrong layer.
+   * This probe separates them — it drives storage directly with the same
+   * credentials and the same call the app makes, so a refusal is reported as a
+   * refusal, with the server's own message.
+   */
+  test('object storage accepts a Super Admin upload (isolates storage from the UI)', async () => {
+    const s = seeded();
+    const { createClient } = await import('@supabase/supabase-js');
+    const client = createClient(
+      process.env.E2E_SUPABASE_URL!,
+      process.env.E2E_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false } },
+    );
+    const signedIn = await client.auth.signInWithPassword({
+      email: s.superAdminEmail!,
+      password: process.env.E2E_PASSWORD ?? 'E2e-pass!12345',
+    });
+    expect(signedIn.error, 'could not sign in as the Super Admin').toBeNull();
+
+    const path = `e2e-probe-${stamp}.png`;
+    const up = await client.storage
+      .from('meal-images')
+      .upload(path, PNG_1PX, { upsert: true, contentType: 'image/png' });
+
+    expect(
+      up.error,
+      `object storage refused a Super Admin upload to meal-images: ${JSON.stringify(up.error)}`,
+    ).toBeNull();
+
+    // Clean up after the probe: this object belongs to no Meal.
+    await adminDb().storage.from('meal-images').remove([path]);
+    await client.auth.signOut();
+  });
+
   test('a Super Admin uploads a Meal image and it survives a reload', async ({ page }) => {
     const s = seeded();
     const db = adminDb();
@@ -78,7 +118,17 @@ test.describe('meal images — upload, persist, render, and stay historical', ()
         },
         { message: 'the Meal image was not stored with the Meal' },
       )
-      .toBe('stored');
+      .toBe('stored')
+      .catch(async (e: unknown) => {
+        // Say WHY, using the app's own words, instead of only "missing".
+        const banner = page.locator('.banner.err');
+        const shown = (await banner.count())
+          ? ((await banner.first().textContent()) ?? '').trim()
+          : '(no error banner rendered)';
+        throw new Error(
+          `${(e as Error).message}\nThe app reported: ${shown}`,
+        );
+      });
 
     // The object is genuinely in the bucket, not just referenced by a row.
     const dl = await db.storage.from('meal-images').download(imagePath);

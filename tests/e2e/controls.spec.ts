@@ -222,28 +222,41 @@ test.describe('control inventory — nothing unexplained on a functional-core sc
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   });
 
-  test('keyboard focus is visible on the primary action of a core screen', async ({ page }) => {
+  test('keyboard focus is visible as a person tabs through a core screen', async ({ page }) => {
     const s = seeded();
     await login(page, s.superAdminEmail!);
     await page.goto('/institutions');
+    await expect(page.locator('#root')).toBeVisible();
 
-    const btn = page.getByRole('button', { name: '+ Add institution', exact: true });
-    await btn.focus();
-    const focusStyle = await btn.evaluate((el) => {
-      const st = getComputedStyle(el);
-      return {
-        outlineStyle: st.outlineStyle,
-        outlineWidth: st.outlineWidth,
-        boxShadow: st.boxShadow,
-      };
-    });
-    const hasVisibleFocus =
-      (focusStyle.outlineStyle !== 'none' && focusStyle.outlineWidth !== '0px') ||
-      (focusStyle.boxShadow !== 'none' && focusStyle.boxShadow.length > 0);
+    // Tab, not .focus(). `:focus-visible` is a keyboard-interaction heuristic:
+    // programmatic focus does not match it in Chromium, so a test built on
+    // .focus() would report "no ring" on a perfectly accessible app and "ring"
+    // on nothing at all. Tabbing is also what the person being protected here
+    // actually does.
+    const invisible: string[] = [];
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press('Tab');
+      const state = await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        if (!el || el === document.body) return null;
+        const st = getComputedStyle(el);
+        const ring =
+          (st.outlineStyle !== 'none' && parseFloat(st.outlineWidth || '0') > 0) ||
+          (st.boxShadow !== 'none' && st.boxShadow.length > 0);
+        const name =
+          el.getAttribute('aria-label') ??
+          (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 40) ??
+          '';
+        return { ring, tag: el.tagName.toLowerCase(), name };
+      });
+      if (!state) continue;
+      if (!state.ring) invisible.push(`<${state.tag}> "${state.name}"`);
+    }
+
     expect(
-      hasVisibleFocus,
-      'a focused primary button shows no outline or ring — keyboard users cannot see where they are',
-    ).toBe(true);
+      invisible,
+      `these controls take keyboard focus with no visible indicator — someone navigating by keyboard cannot see where they are:\n${invisible.join('\n')}`,
+    ).toEqual([]);
   });
 });
 
@@ -281,13 +294,36 @@ test.describe('deferred shells — honest about being unfinished', () => {
         `${r.label} offers action(s) that imply working business functionality it does not have`,
       ).toEqual([]);
 
-      // 3. The user can leave normally.
+      // 3. The user is not TRAPPED.
+      //
+      // "Navigate away" cannot mean "reach /dashboard": a driver and an
+      // operations manager are not permitted there, and the app correctly
+      // returns them to their own landing page. That redirect is the role
+      // boundary working, not a trap — asserting a path change would have been
+      // asserting that the boundary is broken.
+      //
+      // What actually matters is that the shell around the shell page is real:
+      // the navigation is rendered and the sign-out control works. That is the
+      // difference between "this page has nothing on it yet" and "this page is
+      // where the session goes to die".
+      await expect(
+        page.getByRole('navigation').or(page.locator('.sidebar')).first(),
+        `${r.label} renders no navigation — the user has no way out of the page`,
+      ).toBeVisible();
+      const out = page.getByRole('button', { name: /log out/i });
+      await expect(
+        out,
+        `${r.label} offers no way to sign out — a deferred page must not strand a session`,
+      ).toBeVisible();
+
+      // And asking for another route leaves the app coherent, wherever the
+      // role guard decides to put them.
       await page.goto('/dashboard');
-      await expect(page.locator('#root')).toBeVisible();
-      expect(
-        new URL(page.url()).pathname,
-        `a user could not navigate away from ${r.label}`,
-      ).not.toBe(r.path);
+      await expect(
+        page.locator('#root'),
+        `the app did not render after navigating away from ${r.label}`,
+      ).toBeVisible();
+      await expect(page.locator('.banner.err')).toHaveCount(0);
     });
   }
 });
@@ -296,36 +332,34 @@ test.describe('absent must not read as a completed meal', () => {
   test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
   test.setTimeout(90_000);
 
-  test('the Absent control is distinguishable from a successful consumption result', async ({
-    page,
-  }) => {
+  test('the Absent control is distinguishable from a full-consumption result', async ({ page }) => {
     const s = seeded();
     await login(page, s.classroomEmail!);
-    await page.goto('/today');
-    await expect(page.locator('#root')).toBeVisible();
 
-    const absent = page.getByRole('button', { name: /absent/i }).first();
-    if ((await absent.count()) === 0) {
-      test.skip(true, 'no recordable roster on this run — covered by serving.spec');
-      return;
-    }
+    // WITH a class. /today alone lands on the class picker, where no recording
+    // control exists at all — the previous version of this test skipped for
+    // that reason, and a skip in this gate is a hole, not a pass.
+    await page.goto(`/today?class=${s.classForServing}`);
+    await expect(page.locator('.roster-chip').first()).toBeVisible({ timeout: 20_000 });
 
-    // "Absent" and "100%" must not be presented the same way. Same background
-    // and same text colour is exactly how a teacher misreads one for the other
-    // in a hurry, which is the whole point of the check.
-    const hundred = page.getByRole('button', { name: /^100/ }).first();
-    if ((await hundred.count()) === 0) return;
+    const absent = page.getByRole('button', { name: 'Absent', exact: true });
+    const full = page.getByRole('button', { name: '100% eaten', exact: true });
+    await expect(absent, 'the Absent control is not on the register').toBeVisible();
+    await expect(full, 'the 100% control is not on the register').toBeVisible();
 
-    const styleOf = (loc: ReturnType<Page['getByRole']>) =>
+    // Same background AND same text colour AND same shape is how a teacher
+    // misreads one for the other at speed. Any one of them differing is enough
+    // to tell them apart; being identical on all three is the defect.
+    const style = (loc: ReturnType<typeof page.getByRole>) =>
       loc.evaluate((el) => {
         const st = getComputedStyle(el as HTMLElement);
-        return `${st.backgroundColor}|${st.color}|${st.borderColor}`;
+        return [st.backgroundColor, st.color, st.borderRadius, st.borderWidth].join('|');
       });
 
-    const [a, h] = await Promise.all([styleOf(absent), styleOf(hundred)]);
+    const [a, f] = await Promise.all([style(absent), style(full)]);
     expect(
-      a === h,
-      'the Absent control is styled identically to the 100% consumption control',
+      a === f,
+      `Absent and 100% are styled identically (${a}) — they must not read as the same result`,
     ).toBe(false);
   });
 });
