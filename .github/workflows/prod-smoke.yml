@@ -89,6 +89,22 @@ jobs:
           fi
           echo "Bundle targets production, and no service_role material is present."
 
+          # The sign-in page once listed every internal role identifier under
+          # "ROLES IN THE SYSTEM", beside a note citing docs/02 and declaring
+          # parts of the product NOT_YET_DEFINED — on the public URL. That was
+          # removed, along with the same vocabulary across the rest of the UI.
+          # Assert it on the file customers actually download, so it cannot come
+          # back through a screen nobody re-read.
+          leaked=""
+          for token in NOT_YET_DEFINED BLOCKED_BY_SPEC 'ROLES IN THE SYSTEM' SUPER_ADMIN CLASSROOM_STAFF OPERATIONS_MANAGER FINANCE_OWNER runbook 'spec pack'; do
+            if grep -qF "$token" /tmp/app.js; then leaked="$leaked $token"; fi
+          done
+          if [ -n "$leaked" ]; then
+            echo "::error::The deployed bundle exposes internal project vocabulary to users:$leaked"
+            exit 1
+          fi
+          echo "No internal project vocabulary is present in the shipped bundle."
+
       # ---- 3. Deep links resolve (single-page-application fallback) -------
       - name: A deep link returns the app, not a 404
         run: |
