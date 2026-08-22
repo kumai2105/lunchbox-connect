@@ -280,14 +280,21 @@ test.describe('rendered errors — what a person actually sees when something fa
       '/today',
     ];
 
+    // A core screen showing its OWNING role an error banner is a defect, not
+    // a style question — so the text of any that appear is collected and
+    // reported together at the end rather than swallowed.
+    const erroring: string[] = [];
+
     for (const route of routes) {
       await page.goto(route);
       await expect(page.locator('#root'), `${route} did not render`).toBeVisible();
+      await page.waitForLoadState('networkidle').catch(() => undefined);
       const banners = page.locator('.banner.err');
       const n = await banners.count();
       for (let i = 0; i < n; i++) {
-        const t = (await banners.nth(i).textContent()) ?? '';
+        const t = ((await banners.nth(i).textContent()) ?? '').trim();
         assertHumanReadable(t, route);
+        erroring.push(`${route} → ${t}`);
       }
       // And nothing anywhere on the page prints the literal object string.
       const body = (await page.locator('body').innerText()).slice(0, 20000);
@@ -296,5 +303,10 @@ test.describe('rendered errors — what a person actually sees when something fa
         `${route} renders the literal string "[object Object]" somewhere on the page`,
       ).toBe(false);
     }
+
+    expect(
+      erroring,
+      `these core screens showed an error banner to the role that owns them:\n${erroring.join('\n')}`,
+    ).toEqual([]);
   });
 });

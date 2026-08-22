@@ -84,6 +84,19 @@ test.describe('meal images — upload, persist, render, and stay historical', ()
     const s = seeded();
     const db = adminDb();
 
+    // Capture what the PAGE says, not only what the DOM shows. The previous
+    // run reported "no Meal was created" with no error banner at all, which is
+    // the signature of an exception thrown inside the save handler: onSave sets
+    // busy, awaits, and never reaches its own error branch, so the UI shows
+    // nothing. A rejected promise leaves no trace in the DOM and every trace in
+    // the console.
+    const pageErrors: string[] = [];
+    const consoleErrors: string[] = [];
+    page.on('pageerror', (e) => pageErrors.push(e.message));
+    page.on('console', (m) => {
+      if (m.type() === 'error') consoleErrors.push(m.text());
+    });
+
     await login(page, s.superAdminEmail!);
     await page.goto('/meals');
     await page.getByRole('button', { name: /add meal/i }).first().click();
@@ -120,13 +133,21 @@ test.describe('meal images — upload, persist, render, and stay historical', ()
       )
       .toBe('stored')
       .catch(async (e: unknown) => {
-        // Say WHY, using the app's own words, instead of only "missing".
+        // Say WHY, using the app's own words AND the browser's, instead of
+        // only "missing".
         const banner = page.locator('.banner.err');
         const shown = (await banner.count())
           ? ((await banner.first().textContent()) ?? '').trim()
           : '(no error banner rendered)';
+        const stillOpen = (await page.getByLabel('Name', { exact: true }).count()) > 0;
         throw new Error(
-          `${(e as Error).message}\nThe app reported: ${shown}`,
+          [
+            (e as Error).message,
+            `App banner: ${shown}`,
+            `Meal editor still open: ${stillOpen}`,
+            `Uncaught page errors: ${pageErrors.length ? pageErrors.join(' | ') : '(none)'}`,
+            `Console errors: ${consoleErrors.length ? consoleErrors.join(' | ') : '(none)'}`,
+          ].join('\n'),
         );
       });
 
