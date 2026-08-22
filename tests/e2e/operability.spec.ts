@@ -52,6 +52,8 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
   const STUDENT_NO = `EON-${stamp}`;
   const STAFF_EMAIL = `e2e.onboard.staff.${stamp}@lunchbox.app`;
   const STAFF_PASS = 'E2e-pass!12345';
+  const MEAL = `E2E Onboard Meal ${stamp}`;
+  const MENU = `E2E Onboard Menu ${stamp}`;
   const FROM = dubaiToday();
   const TO = dubaiToday(6);
 
@@ -59,8 +61,72 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     const s = seeded();
     const db = adminDb();
 
-    // ---- 1. create the Institution -------------------------------------
     await login(page, s.superAdminEmail);
+
+    // ---- 1-2. define the Meal once, in the Meal Library -----------------
+    // The business defines a Meal once and reuses it everywhere. This is the
+    // top of the chain: nothing downstream can exist without it.
+    await page.goto('/meals');
+    await page.getByRole('button', { name: /add meal/i }).first().click();
+    await page.getByLabel('Name', { exact: true }).fill(MEAL);
+    await page.getByPlaceholder('chicken, pasta, tomato').fill('rice, peas');
+    await page.getByPlaceholder('gluten, dairy').fill('none');
+    await page.getByRole('button', { name: /save meal/i }).click();
+
+    // One save produces the Meal AND its first revision, and the Meal points at
+    // it. A Meal with no current revision cannot be placed on a menu, so the
+    // revision is the thing worth asserting — it is also what makes history
+    // truthful later when this Meal is edited.
+    await expect
+      .poll(async () => {
+        const r = await db
+          .from('meals')
+          .select('id, current_revision_id')
+          .eq('name', MEAL)
+          .maybeSingle();
+        return r.data?.current_revision_id ? 'linked' : r.data ? 'no-revision' : 'missing';
+      }, { message: 'the Meal never persisted with a first revision' })
+      .toBe('linked');
+
+    // ---- 3-4. build the Menu and configure its rotation length ----------
+    await page.goto('/menu-builder');
+    await page.getByRole('button', { name: /new menu/i }).click();
+    await page.getByLabel('Menu name', { exact: true }).fill(MENU);
+    await page.getByLabel('Number of weeks', { exact: true }).fill('1');
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
+
+    await page.locator('.menu-list-item', { hasText: MENU }).first().click();
+    await expect(page.locator('.menu-grid')).toBeVisible();
+
+    // Reveal all seven days. Which weekday CI runs on is not ours to choose, so
+    // every day carries the Meal — otherwise this test would pass or fail by
+    // calendar accident rather than by product behaviour.
+    const weekendToggle = page.getByRole('button', { name: /Show weekend \/ camp days/ });
+    if (await weekendToggle.count()) await weekendToggle.click();
+
+    // ---- 5. fill the week/day/period slots with the Meal ----------------
+    for (const period of ['Breakfast', 'Lunch']) {
+      const row = page.locator('.menu-grid tr', { hasText: period });
+      const cells = row.locator('.slot-cell');
+      const n = await cells.count();
+      expect(n, `the ${period} row has no slots to fill`).toBeGreaterThan(0);
+      for (let i = 0; i < n; i++) {
+        await cells.nth(i).click();
+        await page.locator('.meal-pick', { hasText: MEAL }).first().click();
+        await expect(page.locator('.meal-picker')).toHaveCount(0);
+      }
+    }
+
+    // ---- 6. it persists across a reload --------------------------------
+    // A planning tool that loses the plan on refresh is not a planning tool.
+    await page.reload();
+    await page.locator('.menu-list-item', { hasText: MENU }).first().click();
+    await expect(page.locator('.menu-grid')).toBeVisible();
+    await expect(page.locator('.slot-cell.filled').first()).toBeVisible();
+    const filled = await page.locator('.slot-cell.filled').count();
+    expect(filled, 'the menu did not survive a reload').toBeGreaterThanOrEqual(14);
+
+    // ---- 7. create the Institution -------------------------------------
     await page.goto('/institutions');
     await page.getByRole('button', { name: '+ Add institution', exact: true }).click();
     await page.getByLabel('Name', { exact: true }).fill(INST);
@@ -116,9 +182,8 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     // ---- 5-6. assign the menu and the anchor week ----------------------
     const menu = page.getByLabel('Menu', { exact: true });
     await expect(menu, 'no menu is assignable — Menu Builder produced none').toBeVisible();
-    const firstMenu = await menu.locator('option').nth(1).getAttribute('value');
-    expect(firstMenu, 'there is no menu to assign').toBeTruthy();
-    await menu.selectOption(firstMenu!);
+    // The menu THIS test built, by name — not whatever happened to be first.
+    await menu.selectOption({ label: `${MENU} (1 weeks)` });
     await page.getByLabel('Starting rotation week', { exact: true }).fill('1');
     await page.getByLabel('Effective from', { exact: true }).last().fill(FROM);
     await page.getByRole('button', { name: 'Assign menu' }).click();
