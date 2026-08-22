@@ -1,0 +1,105 @@
+name: Attach the apex domain to the Worker
+
+# ONE JOB, ONE PURPose: bind lunchboxconnect.com (no www) to the Worker that
+# already serves www, so the bare domain stops going nowhere.
+#
+# Why this exists as a workflow rather than a dashboard click: the Founder hit
+# the "Add Custom Domain" form three times on a phone and it appended the zone
+# to the value each time, producing lunchboxconnect.com.lunchboxconnect.com —
+# a hostname nobody visits. An API call cannot make that mistake.
+#
+# It is deliberately narrow. It touches ONE hostname. It never enumerates,
+# edits or deletes DNS records, so the zone's MX, SPF, DMARC and the Microsoft
+# 365 CNAMEs — live mail for this business — cannot be affected by it.
+on:
+  workflow_dispatch:
+    inputs:
+      hostname:
+        description: 'Hostname to attach (the apex, no www).'
+        required: true
+        default: lunchboxconnect.com
+        type: string
+
+concurrency:
+  group: attach-apex-domain
+
+jobs:
+  attach:
+    name: Bind the apex to lunchbox-connect
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WORKER: lunchbox-connect
+      HOST: ${{ inputs.hostname }}
+      ZONE: lunchboxconnect.com
+    steps:
+      - name: Confirm the token can actually do this before changing anything
+        run: |
+          v=$(curl -sS -m 25 "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+                -H "Authorization: Bearer $CF_TOKEN")
+          ok=$(echo "$v" | jq -r '.success')
+          echo "token verify success=$ok status=$(echo "$v" | jq -r '.result.status // "n/a"')"
+          [ "$ok" = "true" ] || { echo "::error::The Cloudflare token is not valid."; exit 1; }
+
+      - name: Resolve the zone id
+        id: zone
+        run: |
+          z=$(curl -sS -m 25 "https://api.cloudflare.com/client/v4/zones?name=$ZONE" \
+                -H "Authorization: Bearer $CF_TOKEN")
+          if [ "$(echo "$z" | jq -r '.success')" != "true" ]; then
+            echo "::error::Could not read the zone: $(echo "$z" | jq -c '.errors')"
+            exit 1
+          fi
+          zid=$(echo "$z" | jq -r '.result[0].id // empty')
+          [ -n "$zid" ] || { echo "::error::Zone $ZONE not found on this account."; exit 1; }
+          echo "zone_id=$zid" >> "$GITHUB_OUTPUT"
+          echo "zone $ZONE resolved"
+
+      - name: What is attached BEFORE
+        run: |
+          curl -sS -m 25 "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/domains" \
+            -H "Authorization: Bearer $CF_TOKEN" \
+            | jq -r 'if .success then (.result // [] | if length==0 then "  (none)"
+                     else (.[] | "  \(.hostname) -> \(.service)") end)
+                     else "  errors: \(.errors|tostring)" end'
+
+      # PUT is idempotent here: attaching a hostname that is already attached
+      # returns the same record rather than creating a second one.
+      - name: Attach ${{ inputs.hostname }}
+        run: |
+          r=$(curl -sS -m 40 -X PUT \
+                "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/domains" \
+                -H "Authorization: Bearer $CF_TOKEN" \
+                -H "Content-Type: application/json" \
+                --data "$(jq -nc --arg h "$HOST" --arg s "$WORKER" --arg z "${{ steps.zone.outputs.zone_id }}" \
+                          '{environment:"production", hostname:$h, service:$s, zone_id:$z}')")
+          echo "$r" | jq -r 'if .success then "attached: \(.result.hostname) -> \(.result.service)"
+                             else "FAILED: \(.errors|tostring)" end'
+          [ "$(echo "$r" | jq -r '.success')" = "true" ] || {
+            echo "::error::Attach failed. If this says the token lacks permission, add Zone:DNS:Edit and Zone:Workers Routes:Edit to it."
+            exit 1; }
+
+      - name: What is attached AFTER
+        if: always()
+        run: |
+          curl -sS -m 25 "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/domains" \
+            -H "Authorization: Bearer $CF_TOKEN" \
+            | jq -r 'if .success then (.result // [] | .[] | "  \(.hostname) -> \(.service)")
+                     else "  errors: \(.errors|tostring)" end'
+
+      # A certificate takes a little while. Poll rather than declare success
+      # off the back of an API 200 that only means "queued".
+      - name: Wait for the hostname to actually serve the app
+        if: always()
+        run: |
+          for i in $(seq 1 20); do
+            code=$(curl -sS -m 15 -o /tmp/b.html -w '%{http_code}' "https://$HOST/" 2>/dev/null || echo 000)
+            if [ "$code" = "200" ] && grep -q 'id="root"' /tmp/b.html 2>/dev/null; then
+              echo "https://$HOST/ serves the LunchBox app (attempt $i)"; exit 0
+            fi
+            echo "  attempt $i: HTTP $code — still provisioning"
+            sleep 20
+          done
+          echo "::warning::$HOST is attached but not serving yet. Certificate issuance can take a few more minutes."
