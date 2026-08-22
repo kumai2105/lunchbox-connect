@@ -154,7 +154,14 @@ jobs:
             await page.locator('input[autocomplete="current-password"]').fill(PASS);
             await page.getByRole('button', { name: /enter the platform/i }).click();
 
-            await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 30000 });
+            // `/` is not a destination — it is the router's Home element, which
+            // resolves the role and redirects to that role's first page. Waiting
+            // only for "not /login" catches that transient root, so wait for a
+            // path that is neither, or this records `/` as the landing route.
+            await page.waitForURL(
+              (u) => u.pathname !== '/' && !u.pathname.startsWith('/login'),
+              { timeout: 30000 },
+            );
             const landed = new URL(page.url()).pathname;
             ok(`signed in as ${masked} and landed on ${landed}`);
 
@@ -189,26 +196,41 @@ jobs:
             else ok('no session remains in the browser');
 
             // ---- a protected route is refused ------------------------------
+            // The refusal is a client-side redirect that cannot have happened by
+            // domcontentloaded — the app has not hydrated yet. Reading the URL
+            // at that instant measures the load, not the guard, so give the
+            // redirect a bounded window and fail if it never arrives.
+            const refused = async (path, what) => {
+              try {
+                await page.waitForURL((u) => u.pathname.startsWith('/login'), { timeout: 15000 });
+                ok(what);
+              } catch {
+                fail(`${what} — FAILED: still on ${new URL(page.url()).pathname}`);
+              }
+            };
+
             await page.goto(`${APP}${landed}`, { waitUntil: 'domcontentloaded' });
-            if (!new URL(page.url()).pathname.startsWith('/login')) {
-              fail(`a protected route (${landed}) was served after sign-out`);
-            } else {
-              ok('a protected route is refused after sign-out');
-            }
+            await refused(landed, `a protected route (${landed}) is refused after sign-out`);
 
             // ---- refresh stays signed out ----------------------------------
+            // Reloading /login and asserting /login would prove nothing. The
+            // real question is whether a reload resurrects the session, so
+            // check storage first and then ask for the protected route again.
             await page.reload({ waitUntil: 'domcontentloaded' });
-            if (!new URL(page.url()).pathname.startsWith('/login')) {
-              fail('a refresh after sign-out restored an authenticated screen');
-            } else {
-              ok('a refresh after sign-out stays signed out');
-            }
+            if ((await sessionKeys()).length !== 0) fail('a reload after sign-out restored a stored session');
+            else ok('a reload after sign-out restores no session');
+
+            await page.goto(`${APP}${landed}`, { waitUntil: 'domcontentloaded' });
+            await refused(landed, 'a protected route is still refused after a reload');
 
             // ---- and signing in again still works --------------------------
             await page.locator('input[autocomplete="email"]').fill(EMAIL);
             await page.locator('input[autocomplete="current-password"]').fill(PASS);
             await page.getByRole('button', { name: /enter the platform/i }).click();
-            await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 30000 });
+            await page.waitForURL(
+              (u) => u.pathname !== '/' && !u.pathname.startsWith('/login'),
+              { timeout: 30000 },
+            );
             ok('signing in again works after signing out');
 
             // Leave nothing behind.
