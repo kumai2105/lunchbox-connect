@@ -115,18 +115,34 @@ test.describe('meal images — upload, persist, render, and stay historical', ()
     // The Meal exists, carries a first revision, AND carries an image path.
     // Asserting only "the Meal saved" would pass with the upload silently
     // dropped, which is the actual risk here.
+    // NOT maybeSingle(). maybeSingle yields null for ZERO rows and ERRORS for
+    // more than one, and this test previously mapped both to "missing" — so a
+    // retry that created a second Meal under the same name reported the same
+    // symptom as never creating one at all, and the diagnosis chased the wrong
+    // failure for two rounds. This is the identical mistake recorded earlier
+    // in this project against the Class-create investigation. Listing the rows
+    // distinguishes the two, and the message says which.
     let imagePath = '';
+    let detail = '';
     await expect
       .poll(
         async () => {
           const r = await db
             .from('meals')
-            .select('id,image_path,current_revision_id')
+            .select('id,image_path,current_revision_id,created_at')
             .eq('name', MEAL)
-            .maybeSingle();
-          imagePath = (r.data?.image_path as string) ?? '';
-          if (!r.data) return 'missing';
-          if (!r.data.current_revision_id) return 'no-revision';
+            .order('created_at', { ascending: true });
+          if (r.error) {
+            detail = `query error: ${r.error.message}`;
+            return 'query-failed';
+          }
+          const rows = r.data ?? [];
+          detail = `${rows.length} row(s): ${JSON.stringify(rows)}`;
+          if (rows.length === 0) return 'missing';
+          if (rows.length > 1) return 'duplicated';
+          const row = rows[0]!;
+          imagePath = (row.image_path as string) ?? '';
+          if (!row.current_revision_id) return 'no-revision';
           return imagePath ? 'stored' : 'no-image';
         },
         { message: 'the Meal image was not stored with the Meal' },
@@ -143,6 +159,7 @@ test.describe('meal images — upload, persist, render, and stay historical', ()
         throw new Error(
           [
             (e as Error).message,
+            `Rows found: ${detail}`,
             `App banner: ${shown}`,
             `Meal editor still open: ${stillOpen}`,
             `Uncaught page errors: ${pageErrors.length ? pageErrors.join(' | ') : '(none)'}`,
