@@ -69,14 +69,37 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     await page.getByLabel('Type', { exact: true }).selectOption('nursery');
     await page.getByRole('button', { name: 'Add institution', exact: true }).click();
 
+    // Did the write land? Ask the database before asking the DOM.
+    //
+    // Waiting on the list row first turns two different faults — "the insert
+    // was refused" and "the insert worked but the list did not re-render" —
+    // into the same blind 15s timeout. The Class-create defect cost five CI
+    // rounds to exactly that, so this reads the app's own error banner and the
+    // row, and reports both.
+    let instId = '';
+    await expect
+      .poll(async () => {
+        const r = await db.from('institutions').select('id').eq('name', INST).maybeSingle();
+        instId = (r.data?.id as string) ?? '';
+        return instId !== '';
+      }, {
+        message: 'the Institution was never written',
+      })
+      .toBe(true);
+
+    const banner = page.locator('.banner.err');
+    const bannerText = (await banner.count())
+      ? ((await banner.first().textContent())?.trim() ?? '')
+      : '';
+    expect(bannerText, `the app refused to create the Institution: ${bannerText}`).toBe('');
+
     // Navigate the way an operator does — by clicking the institution's name.
-    await expect(page.getByRole('link', { name: INST })).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: INST }),
+      'the Institution exists but never appeared in the list — the create path does not refresh it',
+    ).toBeVisible();
     await page.getByRole('link', { name: INST }).click();
     await expect(page).toHaveURL(/\/institutions\/[0-9a-f-]{36}/);
-
-    const instRow = await db.from('institutions').select('id').eq('name', INST).single();
-    const instId = instRow.data?.id as string;
-    expect(instId, 'the Institution was not created through the UI').toBeTruthy();
 
     // ---- 2-4. service plan: periods + effective date --------------------
     await page.goto(`/institutions/${instId}?tab=service`);
