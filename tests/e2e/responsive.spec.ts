@@ -136,52 +136,15 @@ test.describe('tablet — the Classroom register is the workflow it claims to be
  * a Parent has its own Sign out on the profile screen and would have hidden
  * the staff regression behind a passing test.
  */
-test.describe('every signed-in role can sign out on a small screen', () => {
-  test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
-
-  for (const viewport of [
-    { name: 'tablet', size: TABLET },
-    { name: 'mobile', size: MOBILE },
-  ]) {
-    test(`a Super Admin can reach Log out on ${viewport.name}`, async ({ page }) => {
-      const s = seeded();
-      await page.setViewportSize(viewport.size);
-      await login(page, s.superAdminEmail);
-
-      const logout = page.getByRole('button', { name: /log out/i });
-      await expectUsable(page, logout, 'the Log out button');
-
-      // And it actually ends the session, rather than merely being present.
-      await logout.click();
-      await expect(page).toHaveURL(/\/login/);
-    });
-
-    test(`Classroom staff can reach Log out on ${viewport.name}`, async ({ page }) => {
-      const s = seeded();
-      await page.setViewportSize(viewport.size);
-      await login(page, s.classroomEmail);
-
-      await expectUsable(
-        page,
-        page.getByRole('button', { name: /log out/i }),
-        'the Log out button',
-      );
-    });
-  }
-
-  test('a Parent can sign out from the profile screen on mobile', async ({ page }) => {
-    const s = seeded();
-    await page.setViewportSize(MOBILE);
-    await login(page, s.parentEmail);
-    await page.goto('/parent/profile');
-
-    await expectUsable(
-      page,
-      page.getByRole('button', { name: /sign out/i }),
-      'the parent Sign out button',
-    );
-  });
-});
+// Sign-out at small viewports moved to session.spec.ts.
+//
+// These tests asserted the control was PRESENT and, in one case, that the URL
+// changed. That is not a sign-out: it says nothing about whether the stored
+// session survived, whether a protected route is refused afterwards, or
+// whether Back restores the screen. session.spec.ts proves the whole lifecycle
+// for all nine roles and re-proves both shells at tablet and mobile, so
+// keeping a weaker duplicate here would only add runtime and a second, laxer
+// definition of the same guarantee.
 
 test.describe('mobile — login and the Parent portal', () => {
   test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
