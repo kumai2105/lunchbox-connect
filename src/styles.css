@@ -146,49 +146,6 @@ textarea {
   padding: 10px 12px;
   box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.55);
 }
-/* The compact mark only appears on the narrow rail (below), never beside the
-   full lockup. */
-.side-brand-mark {
-  display: none;
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 26px;
-}
-.logo-mark {
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 800;
-  font-size: 18px;
-  box-shadow: 0 6px 16px -6px rgba(37, 99, 235, 0.6);
-}
-.logo b {
-  font-size: 17px;
-  letter-spacing: -0.02em;
-}
-.logo .sub {
-  display: block;
-  font-size: 11px;
-  color: var(--ink-3);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.logo.white b {
-  color: #fff;
-}
-.logo.white .sub {
-  color: #7c9cd6;
-}
 
 /* ---------- shell ---------- */
 .app-shell {
@@ -205,9 +162,6 @@ textarea {
   position: sticky;
   top: 0;
   height: 100vh;
-}
-.sidebar .logo {
-  margin: 22px 20px 16px;
 }
 .nav {
   padding: 0 12px;
@@ -1560,33 +1514,21 @@ tbody tr:last-child td {
     min-width: 64px;
   }
 
-  /* The rail is 64px wide. The full lockup rendered into that would be about
-     40px across and illegible, and padding it out would eat the tappable
-     navigation width, so the compact mark stands in for it here. The full
-     logo is still on the login screen and on the desktop sidebar. */
-  .side-brand .brand-logo {
-    display: none;
-  }
+  /* The rail is 64px. The logo goes in at the largest size that fits with a
+     margin either side — 48px, which still reads as the brand — rather than a
+     lettered placeholder. Nothing else in the rail moves: the plate is the
+     same width the "LC" square occupied, so no tappable navigation space is
+     lost. */
   .side-brand {
-    margin: 16px 8px 12px;
+    margin: 14px 8px 12px;
   }
-  .side-brand-mark {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
+  .side-brand .brand-logo {
+    width: 48px;
     margin: 0 auto;
-    border-radius: 11px;
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-    color: #fff;
-    font-weight: 800;
-    font-size: 15px;
-    letter-spacing: 0.02em;
+    padding: 5px;
+    border-radius: 9px;
   }
 
-  .sidebar .logo b,
-  .sidebar .logo .sub,
   .nav a span:not(.nav-ico),
   .nav .nav-group,
   .side-card,

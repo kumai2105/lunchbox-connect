@@ -120,18 +120,13 @@ export default function Layout() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        {/* The official logo replaces the old text lockup — showing both
-            would print the wordmark twice. The supplied artwork is on white and
-            its own outline is navy, so against the navy rail it gets the
-            smallest white plate that separates it; the logo is never
-            recoloured. Below 900px the rail is 64px wide with no room for the
-            full lockup, so the compact mark shows there instead
-            (styles.css). */}
+        {/* The official logo, at every width. The supplied artwork is on
+            white and its own outline is navy, so against the navy rail it gets
+            the smallest white plate that separates it; the logo is never
+            recoloured. On the 64px rail it shrinks to 48px rather than being
+            swapped for a lettered placeholder (styles.css). */}
         <div className="side-brand">
           <img className="brand-logo" src={logoUrl} alt="LunchBox Connect" />
-          <div className="side-brand-mark" aria-hidden="true">
-            LC
-          </div>
         </div>
         <nav className="nav">
           <div className="nav-group">Menu</div>
