@@ -481,6 +481,15 @@ jobs:
               echo "----------------------------------------"
             fi
           fi
+          # The end-to-end chain prints an OPSTEP marker per phase. On a
+          # timeout Playwright reports only "Test timeout exceeded" with no
+          # location, and the markers sit mid-log where a tail never reaches
+          # them. Surfacing the LAST one as an annotation turns "it hung" into
+          # "it hung at this phase" without another CI round.
+          if grep -q 'OPSTEP' /tmp/e2e.log 2>/dev/null; then
+            echo "::error::LAST CHAIN PHASE REACHED: $(grep 'OPSTEP' /tmp/e2e.log | tail -1)"
+            echo "::error::CHAIN PHASES SEEN: $(grep -c 'OPSTEP' /tmp/e2e.log)"
+          fi
           # Emit every failure as a WORKFLOW ANNOTATION carrying the test title,
           # its file:line and the first error message.
           #
