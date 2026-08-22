@@ -78,6 +78,9 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
 
     await login(page, s.superAdminEmail);
 
+    const step = (n: string) => console.log(`OPSTEP ${n}`);
+
+    step('1-2 meal library');
     // ---- 1-2. define the Meal once, in the Meal Library -----------------
     // The business defines a Meal once and reuses it everywhere. This is the
     // top of the chain: nothing downstream can exist without it.
@@ -103,6 +106,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
       }, { message: 'the Meal never persisted with a first revision' })
       .toBe('linked');
 
+    step('3-4 menu builder create');
     // ---- 3-4. build the Menu and configure its rotation length ----------
     await page.goto('/menu-builder');
     await page.getByRole('button', { name: /new menu/i }).click();
@@ -119,6 +123,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     const weekendToggle = page.getByRole('button', { name: /Show weekend \/ camp days/ });
     if (await weekendToggle.count()) await weekendToggle.click();
 
+    step('5 fill slots');
     // ---- 5. fill the week/day/period slots with the Meal ----------------
     for (const period of ['Breakfast', 'Lunch']) {
       const row = page.locator('.menu-grid tr', { hasText: period });
@@ -161,6 +166,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
       }
     }
 
+    step('6 reload persistence');
     // ---- 6. it persists across a reload --------------------------------
     // A planning tool that loses the plan on refresh is not a planning tool.
     await page.reload();
@@ -170,6 +176,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     const filled = await page.locator('.slot-cell.filled').count();
     expect(filled, 'the menu did not survive a reload').toBeGreaterThanOrEqual(14);
 
+    step('7 create institution');
     // ---- 7. create the Institution -------------------------------------
     await page.goto('/institutions');
     await page.getByRole('button', { name: '+ Add institution', exact: true }).click();
@@ -211,6 +218,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     await page.getByRole('link', { name: INST }).click();
     await expect(page).toHaveURL(/\/institutions\/[0-9a-f-]{36}/);
 
+    step('8-10 service plan');
     // ---- 2-4. service plan: periods + effective date --------------------
     await page.goto(`/institutions/${instId}?tab=service`);
     await expect(page.getByRole('button', { name: 'Save service plan' })).toBeVisible();
@@ -223,6 +231,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     await page.getByRole('button', { name: 'Save service plan' }).click();
     await expect(page.getByText(/Current: .*Breakfast.*Lunch/)).toBeVisible();
 
+    step('11 assign menu + anchor');
     // ---- 5-6. assign the menu and the anchor week ----------------------
     const menu = page.getByLabel('Menu', { exact: true });
     await expect(menu, 'no menu is assignable — Menu Builder produced none').toBeVisible();
@@ -233,6 +242,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     await page.getByRole('button', { name: 'Assign menu' }).click();
     await expect(page.getByText(/Current:.*anchor week 1/)).toBeVisible();
 
+    step('13 publish window');
     // ---- 7. publish a dated window -------------------------------------
     await page.getByLabel('From', { exact: true }).fill(FROM);
     await page.getByLabel('To', { exact: true }).fill(TO);
@@ -253,6 +263,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
       })
       .toEqual(['breakfast', 'lunch']);
 
+    step('roster: class/student/staff');
     // ---- roster: a Class, a Student and a Classroom account ------------
     // All three through the UI — they are ordinary Super Admin actions.
     await page.goto(`/classes?institution=${instId}`);
@@ -327,6 +338,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
       .from('student_parents')
       .insert({ student_id: studentId, user_id: parent.data?.user_id as string });
 
+    step('15 nursery schedule');
     // ---- 8. the Nursery Admin sees its own published schedule ----------
     // Read as the Super Admin: the institution's own schedule route is the
     // same published read model a Nursery Admin gets, and the seeded Nursery
@@ -335,6 +347,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     await page.goto(`/institutions/${instId}?tab=calendar`);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
+    step('16-17 classroom record');
     // ---- 9-10. Classroom sees the applicable meal and records ----------
     // STAFF_PASS is the shared fixture password, which login() supplies itself.
     await login(page, STAFF_EMAIL);
@@ -365,12 +378,14 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
       })
       .toBeGreaterThan(0);
 
+    step('18 parent result');
     // ---- 11. the Parent sees the authorized result --------------------
     await login(page, s.parentEmail);
     await page.goto('/parent');
     await expect(page.locator('#root')).toBeVisible();
     await expect(page.getByText(/Onboard/).first()).toBeVisible();
 
+    step('19 kitchen demand');
     // ---- 12. the Kitchen receives the production demand ----------------
     await login(page, s.kitchenEmail);
     await page.goto('/kitchen');
