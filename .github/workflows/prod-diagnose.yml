@@ -257,9 +257,15 @@ jobs:
           echo "── Worker Routes on $ZONE_NAME ──"
           curl -sS -m 25 "https://api.cloudflare.com/client/v4/zones/$ZID/workers/routes" \
             -H "Authorization: Bearer $CF_TOKEN" \
-            | jq -r 'if .success then (.result // [] | if length==0 then "  (no routes)"
-                     else (.[] | "  \(.pattern)  ->  \(.script // "(none)")") end)
-                     else "  errors: \(.errors|tostring)" end'
+            -o /tmp/routes.json
+          jq -r 'if .success then (.result // [] | if length==0 then "  (no routes)"
+                 else (.[] | "  \(.pattern)  ->  \(.script // "(none)")") end)
+                 else "  errors: \(.errors|tostring)" end' /tmp/routes.json
+          # As an annotation too: this step runs early, and anything reading
+          # only the log tail never sees it.
+          jq -r 'if .success then (.result // [] | if length==0 then "::error::ROUTES none"
+                 else (.[] | "::error::ROUTE \(.pattern) -> \(.script // "(none)")") end)
+                 else "::error::ROUTES unreadable \(.errors|tostring)" end' /tmp/routes.json
 
       - name: 2c2 · Authoritative DNS for the zone (no credential required)
         if: always()
