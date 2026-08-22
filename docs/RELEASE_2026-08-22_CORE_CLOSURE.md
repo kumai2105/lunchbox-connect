@@ -7,19 +7,19 @@ execution checkpoint, which is archived into this document.
 
 | | |
 |---|---|
-| Git SHA | `fc2e4c57` deployed; `90e25830` is the current head (a CI-only guard, below) |
+| Git SHA | `e1f9d7b4` — deployed |
 | Branch | `claude/new-session-k5dd5u` — the branch every production deploy to date has been cut from |
 | Working tree | clean, pushed |
 | Migration ceiling in repo | `0042_state_the_reads_the_policies_assume.sql` |
 | Migration ceiling in production | **`0042`** — applied 2026-08-22, ledger `20260822192151`, unchanged by this release |
 | Production Supabase | `llnofriwvnerntrbpehc` |
-| Deployed frontend | **`fc2e4c57`** (deploy run `32599217686`, success) — supersedes `2e03b842` (run `32597938339`) and `9e44e786` (run `32593668941`) |
+| Deployed frontend | **`e1f9d7b4`** (deploy run `32600442731`, success) — supersedes `fc2e4c57`, `2e03b842` and `9e44e786` |
 
 ## Gate, dynamically derived
 
 | Gate | Result |
 |---|---|
-| Browser E2E | **84 / 84** — 0 failed, 0 skipped, 0 flaky (run `32598996896`, on the released SHA `fc2e4c57`) |
+| Browser E2E | **84 / 84** — 0 failed, 0 skipped, 0 flaky (run `32600192293`, on the released SHA `e1f9d7b4`) |
 | SQL suites | **21 suites, 223 named assertions**, 0 failures |
 | Authorization matrix | **520 checks**, all pass |
 | Unit tests | **122**, 13 files |
@@ -238,6 +238,66 @@ Three E2E assertions read the old strings — the role option list, the
 eligibility button, the deferred-shell wording — and moved with them. A unit
 test now asserts the classification label never carries an internal token, since
 that string renders on a screen a customer reads.
+
+## Follow-up release `e1f9d7b4` — the official logo, and the school assumption
+
+**The logo.** The supplied file was a 896x1200 PNG in **RGB mode with no alpha
+channel**: what looked like a transparent background was a grey/white
+checkerboard baked into the pixels as real colour — 11px squares alternating
+(203,203,203) and (255,255,255), verified by sampling. Placed as supplied it
+would have put the logo on a chequered rectangle on the public sign-in page, so
+"preserve the transparent background" could not be met as written.
+
+The checkerboard was removed to true alpha and nothing else was touched. A
+connected-region pass marks a light area transparent only when it contains the
+checkerboard's grey squares, so an enclosed counter inside a letter is cleared
+while genuinely white artwork is kept (7 such pixels were). Every artwork pixel
+is byte-identical to the file supplied — not redrawn, recoloured, regenerated,
+filtered, stretched or cropped — then trimmed to the artwork bounding box,
+708x458, original proportions intact. The source is a lossy export, so faint
+compression noise around the letterforms is inherent to it; a vector or true
+transparent PNG would be sharper and is a one-file swap.
+
+| Placement | Size | Note |
+|---|---|---|
+| Login screen (and the account-not-provisioned and missing-configuration cards) | 72% width, capped 260px, centred | Replaces the "LC" square and text lockup — showing both prints the wordmark twice |
+| Authenticated sidebar, desktop | 200x134 | Smaller than the login placement. On the smallest white plate that gives the artwork contrast against the sidebar navy; the logo is **not** recoloured |
+| Sidebar below 900px | full logo hidden | The rail is 64px; the lockup there would be ~40px and illegible, and padding it out would take tappable navigation width. The compact mark stands in |
+| Favicon | unchanged | |
+
+Width is capped with `height: auto` throughout, so the aspect ratio holds at
+every breakpoint and the artwork cannot overflow its container. The asset lives
+at `src/assets/lunchbox-connect-logo.png`, imported so Vite emits it
+content-hashed — there was no prior asset convention, the repository had no
+`public/` directory and no images at all.
+
+**The school assumption.** An institution is a nursery **or** a school, and the
+product sells into nurseries. Two places assumed otherwise:
+
+* The sign-in screen told every visitor "Accounts are created by your school's
+  administrator" — telling a nursery manager, on the first screen they see, that
+  this software is not for them. Now "your institution's administrator", matching
+  the heading above it.
+* **Add institution** opened with Type pre-set to **School**, so anything created
+  by clicking straight through was a school. It now opens on Nursery, which is
+  also the first option in the list.
+
+The Institutions banner read "Every school or nursery"; nursery comes first now,
+as it does everywhere else. Both option lists already ordered Nursery before
+School and are unchanged. Stored values, the `kind` enum and every permission
+are untouched.
+
+| Verification | Result |
+|---|---|
+| Typecheck · lint · 122 unit tests · build | pass |
+| Browser E2E on `e1f9d7b4` | run `32600192293` — 84/84, 0 failed, 0 skipped |
+| Real Chromium at 1440x900, 820x1180, 390x844 | no horizontal overflow at any size; **Log out** measured visible and on-screen at all three; sidebar logo 200x134 on desktop and correctly absent from the 64px rail |
+| Deploy | run `32600442731`, success |
+| Production smoke on `www.lunchboxconnect.com` | run `32600501387`, success |
+| Production browser sign-in/sign-out | run `32600510742`, success |
+
+No Supabase, migration, RLS, authentication, business-logic, route or permission
+change in this release.
 
 ## Deployment path
 
