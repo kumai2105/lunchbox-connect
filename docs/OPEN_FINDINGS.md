@@ -157,26 +157,41 @@ If that is ever added, this policy must be rewritten the same way first —
 pass the row's own columns into a SECURITY DEFINER helper instead of
 re-reading the row by id.
 
-## 6. Production is one migration behind the repository
+## 6. The onboarding grant depended on a platform default — CLOSED
 
-**Status:** open · **Blocks:** onboarding a nursery through the software
-**Needs:** the Founder, or a reconnected Supabase connector
+**Status:** closed 2026-08-22 · `0041` applied to production
+**Correction:** the earlier version of this entry overstated the defect
 
-`0041` grants `authenticated` the INSERT and UPDATE on `institutions` that the
-`0033` policies always assumed. Without it a Super Admin **cannot create or
-rename an Institution through the application** — the first step of onboarding
-a nursery — and gets `42501 permission denied for table institutions`.
+**What I claimed:** that a Super Admin could not create an Institution in
+production, and every future nursery would need a developer.
 
-It is applied on the CI stack and asserted by
-`verify_super_admin_onboarding.sql` and by the E2E boundary step. It is **not
-yet applied to production**, because the Supabase connector disconnected
-mid-session and this environment cannot reach `*.supabase.co` directly.
+**What is actually true.** Production already held the grant:
 
-**To apply it:** `scripts/PRODUCTION_APPLY.md`, or reconnect the Supabase
-connector and it can be applied and verified from here. The migration is two
-grants and a comment; it moves no boundary, because RLS still restricts both
-statements to `app_is_super_admin()`.
+```
+authenticated on institutions : INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+```
 
-**Until it is applied,** everything already live keeps working — the defect
-only blocks creating a NEW Institution, which has never been possible through
-the UI and was always done by the service role during setup.
+Hosted Supabase grants `ALL` on `public` tables to `authenticated` through the
+platform's default privileges, so creating an Institution has always worked
+there. The local CLI stack does not replicate those defaults, which is why the
+same code refused the insert with `42501` on the E2E stack and the end-to-end
+onboarding test could not get past step 1.
+
+The defect was real where it was found. Generalising it to production without
+checking production was my error — the same pattern as reading the Cloudflare
+API instead of the dashboard earlier in the same session.
+
+**Why 0041 still matters.** The product's permission model was resting on a
+platform default rather than on anything this repository states. 0007 grants
+only SELECT; 0033 adds insert/update policies that a grant must exist for. A
+project restored from migrations alone, or a change to Supabase's defaults,
+would silently lose the ability to onboard a nursery, and nothing in the
+migration set would hint that it ever had it. 0041 states the grant explicitly:
+a no-op on production today, and durable intent from here.
+
+The boundary is unchanged — RLS still restricts both statements to
+`app_is_super_admin()`, `verify_super_admin_onboarding.sql` proves a Nursery
+Admin is still refused and that nobody may delete, and the E2E boundary step
+fails the build if the grant ever regresses.
+
+---
