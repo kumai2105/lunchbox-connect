@@ -11,15 +11,15 @@ execution checkpoint, which is archived into this document.
 | Branch | `claude/new-session-k5dd5u` — the branch every production deploy to date has been cut from |
 | Working tree | clean, pushed |
 | Migration ceiling in repo | `0042_state_the_reads_the_policies_assume.sql` |
-| Migration ceiling in production | `0041` — **0042 NOT APPLIED** (see Blockers) |
+| Migration ceiling in production | **`0042`** — applied 2026-08-22, ledger `20260822192151` |
 | Production Supabase | `llnofriwvnerntrbpehc` |
-| Deployed frontend | `b8ee939` (deploy run 32579334822). **This closure is NOT deployed.** |
+| Deployed frontend | **`9e44e786`** (deploy run `32593668941`, success) |
 
 ## Gate, dynamically derived
 
 | Gate | Result |
 |---|---|
-| Browser E2E | **84 / 84** — 0 failed, 0 skipped, 0 flaky (run 32591361476, job on `a02f9a0a`) |
+| Browser E2E | **84 / 84** — 0 failed, 0 skipped, 0 flaky (run `32593855792`, on the released SHA `9e44e786`) |
 | SQL suites | **21 suites, 223 named assertions**, 0 failures |
 | Authorization matrix | **520 checks**, all pass |
 | Unit tests | **122**, 13 files |
@@ -64,24 +64,49 @@ Both were found by assertions added in this closure, not by inspection.
 * **`app_users_select` is safe** — settled with 12 assertions rather than
   rewritten on resemblance. No policy changed.
 
-## Blockers (neither is a software defect)
+## Production release — executed
 
-1. **Supabase connector unavailable.** Blocks applying `0042` to production,
-   reading the managed backup/PITR state, and re-reading production business
-   data. Re-authorise from claude.ai connector settings.
+| Step | Result |
+|---|---|
+| Recovery point captured | `docs/recovery/2026-08-22-pre-0042.md`, in the repository |
+| `0042` applied | success · ledger `20260822192151` |
+| Grants after | `anon` holds **nothing** on `audit_log` or `v_dashboard_institutions`; `authenticated` retains SELECT |
+| Advisors after | **0 ERROR**, 89 WARN — the same two known families, unchanged |
+| Data after | 2 institutions · 4 classes · 11 students · 1 service plan · 1 rotation assignment · 10 accounts · 20 meals · 4 historical serving records — **unchanged** |
+| Deploy | run `32593668941`, success, on `9e44e786` |
+| Production smoke | run `32593859578`, success |
+| Production diagnostic (both hostnames, 8 routes, bundle identity, anonymous reads) | run `32594278876`, success |
 
-2. **Production origin unreachable from the build session.** The egress proxy
-   answers `403 CONNECT` for both `lunchboxconnect.com` hostnames — an
-   organisation policy denial. `.github/workflows/prod-browser-auth.yml` runs
-   the same real-browser sign-in / sign-out checks from a GitHub runner with
-   open egress; it needs two repository secrets that do not exist:
-   `PROD_VERIFY_EMAIL` and `PROD_VERIFY_PASSWORD`, for an account created for
-   the purpose. It fails closed without them.
+### What 0042 actually did to production
 
-**Consequence.** The software half of this closure is finished and green. The
-production half — apply 0042, deploy, verify live — was NOT attempted, because
-performing it without being able to verify it afterwards is precisely what the
-closure order forbids.
+Checked before applying, not assumed. The `authenticated` half was a **verified
+no-op**: both objects already held SELECT via Supabase platform defaults, so
+the `permission denied` failures were local-stack only — exactly as the
+migration text predicted, and this time confirmed before being claimed.
+
+The substantive change was the **`anon` revoke**. `anon` held
+`DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE` on
+`v_dashboard_institutions`, restored every time `CREATE OR REPLACE VIEW`
+re-applied default privileges across four recreations. The exposure was
+**contained** — verified directly, as `anon` the view errored with
+`permission denied for table institutions`, because the view is
+`security_invoker` and `0041` revoked that table from `anon`. That containment
+was a second layer, and `0031` once made this same view `security_definer`
+(reverted by `0039`) — the exact change that would have turned it into a live
+leak. `anon` now holds nothing.
+
+## Remaining blocker (not a software defect)
+
+**Production browser authentication is still unproven.** No test has driven a
+real browser through sign-in and sign-out against the live origin. The browser
+suite proves the full session lifecycle for nine roles, but against an
+ephemeral local stack by design — seeded E2E must never touch production.
+
+`.github/workflows/prod-browser-auth.yml` closes this. It needs two repository
+secrets that do not exist: `PROD_VERIFY_EMAIL` and `PROD_VERIFY_PASSWORD`, for
+an account created for the purpose. It fails closed without them, so it can
+never report success having skipped the point. Do not reset a real user's
+password to run it.
 
 ## Deployment path
 
