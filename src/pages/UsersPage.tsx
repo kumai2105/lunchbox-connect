@@ -73,10 +73,11 @@ export default function UsersPage() {
       institutionId: needsInstitution ? form.institutionId || null : null,
       kitchenId: needsKitchen ? form.kitchenId || null : null,
       phone: form.phone.trim() || null,
-      // §5: the account must actually be usable with its temporary password —
-      // confirm it so the user can sign in immediately (there is no email
-      // invitation flow; that remains BLOCKED_BY_SPEC). This matches the
-      // truthful copy in the modal and the other provisioning entry points.
+      // §5: the account must actually be usable with the password set here —
+      // confirm it so the person can sign in immediately. Accounts are issued
+      // by an administrator by decision, not pending one: there is no email
+      // invitation flow and no self-service reset. This matches the copy in the
+      // modal and the other provisioning entry points.
       authenticate: true,
     });
     setBusy(false);
@@ -191,10 +192,10 @@ export default function UsersPage() {
           <form onSubmit={(e) => void onSubmit(e)}>
             {error && <Banner kind="err">{error}</Banner>}
             <Banner kind="info">
-              This provisions a working account with the temporary password you set — <b>no
-              invitation email is sent</b>. Share it securely; the user signs in and should change
-              it. Email-delivered self-activation is <b>BLOCKED_BY_SPEC</b> until the sending
-              mechanism is decided.
+              This provisions a working account with the password you set — <b>no invitation
+              email is sent</b>. Share it securely; the person can sign in immediately.
+              Passwords are issued by an administrator: there is <b>no self-service reset</b>,
+              so keep a record of what you set.
             </Banner>
             <div className="form-row">
               <Field label="Full name">

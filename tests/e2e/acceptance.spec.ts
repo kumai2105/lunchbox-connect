@@ -413,16 +413,14 @@ test.describe('acceptance — creating the things an Institution runs on', () =>
 
     await page.getByRole('button', { name: /provision classroom staff/i }).click();
 
-    // getByLabel() cannot work here, and that is a REAL FINDING rather than a
-    // test detail: components/ui.tsx `Field` renders <label>{label}</label> and
-    // the input as SIBLINGS, with no htmlFor and no nesting. Nothing built with
-    // Field has a programmatic label, so assistive technology announces these
-    // inputs unlabelled. Reported separately; not fixed here, because Field is
-    // shared UI and changing it is a product decision, not a test fix.
+    // This addresses the fields structurally rather than through getByLabel().
+    // The programmatic labels themselves are asserted elsewhere in this file —
+    // `Field` generates an id with useId() and points its <label> at it — so
+    // this locator is a convenience here, not a workaround for missing labels.
     const field = (label: string) => page.locator('.field', { hasText: label }).locator('input');
     await field('Full name').fill('E2E Provisioned Staff');
     await field('Email').fill(email);
-    await field('Temporary password').fill('E2e-pass!12345');
+    await field('Password').fill('E2e-pass!12345');
     await page.getByRole('button', { name: /create account/i }).click();
 
     // This is the whole point of the screen: an app_users row with the right

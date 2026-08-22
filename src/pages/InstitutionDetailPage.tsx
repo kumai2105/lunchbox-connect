@@ -470,10 +470,11 @@ export default function InstitutionDetailPage() {
         >
           {inviteMsg && <Banner kind={inviteMsg.startsWith('Error') ? 'err' : 'info'}>{inviteMsg}</Banner>}
           <Banner kind="info">
-            Creates a working Classroom Staff account scoped to this institution with the temporary
+            Creates a working Classroom Staff account scoped to this institution with the
             password below — <b>no invitation email is sent from here</b>. Share it securely; the
-            user signs in and should change it. Email-delivered self-activation is
-            <b> BLOCKED_BY_SPEC</b>. Assign them to classes from the Classes or Staff screen.
+            person can sign in immediately. Passwords are issued by an administrator: there is
+            <b> no self-service reset</b>, so keep a record of what you set. Assign them to
+            classes from the Classes or Staff screen.
           </Banner>
           <Field label="Full name">
             <input value={invite.fullName} onChange={(e) => setInvite({ ...invite, fullName: e.target.value })} />
@@ -481,7 +482,7 @@ export default function InstitutionDetailPage() {
           <Field label="Email">
             <input type="email" value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} />
           </Field>
-          <Field label="Temporary password (min 8 chars)">
+          <Field label="Password (min 8 chars)">
             <input type="text" value={invite.password} onChange={(e) => setInvite({ ...invite, password: e.target.value })} />
           </Field>
         </Modal>

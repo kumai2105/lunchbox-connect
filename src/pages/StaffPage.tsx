@@ -84,8 +84,8 @@ export default function StaffPage() {
       fullName: form.fullName.trim(),
       role: 'classroom_staff',
       institutionId,
-      // The account is usable immediately with the temporary password below;
-      // no email is dispatched from here (see the note in the modal).
+      // The account is usable immediately with the password set below; no email
+      // is dispatched from here (see the note in the modal).
       authenticate: true,
     });
     setBusy(false);
@@ -93,7 +93,7 @@ export default function StaffPage() {
       setMsg(`Error: ${res.error}`);
       return;
     }
-    setMsg(`Account created for ${form.email}. Share the temporary password securely.`);
+    setMsg(`Account created for ${form.email}. Share the password securely.`);
     setForm({ fullName: '', email: '', password: '' });
     await reload(institutionId);
   }
@@ -239,9 +239,9 @@ export default function StaffPage() {
           {msg && <Banner kind={msg.startsWith('Error') ? 'err' : 'info'}>{msg}</Banner>}
           <Banner kind="info">
             This creates a working classroom-staff account for <b>your institution</b> with the
-            temporary password you set below — <b>no invitation email is sent from here</b>. Share
-            the password securely; the user signs in and should change it. An email-delivered
-            self-activation flow is <b>BLOCKED_BY_SPEC</b> until the sending mechanism is decided.
+            password you set below — <b>no invitation email is sent from here</b>. Share the
+            password securely; the person can sign in immediately. Passwords are issued by an
+            administrator: there is <b>no self-service reset</b>, so keep a record of what you set.
           </Banner>
           <Field label="Full name">
             <input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
@@ -253,7 +253,7 @@ export default function StaffPage() {
               onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
           </Field>
-          <Field label="Temporary password (min 8 — share securely)">
+          <Field label="Password (min 8 — share securely)">
             <input
               type="text"
               value={form.password}

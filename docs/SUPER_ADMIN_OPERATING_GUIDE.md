@@ -144,3 +144,46 @@ guardian unlink semantics, the structured allergy/dietary model, retention and
 archival policy, Packing/Dispatch/Delivery, multi-kitchen routing, cross-
 institution student transfer, per-institution timezones, meal-performance
 classification thresholds.
+
+## Accounts and passwords
+
+Accounts in this platform are **administrator-issued**. This is a product
+decision, not a gap: no invitation email is sent, nobody self-registers, and
+there is no self-service password reset.
+
+**Creating an account.** Three screens create accounts, all through the same
+server-side path (`admin-create-user`), and all three ask you to type the
+password yourself:
+
+| Screen | Who it creates | Where |
+|---|---|---|
+| Users | any role, any institution | Super Admin only |
+| Institution → Invite | Classroom Staff scoped to that institution | Super Admin |
+| Staff | Classroom Staff in your own institution | Nursery Admin |
+
+The password must be at least 8 characters; Create stays disabled until it is.
+The account works the moment it is created — the person signs in with their
+email address and the password you set. Give it to them over a channel you
+trust.
+
+**Keep a record of what you set.** There is no screen in the application where
+anyone — the account holder, a Nursery Admin, or you — can change a password.
+The password you type at creation is that person's password until an
+administrator issues a different one.
+
+**Issuing a new password.** When someone forgets theirs, it is done in the
+Supabase dashboard, not in the application:
+
+1. Supabase → project `llnofriwvnerntrbpehc` → **Authentication** → **Users**
+2. Find the account by email address
+3. Set a new password
+4. Tell the person, over a channel you trust
+
+Tell each institution this at onboarding, so their staff know that a forgotten
+password goes to their administrator and not to a "forgot password" link that
+does not exist.
+
+**If this model should change**, the two pieces that would replace it are a
+"Forgot password?" link on the sign-in screen (which needs email sending
+configured on the domain first) and a "Change password" control for a signed-in
+user (which needs no email at all). Neither is built today.
