@@ -21,8 +21,8 @@ end of the run.
 
 ## Phases
 
-- [ ] P1 checkpoint established
-- [ ] P2 app_users_select latent policy — reproduce and prove
+- [x] P1 checkpoint established
+- [x] P2 app_users_select — reproduced, proven SAFE, 12 assertions, no policy changed
 - [ ] P3 logout/session lifecycle, every active role
 - [ ] P4 cancel / close / modal dismissal / back
 - [ ] P5 rendered error experience
@@ -44,7 +44,24 @@ end of the run.
 
 ## Proven defects found this run
 
-_(appended as found — layer classified from evidence)_
+1. **No visible keyboard focus** — PRODUCT (accessibility). The stylesheet had
+   no `:focus-visible` rule at all and five selectors set `outline: none`,
+   two of which (`.filters .search-box input`, `.toolbar .search-box input`)
+   also drop the border, so focus was completely unindicated there. Fixed in
+   `src/styles.css`. Not environment-specific.
+
+## Findings that were NOT defects
+
+1. **app_users_select** — the resemblance to the 0040 fault is superficial.
+   `app_can_see_user()` resolves the CALLER's row, which already exists;
+   the 0040 policies resolved the NEW row's id. `INSERT … RETURNING` and
+   `UPDATE … RETURNING` both return their row. Proven by
+   `verify_app_users_policy.sql`. No change made.
+2. **`.outcome` focus suppression** — dead CSS. No component renders that
+   class; the live Classroom controls are `.plate-quarter` and
+   `.chip-choice button`, neither of which suppresses the outline.
+3. **Absent vs 100%** — already visually distinct (pill vs circle, grey vs
+   brand). Asserted rather than assumed.
 
 ## Fixes applied
 
