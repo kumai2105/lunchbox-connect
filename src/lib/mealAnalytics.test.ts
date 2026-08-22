@@ -273,7 +273,7 @@ describe('unscored observations are never silently 0% (state validity)', () => {
   });
 });
 
-describe('meal-performance classification is NOT_YET_DEFINED', () => {
+describe('meal-performance classification is deliberately unrated', () => {
   const row = (over: Partial<MealPerformanceRow>): MealPerformanceRow =>
     ({
       menu_item_id: 'm1',
@@ -292,8 +292,11 @@ describe('meal-performance classification is NOT_YET_DEFINED', () => {
     // The function takes no measurements at all any more: there is no approved
     // rule mapping numbers to a verdict, so a strong meal and a weak one get
     // the same honest answer.
-    expect(classifyMealPerformance().label).toBe('NOT_YET_DEFINED');
+    expect(classifyMealPerformance().label).toBe('Not rated');
     expect(classifyMealPerformance().variant).toBe('slate');
+    // The label must stay free of the project's internal vocabulary: this
+    // string is rendered in every row of a screen a customer looks at.
+    expect(classifyMealPerformance().label).not.toMatch(/NOT_YET_DEFINED|BLOCKED_BY_SPEC/);
     // The factual row the old thresholds were computed from is still produced
     // in full for the screens to display.
     const strong = row({ avg_consumption_pct: 95 });

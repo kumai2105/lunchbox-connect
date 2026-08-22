@@ -21,7 +21,7 @@ test.describe('operational status workflow', () => {
     const row = page.locator('tr', { hasText: 'E2E-001' });
     await expect(row).toContainText('Not operationally eligible');
 
-    await row.getByRole('button', { name: /Set ACTIVE_BILLABLE_TO_NURSERY/ }).click();
+    await row.getByRole('button', { name: /Mark billable/i }).click();
 
     await expect(row).toContainText('Active — billable to nursery');
 

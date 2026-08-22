@@ -105,7 +105,7 @@ export default function DashboardPage() {
           icon="checkCircle"
           label="Operationally eligible"
           value={eligibleStudents}
-          trend="ACTIVE_BILLABLE_TO_NURSERY"
+          trend="billable to the nursery"
           to={can(role, 'status', 'view') ? '/status' : undefined}
         />
         <StatCard
@@ -147,7 +147,7 @@ export default function DashboardPage() {
         }
       >
         {rows.length === 0 ? (
-          <EmptyState text="No institutions yet — a SUPER_ADMIN can add the first one." />
+          <EmptyState text="No institutions yet — a Super Admin can add the first one." />
         ) : (
           <table className="dash-table">
             <thead>

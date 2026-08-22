@@ -72,16 +72,18 @@ test.describe('login matrix — nine roles', () => {
       .locator('select option')
       .allTextContents();
 
+    // Readable labels, not the database's enum values — this list is read by a
+    // person choosing a role, and the stored value is unchanged behind it.
     expect(roleOptions).toEqual([
-      'SUPER_ADMIN',
-      'SCHOOL_ADMIN',
-      'OPERATIONS_MANAGER',
-      'FINANCE_OWNER',
-      'VIEWER',
-      'PARENT',
-      'CLASSROOM_STAFF',
-      'KITCHEN',
-      'DRIVER',
+      'Super Admin',
+      'Nursery / School Admin',
+      'Operations Manager',
+      'Finance / Owner',
+      'Viewer',
+      'Parent',
+      'Classroom staff',
+      'Kitchen',
+      'Driver',
     ]);
   });
 });

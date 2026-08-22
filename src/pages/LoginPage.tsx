@@ -4,18 +4,9 @@ import { useAuth } from '../lib/auth';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { Btn } from '../components/ui';
 
-// The nine approved role domains (docs/02) — the role comes from the account.
-const KNOWN_ROLES = [
-  'SUPER_ADMIN',
-  'SCHOOL_ADMIN',
-  'OPERATIONS_MANAGER',
-  'FINANCE_OWNER',
-  'VIEWER',
-  'PARENT',
-  'CLASSROOM_STAFF',
-  'KITCHEN',
-  'DRIVER',
-];
+// The sign-in screen is public. It shows what a person needs in order to sign
+// in and nothing else — not the platform's internal role vocabulary, and not
+// which parts of the product are unfinished.
 
 export default function LoginPage() {
   const { signIn } = useAuth();
@@ -38,9 +29,9 @@ export default function LoginPage() {
           </div>
           <h1>Waiting for the backend</h1>
           <p className="tagline">
-            The app is built and ready — it just needs your Supabase project keys (runbook step 3):
-            copy `.env.example` to `.env` and fill in <b>VITE_SUPABASE_URL</b> and{' '}
-            <b>VITE_SUPABASE_ANON_KEY</b>, then restart the dev server.
+            This deployment is missing its database connection settings, so nobody can sign in
+            yet. Whoever set up this environment needs to supply <b>VITE_SUPABASE_URL</b> and{' '}
+            <b>VITE_SUPABASE_ANON_KEY</b>.
           </p>
         </div>
       </div>
@@ -104,25 +95,6 @@ export default function LoginPage() {
             {busy ? 'Signing in…' : 'Enter the platform →'}
           </Btn>
         </form>
-
-        <div style={{ marginTop: 18, borderTop: '1px solid var(--line)', paddingTop: 14 }}>
-          <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginBottom: 8, fontWeight: 700 }}>
-            ROLES IN THE SYSTEM
-          </div>
-          <div className="chip-row" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {KNOWN_ROLES.map((r) => (
-              <span key={r} className="chip" style={{ background: 'var(--slate-soft)' }}>
-                {r}
-              </span>
-            ))}
-          </div>
-          <div
-            style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 10, textAlign: 'center' }}
-          >
-            Nine approved role domains (docs/02) — some scopes are still NOT_YET_DEFINED in the
-            spec.
-          </div>
-        </div>
       </div>
     </div>
   );

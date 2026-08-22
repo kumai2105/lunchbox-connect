@@ -95,7 +95,7 @@ export default function Layout() {
           </div>
           <h1>Account not provisioned</h1>
           <p className="tagline">
-            Your sign-in works, but this user has no app profile yet. Ask a SUPER_ADMIN to create
+            Your sign-in works, but this account has no profile yet. Ask your administrator to create
             your account.
           </p>
           <Btn variant="ghost" onClick={() => void signOut()} style={{ width: '100%' }}>

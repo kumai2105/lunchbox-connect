@@ -1,12 +1,11 @@
 import { OPERATIONAL_STATUS_ELIGIBLE } from './types';
 
 /**
- * Operational-status domain (docs/00 §8, docs/03 §5, docs/05 §44).
- * Only ACTIVE_BILLABLE_TO_NURSERY is an approved value. Everything else is
- * NOT_YET_DEFINED — we deliberately offer no invented statuses.
+ * Operational status. Exactly one value makes a child eligible to be served;
+ * no other statuses are invented. The stored value stays as the database
+ * defines it — statusLabel() is the only thing a person ever reads.
  */
 
-export const STATUS_LABEL = 'ACTIVE_BILLABLE_TO_NURSERY';
 export const STATUS_IS_ELIGIBLE = OPERATIONAL_STATUS_ELIGIBLE;
 
 export function statusLabel(status: string | null): string {

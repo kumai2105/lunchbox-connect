@@ -52,11 +52,10 @@ export default function KitchenPage() {
       <PageHead title="Kitchen production" hint="what to make, per meal, for a chosen day" />
 
       <Banner kind="info">
-        Demand is derived from authoritative eligible records (operational status{' '}
-        <b>ACTIVE_BILLABLE_TO_NURSERY</b>) against the <b>published</b> schedule. Kitchen staff never
-        see student identity — counts only (§56). Whether a day has service is decided by what is
-        published for it, not by the day of the week (§35). Packing / dispatch / delivery states
-        remain <b>BLOCKED_BY_SPEC</b> until the spec defines them.
+        These counts come from the children who are eligible to be served, against the{' '}
+        <b>published</b> schedule. Kitchen staff never see who the children are — counts only.
+        Whether a day has service is decided by what is published for it, not by the day of the
+        week. Packing, dispatch and delivery are not available yet.
       </Banner>
 
       {error && <Banner kind="err">{error}</Banner>}

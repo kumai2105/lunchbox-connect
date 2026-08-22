@@ -59,12 +59,11 @@ export default function StatusPage() {
 
   return (
     <div>
-      <PageHead title="Status / eligibility" hint="only ACTIVE_BILLABLE_TO_NURSERY is approved" />
+      <PageHead title="Status / eligibility" hint="who may be served, and who may not" />
       <Banner kind="info">
-        Institutional billing fixes operational eligibility. One approved value:{' '}
-        <b>ACTIVE_BILLABLE_TO_NURSERY</b>. The full status list and transitions are NOT_YET_DEFINED
-        in the spec — students without the approved value cannot be served. Changes are
-        audit-logged.
+        A child is eligible to be served when the institution is billed for them —{' '}
+        <b>Active — billable to nursery</b>. That is the only status that makes a child eligible;
+        anyone without it cannot be served. Every change here is recorded in the audit log.
       </Banner>
 
       {error && <Banner kind="err">{error}</Banner>}
@@ -137,7 +136,7 @@ export default function StatusPage() {
                             disabled={busyId === s.id}
                             onClick={() => void apply(s.id, 'ACTIVE_BILLABLE_TO_NURSERY')}
                           >
-                            {busyId === s.id ? 'Saving…' : 'Set ACTIVE_BILLABLE_TO_NURSERY'}
+                            {busyId === s.id ? 'Saving…' : 'Mark billable — eligible to be served'}
                           </Btn>
                         )}
                       </td>

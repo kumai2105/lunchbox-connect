@@ -154,7 +154,7 @@ export default function ClassesPage() {
 
       {!scopedInstitution && !institutionFilter && (
         <Banner kind="info">
-          A Class always belongs to one Institution (docs/04 §8). Open an institution from{' '}
+          A class always belongs to one institution. Open an institution from{' '}
           <a href="/institutions">Institutions</a> and use "Manage classes" to work within its
           scope, or create one here and pick the institution directly.
         </Banner>

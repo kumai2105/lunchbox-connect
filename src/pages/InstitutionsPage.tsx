@@ -44,7 +44,7 @@ export default function InstitutionsPage() {
     <div>
       <PageHead
         title="Institutions"
-        hint="only SUPER_ADMIN manages these"
+        hint="only a Super Admin manages these"
         actions={
           <Btn
             variant="brand"

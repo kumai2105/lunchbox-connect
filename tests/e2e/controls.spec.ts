@@ -273,8 +273,7 @@ test.describe('deferred shells — honest about being unfinished', () => {
 
       // 1. It TELLS the user. A blank page is not honest; it is broken-looking.
       const body = await page.locator('body').innerText();
-      const saysSo =
-        /NOT_YET_DEFINED|not yet defined|not active|BLOCKED_BY_SPEC/i.test(body);
+      const saysSo = /not available yet|not built|nothing to show yet|not active/i.test(body);
       expect(
         saysSo,
         `${r.label} does not tell the user the functionality is not defined yet — it just looks empty or broken`,

@@ -182,7 +182,10 @@ export function classifyMealPerformance(): {
   label: string;
   variant: string;
 } {
-  return { label: 'NOT_YET_DEFINED', variant: 'slate' };
+  // Deliberately unrated: no threshold decides what a consumption figure
+  // "means", so the platform states no verdict. The measures are in the table
+  // and the judgement stays with the reader.
+  return { label: 'Not rated', variant: 'slate' };
 }
 
 // ---------------------------------------------------------------------------

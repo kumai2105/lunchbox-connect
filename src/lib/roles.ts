@@ -19,7 +19,7 @@ export interface NavItem {
   path?: string;
   label: string;
   icon: IconName;
-  shell?: boolean; // NOT_YET_DEFINED spec area — honest shell, no invented features
+  shell?: boolean; // planned but not built — honest shell, no invented features
   // Reachable and access-controlled the same as any other page, but not
   // listed in the sidebar — Classes always belongs to one Institution
   // (docs/04 §8), so it's reached by drilling into an Institution instead of

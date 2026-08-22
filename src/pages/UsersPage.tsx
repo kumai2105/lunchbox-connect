@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { createAccount, listInstitutions, listKitchens, listUsers } from '../lib/api';
+import { roleLabel } from '../lib/roleLabel';
 import type { AppRole, AppUser, Kitchen } from '../lib/types';
 import {
   Btn,
@@ -119,8 +120,8 @@ export default function UsersPage() {
         }
       />
       <Banner kind="info">
-        The first SUPER_ADMIN is seeded via the SQL editor (runbook step 7). Every other account —
-        all nine roles — flows through this screen.
+        Every account on the platform is created here, in any role. The account works as soon as you
+        create it — give the person their email address and the password you set.
       </Banner>
 
       {!users ? (
@@ -146,7 +147,7 @@ export default function UsersPage() {
                   </td>
                   <td>
                     <Pill variant={u.role === 'super_admin' ? 'brand' : 'slate'}>
-                      {u.role.toUpperCase()}
+                      {roleLabel(u.role)}
                     </Pill>
                   </td>
                   <td className="cell-sub">
@@ -228,7 +229,7 @@ export default function UsersPage() {
                 >
                   {ROLES.map((r) => (
                     <option key={r} value={r}>
-                      {r.toUpperCase()}
+                      {roleLabel(r)}
                     </option>
                   ))}
                 </select>

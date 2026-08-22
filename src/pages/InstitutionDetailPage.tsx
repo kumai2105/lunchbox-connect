@@ -248,9 +248,8 @@ export default function InstitutionDetailPage() {
             </table>
           </Card>
           <Banner kind="info">
-            Deliveries and institution-scoped reporting are not shown here yet — the delivery state
-            machine and the institution report set are still NOT_YET_DEFINED in the spec pack, and
-            this page will not fabricate either.
+            Deliveries and institution reporting are not available yet. Rather than show figures
+            that are not real, this page shows neither.
           </Banner>
         </>
       )}

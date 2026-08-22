@@ -87,8 +87,8 @@ export default function GuardiansPage() {
       {error && <Banner kind="err">{error}</Banner>}
       {!canLink && (
         <Banner kind="info">
-          Read-only. The exact Nursery guardian workflow — linking, creating, or
-          provisioning Parent accounts — is <b>BLOCKED_BY_SPEC</b> and not yet defined.
+          Read-only. Linking guardians, and creating Parent accounts from here, are{' '}
+          <b>not available yet</b>.
         </Banner>
       )}
       <Card title="Guardian links">

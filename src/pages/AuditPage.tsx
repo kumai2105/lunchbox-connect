@@ -27,7 +27,7 @@ export default function AuditPage() {
       {error && <Banner kind="err">{error}</Banner>}
       <Card
         title="Audit log"
-        hint="previous value · new value · responsible user · timestamp (docs/04 §43)"
+        hint="previous value · new value · who changed it · when"
       >
         {!rows ? (
           <Spinner />

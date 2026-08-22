@@ -4,7 +4,7 @@ export default function OpsPage() {
   return (
     <ShellPage
       title="Ops log & issues"
-      scope="Operational logs and issues are confirmed for Operations Manager (docs/02 §15). The exact log/issue lifecycle, ownership and resolution actions are NOT_YET_DEFINED."
+      scope="operational logs and issues for the Operations Manager. How an issue is raised, who owns it and how it is resolved are not decided yet, so nothing has been built."
     />
   );
 }

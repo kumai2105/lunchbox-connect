@@ -24,10 +24,10 @@ export default function ReportsPage() {
 
   const scope =
     role === 'finance_owner'
-      ? 'Reports only. No operational editing (docs/02 §16-17). Exact report set and KPI definitions are NOT_YET_DEFINED.'
+      ? 'reports only, with no operational editing. Which reports, and the exact measures in them, are not decided yet.'
       : role === 'viewer'
-        ? 'Read-only viewer. Exact readable scope is BLOCKED_BY_SPEC (docs/09 AT-036) — no writes are possible from here.'
-        : 'Reporting must derive from authoritative operational records (docs/03 §5, AT-100). Exact report and KPI definitions are NOT_YET_DEFINED.';
+        ? 'read-only access. Exactly what a viewer may read is not decided yet, and nothing can be changed from here in any case.'
+        : 'reporting drawn from real operational records. Which reports, and the exact measures in them, are not decided yet.';
   return <ShellPage title="Reporting" scope={scope} />;
 }
 
@@ -70,17 +70,15 @@ function MealPerformance() {
         hint="derived from Classroom Meal Records — decision support only"
       />
       <Banner kind="info">
-        Every metric here is mathematically derived from the same records Classroom Staff record
-        once for Parents (docs/13 Decision 032). Absent, unwell, sleeping and not-served
-        observations are excluded from consumption stats — they are not evidence a child disliked a
-        Meal.
+        Every figure here is calculated from the same records Classroom Staff enter once for
+        Parents. Absent, unwell, sleeping and not-served observations are excluded from the
+        consumption figures — they are not evidence that a child disliked a meal.
       </Banner>
       <Banner kind="warn">
-        The <b>Signal</b> column reads <b>NOT_YET_DEFINED</b> on purpose. KEEP / MONITOR /
-        REVIEW_IMPROVE / CANDIDATE_FOR_REMOVAL are approved labels, but the numeric thresholds that
-        would assign a Meal to one of them are not approved — so no threshold is applied. Every
-        factual measure the judgement would rest on is in this table; the decision stays with you.
-        Nothing here removes, substitutes, or modifies a Meal automatically.
+        The <b>Classification</b> column is deliberately left unrated. Rating a meal would mean
+        deciding at what number it counts as good or poor, and that judgement is yours, not the
+        platform's. Every measure that judgement would rest on is in this table. Nothing here
+        removes, substitutes or changes a meal on its own.
       </Banner>
 
       {error && <Banner kind="err">{error}</Banner>}

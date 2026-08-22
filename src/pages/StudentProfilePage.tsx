@@ -293,7 +293,7 @@ export default function StudentProfilePage() {
                     disabled={busy}
                   >
                     <option value="">Not eligible</option>
-                    <option value={ELIGIBLE_STATUS}>{ELIGIBLE_STATUS}</option>
+                    <option value={ELIGIBLE_STATUS}>Active — billable to nursery</option>
                   </select>
                 ) : (
                   statusLabel(student.operational_status)
