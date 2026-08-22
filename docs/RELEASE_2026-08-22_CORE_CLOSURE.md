@@ -7,19 +7,19 @@ execution checkpoint, which is archived into this document.
 
 | | |
 |---|---|
-| Git SHA | `2e03b842` — the closure release `9e44e786` plus the provisioning-copy correction below |
+| Git SHA | `fc2e4c57` deployed; `90e25830` is the current head (a CI-only guard, below) |
 | Branch | `claude/new-session-k5dd5u` — the branch every production deploy to date has been cut from |
 | Working tree | clean, pushed |
 | Migration ceiling in repo | `0042_state_the_reads_the_policies_assume.sql` |
 | Migration ceiling in production | **`0042`** — applied 2026-08-22, ledger `20260822192151`, unchanged by this release |
 | Production Supabase | `llnofriwvnerntrbpehc` |
-| Deployed frontend | **`2e03b842`** (deploy run `32597938339`, success) — supersedes `9e44e786` (run `32593668941`) |
+| Deployed frontend | **`fc2e4c57`** (deploy run `32599217686`, success) — supersedes `2e03b842` (run `32597938339`) and `9e44e786` (run `32593668941`) |
 
 ## Gate, dynamically derived
 
 | Gate | Result |
 |---|---|
-| Browser E2E | **84 / 84** — 0 failed, 0 skipped, 0 flaky (run `32597678520`, on the released SHA `2e03b842`; previously run `32593855792` on `9e44e786`) |
+| Browser E2E | **84 / 84** — 0 failed, 0 skipped, 0 flaky (run `32598996896`, on the released SHA `fc2e4c57`) |
 | SQL suites | **21 suites, 223 named assertions**, 0 failures |
 | Authorization matrix | **520 checks**, all pass |
 | Unit tests | **122**, 13 files |
@@ -182,6 +182,62 @@ updated with it.
 | Deploy | run `32597938339`, success |
 | Production smoke | run `32597992480`, success |
 | Production browser sign-in/sign-out | run `32597995886`, success |
+
+## Follow-up release `fc2e4c57` — the internal vocabulary is not the customer's
+
+Reported from a phone, on the public sign-in page: a block headed **ROLES IN
+THE SYSTEM** listing all nine role identifiers as chips — `SUPER_ADMIN`,
+`CLASSROOM_STAFF`, `DRIVER` and the rest — under a line reading "Nine approved
+role domains (docs/02) — some scopes are still NOT_YET_DEFINED in the spec".
+
+None of it helps anyone sign in. It published the platform's internal structure
+to anyone who opened the URL, cited a document only this project holds, and told
+prospective customers which parts of the product are unfinished. Removed
+entirely.
+
+The same vocabulary had spread across the product, so this was a sweep:
+
+| Screen | Was | Now |
+|---|---|---|
+| Deliveries · Ops log · Absences · Reporting shells | "NOT_YET_DEFINED in the approved specification pack (docs 04/05)" | "not available yet", plus what the area will cover |
+| Kitchen | "counts only (§56)… (§35)… BLOCKED_BY_SPEC" | plain sentences |
+| Guardians | "BLOCKED_BY_SPEC and not yet defined" | "not available yet" |
+| Institution detail | "NOT_YET_DEFINED in the spec pack" | "not available yet" |
+| Audit log | "(docs/04 §43)" | "who changed it · when" |
+| Classes | "(docs/04 §8)" | removed |
+| Meal performance | every row's Classification rendered `NOT_YET_DEFINED` | "Not rated", with the banner explaining the judgement is the reader's |
+| Status · Dashboard · Student profile | `ACTIVE_BILLABLE_TO_NURSERY` as button, caption and option | "Mark billable — eligible to be served" |
+| Users table and role dropdown | `.toUpperCase()` of the stored role | readable names via the new `src/lib/roleLabel.ts` |
+| Users banner · missing-config screen | "seeded via the SQL editor (runbook step 7)" | plain explanation |
+
+Display only. Stored values are untouched — the database still holds
+`ACTIVE_BILLABLE_TO_NURSERY` and `classroom_staff`; only what a person reads
+changed. `STATUS_LABEL`, which existed solely to print the raw enum, is gone;
+nothing referenced it.
+
+**Proved on the file that actually ships, not by reading the source.** The built
+bundle was grepped for `NOT_YET_DEFINED`, `BLOCKED_BY_SPEC`, any `docs/`, `AT-`
+or `§` reference, "runbook", "spec pack" and the raw role identifiers: zero
+matches. `90e25830` then moved that assertion into `prod-smoke.yml`, which
+already downloads the deployed bundle to check its backend target and the
+absence of `service_role` material — so every future smoke run fails, naming the
+token, if any of it returns. Verified against **both** origins: run
+`32599362961` on the `workers.dev` address and run `32599405379` on
+`https://www.lunchboxconnect.com`.
+
+| Verification | Result |
+|---|---|
+| Typecheck · lint · 122 unit tests · build | pass |
+| Browser E2E on `fc2e4c57` | run `32598996896` — 84/84, 0 failed, 0 skipped |
+| Deploy | run `32599217686`, success |
+| Production smoke (workers.dev) | run `32599362961`, success |
+| Production smoke (www, with the vocabulary guard) | run `32599405379`, success |
+| Production browser sign-in/sign-out | run `32599275081`, success |
+
+Three E2E assertions read the old strings — the role option list, the
+eligibility button, the deferred-shell wording — and moved with them. A unit
+test now asserts the classification label never carries an internal token, since
+that string renders on a screen a customer reads.
 
 ## Deployment path
 
