@@ -208,53 +208,6 @@ jobs:
       #   * anon holds nothing at all         — 0004 revoked it.
       # Those are the boundaries the suite exists to defend, and they do not
       # vary with how the environment was built.
-      # WHY CAN A SUPER ADMIN NOT CREATE AN INSTITUTION?
-      #
-      # operability.spec.ts reports "the Institution was never written" — the
-      # row genuinely does not land. The migrations grant `authenticated` only
-      # SELECT on institutions (0007), while 0033 adds institutions_insert and
-      # institutions_update RLS policies expressing the opposite intent.
-      # PostgreSQL checks GRANTS BEFORE RLS, so if the grant was never widened
-      # those policies are unreachable and onboarding a nursery needs a
-      # developer — a product operability defect, not a test problem.
-      #
-      # Platform default privileges could still be granting more on this stack,
-      # so this asks the server instead of reading the migrations. Emitted as
-      # annotations because the step runs mid-job.
-      - name: Diagnostic — can a Super Admin actually insert an Institution?
-        if: always()
-        run: |
-          PSQL="psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -X -q -At -v ON_ERROR_STOP=0"
-          {
-            echo "grants to authenticated on institutions:"
-            $PSQL -c "select coalesce(string_agg(privilege_type,',' order by privilege_type),'(none)')
-                        from information_schema.role_table_grants
-                       where table_schema='public' and table_name='institutions'
-                         and grantee='authenticated';"
-            echo "insert as a super admin:"
-            $PSQL <<'SQL'
-          do $$
-          declare uid uuid;
-          begin
-            select user_id into uid from public.app_users where role='super_admin' limit 1;
-            perform set_config('request.jwt.claims',
-              json_build_object('sub', uid, 'role','authenticated')::text, true);
-            begin
-              set local role authenticated;
-              insert into public.institutions (name, kind)
-                values ('grantprobe-'||extract(epoch from clock_timestamp())::bigint, 'nursery');
-              raise notice 'INSERT institutions: SUCCEEDED';
-            exception when others then
-              raise notice 'INSERT institutions: REFUSED % / %', sqlstate, sqlerrm;
-            end;
-          end $$;
-          SQL
-          } > /tmp/instgrant.txt 2>&1
-          cat /tmp/instgrant.txt
-          grep -v '^[[:space:]]*$' /tmp/instgrant.txt | head -8 | while IFS= read -r l; do
-            echo "::error::INSTGRANT $l"
-          done
-
       - name: Assert the server-side and client boundaries
         run: |
           PSQL="psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -At"
@@ -270,6 +223,14 @@ jobs:
           echo "anon         : $ANON"
           FAILED=0
           case "$SVC"  in *INSERT*) ;; *) echo "::error::service_role cannot INSERT into institutions — the server-side seed grants did not take effect."; FAILED=1;; esac
+          # Super Admin is the operational control plane: onboarding a nursery
+          # begins by CREATING an Institution through the software. 0007 granted
+          # authenticated SELECT only while 0033 added insert/update policies,
+          # and because grants are checked before RLS those policies were dead
+          # for eight migrations — a Super Admin could not onboard anyone
+          # without a developer. 0041 granted what they always assumed.
+          case "$AUTH" in *INSERT*) ;; *) echo "::error::authenticated cannot INSERT institutions — a Super Admin cannot onboard a nursery through the software (0041)."; FAILED=1;; esac
+          case "$AUTH" in *UPDATE*) ;; *) echo "::error::authenticated cannot UPDATE institutions — a Super Admin cannot rename one (0041)."; FAILED=1;; esac
           case "$AUTH" in *DELETE*) echo "::error::authenticated holds DELETE on institutions. 0033 revoked that; something re-granted it and the suite would be testing a weaker boundary than production."; FAILED=1;; esac
           [ "$ANON" = "(none)" ] || { echo "::error::anon holds '$ANON' on institutions, expected none. 0004 revokes all privileges from anon."; FAILED=1; }
           [ "$FAILED" -eq 0 ] && echo "Server-side write access present; client boundaries intact."
