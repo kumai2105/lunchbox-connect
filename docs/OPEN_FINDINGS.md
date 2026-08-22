@@ -295,9 +295,10 @@ leaving it to be inferred from a number field.
 
 ## 10. /dashboard and /audit were refused to the Super Admin — CLOSED
 
-**Status:** closed 2026-08-22 · migration `0042` · **NOT YET APPLIED TO PRODUCTION**
+**Status:** closed 2026-08-22 · migration `0042` · **APPLIED TO PRODUCTION**
+(ledger `20260822192151`)
 **Classification:** DATABASE defect. Environment: reproduced on the local CLI
-stack; production status unverified (see below).
+stack; production state checked before applying (see below).
 
 Reproduced in a browser, signed in as a Super Admin, on a clean rebuild of
 every migration:
@@ -327,13 +328,26 @@ the policy reachable, the policy still decides.
 both objects, a Nursery Admin still reads zero audit rows, `anon` holds no
 grant on either.
 
-**Production status: UNVERIFIED.** Hosted Supabase grants `ALL` on `public` to
-`authenticated` through platform default privileges, so production may already
-permit both reads — exactly as it did for `institutions` in finding 6, where I
-generalised a local failure to production and was wrong. The Supabase connector
-was unavailable when this closure ended, so this was not checked. `0042` is
-expected to be a no-op there and remains worth applying, so the permission
-model rests on what this repository states.
+**Production status: CHECKED, then applied.** The grant state was read from the
+live database before `0042` ran, and captured in
+`docs/recovery/2026-08-22-pre-0042.md`.
+
+The `authenticated` half was a **verified no-op**: both objects already carried
+SELECT through Supabase's platform default privileges, so the `permission
+denied` failures were real on the local CLI stack only. This is the same
+pattern as finding 6, where I generalised a local failure to production and was
+wrong — this time it was checked before being claimed.
+
+The `anon` half was **real hardening**. `anon` held
+`DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE` on
+`v_dashboard_institutions`, restored each of the four times
+`CREATE OR REPLACE VIEW` re-applied default privileges (0006, 0023, 0031,
+0033). The exposure was contained — as `anon` the view errored with
+`permission denied for table institutions`, because it is `security_invoker`
+and `0041` revoked that table from `anon` — but `0031` once made this same view
+`security_definer` (reverted by `0039`), which is exactly the change that would
+have turned it into a live leak. `anon` now holds nothing on either object, and
+the permission model rests on what this repository states.
 
 ---
 

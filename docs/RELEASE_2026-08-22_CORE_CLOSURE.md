@@ -10,6 +10,7 @@ execution checkpoint, which is archived into this document.
 | Git SHA | `648d72985e4c66cbe376e33ef41eabfc68ba6c5b` |
 | Branch | `claude/new-session-k5dd5u` — the branch every production deploy to date has been cut from |
 | Working tree | clean, pushed |
+| Commits after the released SHA | CI and documentation only — `.github/workflows/prod-browser-auth.yml`, `.gitignore`, `docs/`. **No `src/`, no `supabase/`.** The running application is unchanged. |
 | Migration ceiling in repo | `0042_state_the_reads_the_policies_assume.sql` |
 | Migration ceiling in production | **`0042`** — applied 2026-08-22, ledger `20260822192151` |
 | Production Supabase | `llnofriwvnerntrbpehc` |
@@ -34,7 +35,7 @@ Suite growth this closure: 51 → 84 browser tests, 19 → 21 SQL suites,
 
 | Defect | Layer | Evidence |
 |---|---|---|
-| `/dashboard` and `/audit` refused to the Super Admin who owns them — `permission denied` on `v_dashboard_institutions` and `audit_log` | DATABASE (local stack reproduced; production unverified) | Migration `0042`; `verify_read_grants.sql` |
+| `/dashboard` and `/audit` refused to the Super Admin who owns them — `permission denied` on `v_dashboard_institutions` and `audit_log` | DATABASE (reproduced on the local stack; production checked before applying — the `authenticated` half was a verified no-op there, the `anon` revoke was real) | Migration `0042`; `verify_read_grants.sql` |
 | Keyboard focus had no visible indicator anywhere; two search inputs showed nothing at all on focus | PRODUCT (accessibility) | `src/styles.css`; `controls.spec.ts` tab sweep |
 
 Both were found by assertions added in this closure, not by inspection.
@@ -95,18 +96,53 @@ was a second layer, and `0031` once made this same view `security_definer`
 (reverted by `0039`) — the exact change that would have turned it into a live
 leak. `anon` now holds nothing.
 
-## Remaining blocker (not a software defect)
+## Production browser authentication — VERIFIED
 
-**Production browser authentication is still unproven.** No test has driven a
-real browser through sign-in and sign-out against the live origin. The browser
-suite proves the full session lifecycle for nine roles, but against an
-ephemeral local stack by design — seeded E2E must never touch production.
+The last open item was that nothing had driven a **real browser** through
+sign-in and sign-out against the live origin. The browser suite proves the full
+session lifecycle for nine roles, but against an ephemeral local stack by
+design — seeded E2E must never touch production — so "login works in
+production" rested on the shell returning 200 and on the local suite passing.
+That is an inference, not evidence.
 
-`.github/workflows/prod-browser-auth.yml` closes this. It needs two repository
-secrets that do not exist: `PROD_VERIFY_EMAIL` and `PROD_VERIFY_PASSWORD`, for
-an account created for the purpose. It fails closed without them, so it can
-never report success having skipped the point. Do not reset a real user's
-password to run it.
+`.github/workflows/prod-browser-auth.yml` now closes it. Run
+[`32596895985`](https://github.com/kumai2105/lunchbox-connect/actions/runs/32596895985)
+launched Chromium against `https://www.lunchboxconnect.com` with one
+verification account and passed every assertion:
+
+| # | Assertion against the live origin | Result |
+|---|---|---|
+| 1 | `/login` renders the sign-in form | PASS |
+| 2 | Signing in lands on the role's own first page (`/reports`) | PASS |
+| 3 | A session is stored in the browser | PASS |
+| 4 | A hard refresh keeps the session | PASS |
+| 5 | Signing out returns to the login screen | PASS |
+| 6 | No session remains in the browser after sign-out | PASS |
+| 7 | A protected route is refused after sign-out | PASS |
+| 8 | A reload after sign-out restores no session | PASS |
+| 9 | The protected route is still refused after that reload | PASS |
+| 10 | Signing in again works after signing out | PASS |
+
+No console errors were reported during the run. The job writes nothing and
+records nothing; it reads two screens. It fails closed without
+`PROD_VERIFY_EMAIL` and `PROD_VERIFY_PASSWORD`, so it can never report success
+having skipped the point — run `32595840227` demonstrated exactly that before
+the secrets existed. No real user's password was reset to run it.
+
+Two earlier runs failed on the harness, not the product, and both are recorded
+here because the distinction matters:
+
+* `32596453136` — `ERR_MODULE_NOT_FOUND`. The step wrote the script to `/tmp`
+  and Node resolves ESM imports relative to the script's own directory, so
+  `playwright` was not on the path. Fixed by writing it inside the checkout.
+* `32596783343` — reached production and passed sign-in, storage, refresh and
+  sign-out, then failed two checks. Both assertions were wrong: the landing
+  path was recorded as `/` (the router's `Home` element, before it resolves the
+  role and redirects onward), and the post-sign-out checks read the URL at
+  `domcontentloaded`, before the app had hydrated and could redirect. The guard
+  itself was never at fault.
+
+**This item is closed. No blocker remains.**
 
 ## Deployment path
 
