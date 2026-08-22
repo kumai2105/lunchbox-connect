@@ -6,52 +6,30 @@ decision rather than a test repair.
 
 ---
 
-## 1. No form input has a programmatic label (accessibility)
+## 1. Form inputs had no programmatic label — CLOSED
 
-**Status:** open · **Severity:** minor · **Found:** 2026-08-21, acceptance pass
+**Status:** closed 2026-08-22 · **Was:** open, minor · **Fixed in:** `src/components/ui.tsx`
 
-`src/components/ui.tsx`:
+`Field` rendered the caption as a `<label>` with no `htmlFor`, and the control
+beside it as a SIBLING. HTML associates a label with a control by `htmlFor`/`id`
+or by nesting, and by nothing else — so all 50 fields in this application were
+unlabelled boxes to the accessibility tree. A screen-reader user opening Create
+class heard "edit text" three times with no way to tell the name from the grade
+from the institution, and voice control had nothing to address them by.
 
-```tsx
-export function Field({ label, children }) {
-  return (
-    <div className="field">
-      <label>{label}</label>
-      {children}          {/* the input is a SIBLING */}
-    </div>
-  );
-}
-```
+`Field` now generates an id with `useId()` and points the label at it. `useId()`
+rather than a slug of the label text, because labels repeat across dialogs
+("Name" appears in several) and duplicate ids would aim every one of them at
+whichever control rendered first. A control that already carries its own id
+keeps it and the label points at that.
 
-The `<label>` has no `htmlFor`, and the control is not nested inside it. HTML
-associates a label with a control by one of those two mechanisms and no other,
-so **no input built with `Field` has a label as far as the accessibility tree is
-concerned**.
-
-**Who it affects.** Anyone using a screen reader hears an unlabelled edit field
-and has to infer its purpose from surrounding text. It affects every form in the
-product, because every form uses `Field`: staff provisioning, class creation,
-meal authoring, menu creation, institution editing.
-
-**How it surfaced.** An acceptance test used Playwright's `getByLabel('Full
-name')` on the staff provisioning form and timed out. The test was rewritten to
-scope by the `.field` wrapper; the underlying gap was left in place.
-
-**Why it was not fixed here.** `Field` is shared UI on every form in the
-application. Changing it touches every screen at once, which is exactly the kind
-of change the release rules require a reproduced defect, an impact assessment
-and its own regression evidence for. It also has no approved specification
-behind it — no accessibility requirement is recorded in the spec pack — so
-implementing one unprompted would be inventing scope.
-
-**The likely fix, when it is decided.** Give `Field` a generated id, pass it to
-the child control, and point the label at it with `htmlFor`. Roughly ten lines
-in one component. It would also let the test suite address form fields the way a
-user does, by their visible label.
-
-**Not decided:** whether accessibility conformance is a target for this product,
-and to what standard. That is a Founder decision, and `NOT_YET_DEFINED` until
-one is taken.
+**Evidence:** `acceptance.spec.ts` asserts the Create class and Meal editor
+controls are reachable via `getByLabel`, which resolves through the
+accessibility tree rather than the DOM — it can only find a control that is
+genuinely associated with its label. The assertions fill the field and check the
+value, so a label pointing at the wrong element cannot pass. Labels are read
+from the pages, not guessed, and matched with `exact: true` because label
+matching is substring by default.
 
 ---
 

@@ -204,6 +204,66 @@ test.describe('acceptance — Menu Builder authoring', () => {
   });
 });
 
+/**
+ * FORM CONTROLS MUST BE LABELLED IN THE ACCESSIBILITY TREE.
+ *
+ * getByLabel resolves through the accessibility tree, not the DOM: it finds a
+ * control only if a <label> is genuinely associated with it, by htmlFor/id or
+ * by nesting. Nothing else counts. That is exactly the property that was
+ * missing — Field rendered the label as a SIBLING with no htmlFor, so all 50
+ * fields in this application were unlabelled boxes to a screen reader, and
+ * unaddressable to voice control.
+ *
+ * Asserting with getByLabel rather than a placeholder is the whole point: a
+ * placeholder is a visual hint that vanishes on typing and is not a label. If
+ * this test can find the control by its visible label text, a real assistive
+ * technology can too.
+ */
+test.describe('acceptance — form fields are labelled, not just visually captioned', () => {
+  test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
+
+  test('the Create class dialog exposes each control by its label', async ({ page }) => {
+    const s = seeded();
+    const db = adminDb();
+
+    await login(page, s.superAdminEmail);
+    const seedClass = await db
+      .from('classes')
+      .select('institution_id')
+      .eq('id', s.classForServing)
+      .single();
+    await page.goto(`/classes?institution=${seedClass.data?.institution_id as string}`);
+    await page.getByRole('button', { name: '+ Create class', exact: true }).click();
+
+    // Each control is reachable BY ITS LABEL, and is the control it claims to
+    // be — a label pointing at the wrong element passes a existence check and
+    // still misleads every user who relies on it.
+    const name = page.getByLabel('Class name', { exact: true });
+    await expect(name).toBeVisible();
+    await name.fill('A11y probe');
+    await expect(name).toHaveValue('A11y probe');
+
+    await expect(page.getByLabel('Institution', { exact: true })).toBeVisible();
+  });
+
+  test('the Meal editor exposes its controls by label', async ({ page }) => {
+    const s = seeded();
+    await login(page, s.superAdminEmail);
+    await page.goto('/meals');
+    await page.getByRole('button', { name: /add meal/i }).first().click();
+
+    // 'Name' read from MealLibraryPage, not guessed — and exact, because label
+    // matching is SUBSTRING by default and this dialog also carries
+    // 'Ingredients', 'Allergens', 'Portion', 'Nutrition' and 'Image'.
+    const mealName = page.getByLabel('Name', { exact: true });
+    await expect(mealName).toBeVisible();
+    await mealName.fill('A11y probe dish');
+    await expect(mealName).toHaveValue('A11y probe dish');
+
+    await expect(page.getByLabel('Portion', { exact: true })).toBeVisible();
+  });
+});
+
 test.describe('acceptance — creating the things an Institution runs on', () => {
   test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
 

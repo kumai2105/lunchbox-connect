@@ -1,4 +1,5 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { cloneElement, isValidElement, useId } from 'react';
+import type { ButtonHTMLAttributes, ReactElement, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon, type IconName } from './icons';
 
@@ -153,11 +154,44 @@ export function Banner({
   return <div className={`banner ${kind}`}>{children}</div>;
 }
 
+/**
+ * A labelled form control.
+ *
+ * The <label> used to carry no `htmlFor`, and the control sits beside it as a
+ * SIBLING rather than nested inside it. HTML associates a label with a control
+ * by one of exactly those two mechanisms and no other, so every one of the 50
+ * fields built with this component was, to the accessibility tree, an unlabelled
+ * box. A screen-reader user filling in the Create class dialog heard "edit text"
+ * three times and nothing about which was the name, the grade or the
+ * institution. Voice control had nothing to address them by either.
+ *
+ * The id is generated with useId() rather than derived from the label text:
+ * labels repeat across dialogs ("Name" appears on several), and duplicate ids
+ * would point every one of them at whichever control rendered first.
+ *
+ * A control that already carries its own id keeps it, and the label points at
+ * that instead of overwriting it.
+ */
 export function Field({ label, children }: { label: string; children: ReactNode }) {
+  const generatedId = useId();
+  let controlId: string | undefined;
+  let control = children;
+
+  if (isValidElement(children)) {
+    const existingId = (children.props as { id?: string }).id;
+    controlId = existingId ?? generatedId;
+    if (!existingId) {
+      control = cloneElement(children as ReactElement<{ id?: string }>, { id: generatedId });
+    }
+  }
+
+  // htmlFor is left undefined when the child is not a single element (a
+  // fragment, say): a label pointing at an id that does not exist is a
+  // different bug, not a fix.
   return (
     <div className="field">
-      <label>{label}</label>
-      {children}
+      <label htmlFor={controlId}>{label}</label>
+      {control}
     </div>
   );
 }
