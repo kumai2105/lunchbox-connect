@@ -7,19 +7,19 @@ execution checkpoint, which is archived into this document.
 
 | | |
 |---|---|
-| Git SHA | `e1f9d7b4` — deployed |
+| Git SHA | `f7fb45c8` — deployed |
 | Branch | `claude/new-session-k5dd5u` — the branch every production deploy to date has been cut from |
 | Working tree | clean, pushed |
 | Migration ceiling in repo | `0042_state_the_reads_the_policies_assume.sql` |
 | Migration ceiling in production | **`0042`** — applied 2026-08-22, ledger `20260822192151`, unchanged by this release |
 | Production Supabase | `llnofriwvnerntrbpehc` |
-| Deployed frontend | **`e1f9d7b4`** (deploy run `32600442731`, success) — supersedes `fc2e4c57`, `2e03b842` and `9e44e786` |
+| Deployed frontend | **`f7fb45c8`** (deploy run `32601124680`, success) — supersedes `e1f9d7b4`, `fc2e4c57`, `2e03b842` and `9e44e786` |
 
 ## Gate, dynamically derived
 
 | Gate | Result |
 |---|---|
-| Browser E2E | **84 / 84** — 0 failed, 0 skipped, 0 flaky (run `32600192293`, on the released SHA `e1f9d7b4`) |
+| Browser E2E | **84 / 84** — 0 failed, 0 skipped, 0 flaky (run `32600904850`, on the released SHA `f7fb45c8`) |
 | SQL suites | **21 suites, 223 named assertions**, 0 failures |
 | Authorization matrix | **520 checks**, all pass |
 | Unit tests | **122**, 13 files |
@@ -298,6 +298,46 @@ are untouched.
 
 No Supabase, migration, RLS, authentication, business-logic, route or permission
 change in this release.
+
+## Follow-up release `f7fb45c8` — the logo rebuilt from a proper source
+
+The Founder supplied a second file of the same logo: an 8000x5333 JPEG on solid
+white, artwork region 4249x2562 — six times the linear resolution of the
+checkerboard preview the first asset came from, and without that file's baked-in
+background.
+
+The shipped asset is the artwork bounding box of that file, (1854,1416) to
+(6103,3978), resampled to **900x543** with Lanczos. Nothing else: no redraw, no
+recolour, no crop into the artwork, no filter. Downsampling 4.7x also averages
+away the source JPEG's compression noise, which is why the letterforms are
+cleaner than the previous asset rather than merely larger. At 334KB it is
+smaller than the 392KB asset it replaces, while being 3.5x the largest size it
+is displayed at (260px on login, 200px in the sidebar).
+
+**A proportion error is corrected with it.** The previous asset read 1.546 wide
+to tall; the logo is 1.658. The earlier bounding box was measured on the
+checkerboard file, where stray non-background pixels at the image edge widened
+it. The sidebar logo is 200x126 now rather than 200x134 — the correct shape.
+
+**Kept on white rather than made transparent, on evidence.** Both placements sit
+on white — the login card is `#fff`, the sidebar plate `#ffffff` — and the
+file's background samples exactly (255,255,255) at every corner, so a
+white-backed asset is invisible against them and needs no manipulation at all.
+Extracting alpha from a white background was tried first and rejected: it leaves
+a pale fringe on anti-aliased edges and traps white inside enclosed letter
+counters.
+
+| Verification | Result |
+|---|---|
+| Typecheck · lint · 122 unit tests · build | pass |
+| Browser E2E on `f7fb45c8` | run `32600904850` — 84/84, 0 failed, 0 skipped |
+| Real Chromium at 1440x900, 820x1180, 390x844 | no horizontal overflow; **Log out** visible and on-screen at all three; sidebar logo 200x126 on desktop, correctly absent from the 64px rail |
+| Deploy | run `32601124680`, success |
+| Production smoke on `www.lunchboxconnect.com` | run `32601180160`, success |
+| Production browser sign-in/sign-out | run `32601190143`, success |
+
+Asset and two explanatory comments only. No Supabase, migration, RLS,
+authentication, business-logic, route or permission change.
 
 ## Deployment path
 
