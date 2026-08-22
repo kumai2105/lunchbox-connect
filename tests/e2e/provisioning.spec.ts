@@ -37,19 +37,49 @@ const PNG_1PX = Buffer.from(
 test.describe('meal images — upload, persist, render, and stay historical', () => {
   test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
   test.setTimeout(120_000);
+  test.describe.configure({ mode: 'serial' });
 
   const MEAL = `E2E Image Meal ${stamp}`;
 
   /**
+   * The image belongs to the REVISION, not to the Meal.
+   *
+   * `meals` carries `current_revision_id`; `meal_revisions` carries
+   * `image_path` alongside the rest of the recipe. That is the whole point of
+   * the revision model — a meal a child was actually served keeps the picture
+   * and the ingredients it was served under, whatever the Meal is edited to
+   * later. My first three attempts at this file queried `meals.image_path`,
+   * which does not exist, and spent two CI rounds reporting "the Meal was
+   * never created" for a Meal that had been created correctly every time.
+   */
+  async function currentRevision(): Promise<{ id: string; image: string } | null> {
+    const db = adminDb();
+    const m = await db
+      .from('meals')
+      .select('id,current_revision_id')
+      .eq('name', MEAL)
+      .order('created_at', { ascending: true });
+    const rows = m.data ?? [];
+    if (m.error) throw new Error(`meals query failed: ${m.error.message}`);
+    if (rows.length === 0) return null;
+    if (rows.length > 1) throw new Error(`${rows.length} Meals share the name ${MEAL}`);
+    const revId = rows[0]!.current_revision_id as string | null;
+    if (!revId) return null;
+    const r = await db
+      .from('meal_revisions')
+      .select('id,image_path')
+      .eq('id', revId)
+      .maybeSingle();
+    if (r.error) throw new Error(`revision query failed: ${r.error.message}`);
+    return { id: revId, image: (r.data?.image_path as string) ?? '' };
+  }
+
+  /**
    * Does object storage accept the upload at all?
    *
-   * The first run of this file failed with "the Meal was never created", which
-   * is what the UI does when the image upload is refused: MealLibraryPage
-   * uploads FIRST so one save is one revision, so a storage refusal aborts the
-   * whole save and no Meal row appears. That symptom names the wrong layer.
-   * This probe separates them — it drives storage directly with the same
-   * credentials and the same call the app makes, so a refusal is reported as a
-   * refusal, with the server's own message.
+   * Drives storage directly with the same credentials and the same call the
+   * app makes, so a refusal is reported as a refusal with the server's own
+   * message rather than surfacing three screens away as "no Meal was created".
    */
   test('object storage accepts a Super Admin upload (isolates storage from the UI)', async () => {
     const s = seeded();
@@ -69,13 +99,11 @@ test.describe('meal images — upload, persist, render, and stay historical', ()
     const up = await client.storage
       .from('meal-images')
       .upload(path, PNG_1PX, { upsert: true, contentType: 'image/png' });
-
     expect(
       up.error,
       `object storage refused a Super Admin upload to meal-images: ${JSON.stringify(up.error)}`,
     ).toBeNull();
 
-    // Clean up after the probe: this object belongs to no Meal.
     await adminDb().storage.from('meal-images').remove([path]);
     await client.auth.signOut();
   });
@@ -84,18 +112,8 @@ test.describe('meal images — upload, persist, render, and stay historical', ()
     const s = seeded();
     const db = adminDb();
 
-    // Capture what the PAGE says, not only what the DOM shows. The previous
-    // run reported "no Meal was created" with no error banner at all, which is
-    // the signature of an exception thrown inside the save handler: onSave sets
-    // busy, awaits, and never reaches its own error branch, so the UI shows
-    // nothing. A rejected promise leaves no trace in the DOM and every trace in
-    // the console.
     const pageErrors: string[] = [];
-    const consoleErrors: string[] = [];
     page.on('pageerror', (e) => pageErrors.push(e.message));
-    page.on('console', (m) => {
-      if (m.type() === 'error') consoleErrors.push(m.text());
-    });
 
     await login(page, s.superAdminEmail!);
     await page.goto('/meals');
@@ -112,102 +130,53 @@ test.describe('meal images — upload, persist, render, and stay historical', ()
 
     await page.getByRole('button', { name: /save meal/i }).click();
 
-    // The Meal exists, carries a first revision, AND carries an image path.
-    // Asserting only "the Meal saved" would pass with the upload silently
-    // dropped, which is the actual risk here.
-    // NOT maybeSingle(). maybeSingle yields null for ZERO rows and ERRORS for
-    // more than one, and this test previously mapped both to "missing" — so a
-    // retry that created a second Meal under the same name reported the same
-    // symptom as never creating one at all, and the diagnosis chased the wrong
-    // failure for two rounds. This is the identical mistake recorded earlier
-    // in this project against the Class-create investigation. Listing the rows
-    // distinguishes the two, and the message says which.
-    let imagePath = '';
-    let detail = '';
+    // One save = one Meal + one revision + the image ON that revision.
+    // Asserting only "the Meal saved" would pass with the upload dropped,
+    // which is the actual risk in this flow.
+    let stored = '';
     await expect
       .poll(
         async () => {
-          const r = await db
-            .from('meals')
-            .select('id,image_path,current_revision_id,created_at')
-            .eq('name', MEAL)
-            .order('created_at', { ascending: true });
-          if (r.error) {
-            detail = `query error: ${r.error.message}`;
-            return 'query-failed';
-          }
-          const rows = r.data ?? [];
-          detail = `${rows.length} row(s): ${JSON.stringify(rows)}`;
-          if (rows.length === 0) return 'missing';
-          if (rows.length > 1) return 'duplicated';
-          const row = rows[0]!;
-          imagePath = (row.image_path as string) ?? '';
-          if (!row.current_revision_id) return 'no-revision';
-          return imagePath ? 'stored' : 'no-image';
+          const rev = await currentRevision();
+          if (!rev) return 'no-meal-or-revision';
+          stored = rev.image;
+          return stored ? 'stored' : 'no-image';
         },
-        { message: 'the Meal image was not stored with the Meal' },
+        { message: 'the Meal image was not stored on the Meal revision' },
       )
-      .toBe('stored')
-      .catch(async (e: unknown) => {
-        // Say WHY, using the app's own words AND the browser's, instead of
-        // only "missing".
-        const banner = page.locator('.banner.err');
-        const shown = (await banner.count())
-          ? ((await banner.first().textContent()) ?? '').trim()
-          : '(no error banner rendered)';
-        const stillOpen = (await page.getByLabel('Name', { exact: true }).count()) > 0;
-        throw new Error(
-          [
-            (e as Error).message,
-            `Rows found: ${detail}`,
-            `App banner: ${shown}`,
-            `Meal editor still open: ${stillOpen}`,
-            `Uncaught page errors: ${pageErrors.length ? pageErrors.join(' | ') : '(none)'}`,
-            `Console errors: ${consoleErrors.length ? consoleErrors.join(' | ') : '(none)'}`,
-          ].join('\n'),
-        );
-      });
+      .toBe('stored');
 
-    // The object is genuinely in the bucket, not just referenced by a row.
-    const dl = await db.storage.from('meal-images').download(imagePath);
+    expect(pageErrors, `the page threw while saving: ${pageErrors.join(' | ')}`).toEqual([]);
+
+    // The object is genuinely in the bucket, not merely referenced by a row.
+    const dl = await db.storage.from('meal-images').download(stored);
     expect(dl.error, `the stored object could not be read back: ${dl.error?.message}`).toBeNull();
-    expect(
-      (await dl.data!.arrayBuffer()).byteLength,
-      'the stored object is empty',
-    ).toBeGreaterThan(0);
+    expect((await dl.data!.arrayBuffer()).byteLength, 'the stored object is empty').toBeGreaterThan(
+      0,
+    );
 
-    // And it renders in the library after a full reload — the signed-URL path,
-    // which is where a broken thumbnail would come from.
+    // And it renders after a full reload — the signed-URL path, which is where
+    // a silently missing thumbnail would come from.
     await page.reload();
-    const card = page.locator('.meal-card', { hasText: MEAL }).first();
-    const img = card.locator('img').first();
-    if (await img.count()) {
-      await expect(img, 'the meal image element never became visible').toBeVisible({
-        timeout: 15_000,
-      });
-      const ok = await img.evaluate((el) => {
-        const i = el as HTMLImageElement;
-        return i.complete && i.naturalWidth > 0;
-      });
-      expect(ok, 'the meal image element rendered but the image itself failed to load').toBe(true);
-    } else {
-      // No <img> in the card markup is a finding in its own right: the image was
-      // stored and the library does not show it.
-      throw new Error('the Meal saved an image but the library renders no image element for it');
-    }
+    const img = page.locator('.meal-card', { hasText: MEAL }).first().locator('img').first();
+    await expect(img, 'the Meal saved an image but the library renders none').toBeVisible({
+      timeout: 20_000,
+    });
+    const loaded = await img.evaluate((el) => {
+      const i = el as HTMLImageElement;
+      return i.complete && i.naturalWidth > 0;
+    });
+    expect(loaded, 'the image element rendered but the image itself failed to load').toBe(true);
   });
 
   test('the image bucket is private — an anonymous caller cannot read the object', async ({
     request,
   }) => {
-    const db = adminDb();
-    const r = await db.from('meals').select('image_path').eq('name', MEAL).maybeSingle();
-    const path = (r.data?.image_path as string) ?? '';
-    expect(path, 'no image path to test privacy against').not.toBe('');
+    const rev = await currentRevision();
+    expect(rev?.image, 'no image path to test privacy against').toBeTruthy();
 
-    // The public object URL for a private bucket must not serve the file.
     const base = process.env.E2E_SUPABASE_URL!;
-    const res = await request.get(`${base}/storage/v1/object/public/meal-images/${path}`, {
+    const res = await request.get(`${base}/storage/v1/object/public/meal-images/${rev!.image}`, {
       failOnStatusCode: false,
     });
     expect(
@@ -216,21 +185,17 @@ test.describe('meal images — upload, persist, render, and stay historical', ()
     ).not.toBe(200);
   });
 
-  test('editing the Meal does not rewrite the image a served meal was recorded against', async ({
+  test('editing the Meal leaves the historical revision and its image untouched', async ({
     page,
   }) => {
     const s = seeded();
     const db = adminDb();
 
-    const before = await db
-      .from('meals')
-      .select('id,image_path,current_revision_id')
-      .eq('name', MEAL)
-      .single();
-    const firstRevision = before.data!.current_revision_id as string;
-    const firstImage = before.data!.image_path as string;
+    const before = await currentRevision();
+    expect(before, 'no revision to start from').not.toBeNull();
+    const firstRevision = before!.id;
+    const firstImage = before!.image;
 
-    // Edit the Meal — one save, one new revision.
     await login(page, s.superAdminEmail!);
     await page.goto('/meals');
     await page
@@ -238,38 +203,30 @@ test.describe('meal images — upload, persist, render, and stay historical', ()
       .first()
       .getByRole('button', { name: 'Edit', exact: true })
       .click();
-    const nameField = page.getByLabel('Name', { exact: true });
-    await expect(nameField, 'the Meal editor did not open for editing').toBeVisible();
+    await expect(page.getByLabel('Name', { exact: true })).toBeVisible();
     await page.getByPlaceholder('chicken, pasta, tomato').fill('rice, peas, carrot');
     await page.getByRole('button', { name: /save meal/i }).click();
 
     await expect
-      .poll(async () => {
-        const r = await db
-          .from('meals')
-          .select('current_revision_id')
-          .eq('name', MEAL)
-          .maybeSingle();
-        return (r.data?.current_revision_id as string) ?? '';
-      }, { message: 'editing the Meal did not create a new revision' })
+      .poll(async () => (await currentRevision())?.id ?? '', {
+        message: 'editing the Meal did not create a new revision',
+      })
       .not.toBe(firstRevision);
 
-    // The OLD revision is untouched — that is what a historical record points
-    // at, and it is the whole reason revisions exist.
+    // The OLD revision is what a historical serving record points at. It must
+    // still exist, and still carry the image it was served under.
     const old = await db
       .from('meal_revisions')
-      .select('id,image_path')
+      .select('id,image_path,ingredients')
       .eq('id', firstRevision)
       .maybeSingle();
     expect(old.data, 'the original revision was deleted').not.toBeNull();
-    if (old.data && 'image_path' in old.data) {
-      expect(
-        old.data.image_path,
-        'editing the Meal rewrote the image on the historical revision',
-      ).toBe(firstImage);
-    }
+    expect(
+      old.data!.image_path,
+      'editing the Meal rewrote the image on the historical revision',
+    ).toBe(firstImage);
 
-    // And the original stored object still exists.
+    // And the stored object it points at still exists.
     const dl = await db.storage.from('meal-images').download(firstImage);
     expect(
       dl.error,
