@@ -2,6 +2,7 @@ import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { navFor, navPath, resourceForPath } from '../lib/roles';
 import { Btn, Spinner } from './ui';
+import logoUrl from '../assets/lunchbox-connect-logo.png';
 import { Icon } from './icons';
 import { formatOperationalDate, initials } from '../lib/format';
 
@@ -86,12 +87,8 @@ export default function Layout() {
     return (
       <div className="auth-wrap">
         <div className="auth-card">
-          <div className="logo">
-            <div className="logo-mark">LC</div>
-            <div>
-              <b>LunchBox Connect</b>
-              <span className="sub">Child nutrition platform</span>
-            </div>
+          <div className="auth-brand">
+            <img className="brand-logo" src={logoUrl} alt="LunchBox Connect" />
           </div>
           <h1>Account not provisioned</h1>
           <p className="tagline">
@@ -123,11 +120,16 @@ export default function Layout() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="logo white">
-          <div className="logo-mark">LC</div>
-          <div>
-            <b>LunchBox</b>
-            <span className="sub">Connect</span>
+        {/* The official logo replaces the old text lockup — showing both
+            would print the wordmark twice. The artwork's own navy outline sits
+            too close to the sidebar navy, so it gets the smallest light plate
+            that lets the supplied logo read; the logo is never recoloured.
+            Below 900px the rail is 64px wide with no room for the full
+            lockup, so the compact mark shows there instead (styles.css). */}
+        <div className="side-brand">
+          <img className="brand-logo" src={logoUrl} alt="LunchBox Connect" />
+          <div className="side-brand-mark" aria-hidden="true">
+            LC
           </div>
         </div>
         <nav className="nav">

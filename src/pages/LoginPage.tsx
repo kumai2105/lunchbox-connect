@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { Btn } from '../components/ui';
+import logoUrl from '../assets/lunchbox-connect-logo.png';
 
 // The sign-in screen is public. It shows what a person needs in order to sign
 // in and nothing else — not the platform's internal role vocabulary, and not
@@ -20,12 +21,8 @@ export default function LoginPage() {
     return (
       <div className="auth-wrap">
         <div className="auth-card">
-          <div className="logo">
-            <div className="logo-mark">LC</div>
-            <div>
-              <b>LunchBox Connect</b>
-              <span className="sub">Child nutrition platform</span>
-            </div>
+          <div className="auth-brand">
+            <img className="brand-logo" src={logoUrl} alt="LunchBox Connect" />
           </div>
           <h1>Waiting for the backend</h1>
           <p className="tagline">
@@ -54,12 +51,8 @@ export default function LoginPage() {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <div className="logo">
-          <div className="logo-mark">LC</div>
-          <div>
-            <b>LunchBox Connect</b>
-            <span className="sub">Child nutrition platform</span>
-          </div>
+        <div className="auth-brand">
+          <img className="brand-logo" src={logoUrl} alt="LunchBox Connect" />
         </div>
         <h1>Sign in to your institution</h1>
         <p className="tagline">Accounts are created by your school's administrator.</p>

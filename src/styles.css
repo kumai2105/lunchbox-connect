@@ -108,6 +108,49 @@ textarea {
   margin-bottom: 14px;
 }
 
+/* ---------- official brand logo ----------
+   One asset, used at two sizes. Width is capped and height is auto, so the
+   supplied artwork keeps its own aspect ratio at every breakpoint and can
+   never be stretched, cropped or pushed past its container. */
+.brand-logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+
+/* Login: centred above the form, present enough to establish the brand
+   without crowding the fields. The card is 440px wide with 40px padding, so
+   260px leaves the logo comfortably inside it, and the % keeps it in
+   proportion on a narrow phone where the card itself shrinks. */
+.auth-brand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 22px;
+}
+.auth-brand .brand-logo {
+  width: 72%;
+  max-width: 260px;
+}
+
+/* Sidebar: smaller than the login placement. The rail is navy and the logo
+   carries its own navy outline, so the artwork sits on the smallest light
+   plate that gives it contrast. The logo is NOT recoloured to solve this. */
+.side-brand {
+  margin: 18px 16px 14px;
+}
+.side-brand .brand-logo {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.55);
+}
+/* The compact mark only appears on the narrow rail (below), never beside the
+   full lockup. */
+.side-brand-mark {
+  display: none;
+}
+
 .logo {
   display: flex;
   align-items: center;
@@ -1515,6 +1558,32 @@ tbody tr:last-child td {
     width: 64px;
     min-width: 64px;
   }
+
+  /* The rail is 64px wide. The full lockup rendered into that would be about
+     40px across and illegible, and padding it out would eat the tappable
+     navigation width, so the compact mark stands in for it here. The full
+     logo is still on the login screen and on the desktop sidebar. */
+  .side-brand .brand-logo {
+    display: none;
+  }
+  .side-brand {
+    margin: 16px 8px 12px;
+  }
+  .side-brand-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin: 0 auto;
+    border-radius: 11px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: #fff;
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: 0.02em;
+  }
+
   .sidebar .logo b,
   .sidebar .logo .sub,
   .nav a span:not(.nav-ico),
