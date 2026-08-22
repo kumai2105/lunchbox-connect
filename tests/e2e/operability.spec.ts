@@ -298,6 +298,34 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
 
     // A Classroom Staff account scoped to the NEW institution, created from the
     // institution's own Staff tab.
+    // ---- make the Student eligible, through the UI ---------------------
+    // A newly created Student is NOT eligible until a Super Admin marks them
+    // billable, and that gate is correct: eligibility is a commercial state,
+    // not a side effect of typing a name. Nothing reaches the Classroom, the
+    // Kitchen or a Parent until it is set, which is why the register was empty
+    // and the recording controls never rendered.
+    //
+    // Set the way an operator sets it — the Operational status control on the
+    // Student's own profile.
+    step('roster.b2 make the student eligible');
+    await page.goto(`/students/${studentId}`);
+    const eligibility = page.locator('select').filter({ hasText: 'Not eligible' }).first();
+    await expect(
+      eligibility,
+      'no Operational status control — a Super Admin cannot make a Student billable',
+    ).toBeVisible();
+    await eligibility.selectOption('ACTIVE_BILLABLE_TO_NURSERY');
+    await expect
+      .poll(async () => {
+        const r = await db
+          .from('students')
+          .select('operational_status')
+          .eq('id', studentId)
+          .maybeSingle();
+        return r.data?.operational_status ?? null;
+      }, { message: 'the eligibility change never persisted' })
+      .toBe('ACTIVE_BILLABLE_TO_NURSERY');
+
     step('roster.c staff account');
     await page.goto(`/institutions/${instId}?tab=staff`);
     // The invite fields live inside a modal. Filling them without opening it
