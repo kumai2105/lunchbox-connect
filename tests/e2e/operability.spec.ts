@@ -127,8 +127,37 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
       expect(n, `the ${period} row has no slots to fill`).toBeGreaterThan(0);
       for (let i = 0; i < n; i++) {
         await cells.nth(i).click();
-        await page.locator('.meal-pick', { hasText: MEAL }).first().click();
-        await expect(page.locator('.meal-picker')).toHaveCount(0);
+
+        // The picker must actually be open before we reach into it, and the
+        // Meal we just created must be offered. If the Meal Library and the
+        // Menu Builder disagree about what exists, say so here rather than
+        // timing out on a click that can never land.
+        await expect(
+          page.locator('.meal-picker'),
+          `${period} slot ${i}: the meal picker did not open`,
+        ).toBeVisible({ timeout: 8000 });
+        const pick = page.locator('.meal-pick', { hasText: MEAL }).first();
+        await expect(
+          pick,
+          `${period} slot ${i}: the Meal created in the Meal Library is not offered in the Menu Builder`,
+        ).toBeVisible({ timeout: 8000 });
+        await pick.click();
+
+        // assign() closes the picker with setCell(null) ONLY after a successful
+        // write; on failure it sets an error banner and leaves it open. So a
+        // picker that stays open IS the refusal, and waiting on it silently
+        // turns one rejected write into a 15s stall per slot — which is where
+        // the previous four-minute timeout went, with no cause reported.
+        try {
+          await expect(page.locator('.meal-picker')).toHaveCount(0, { timeout: 8000 });
+        } catch {
+          const err = page.locator('.banner.err');
+          const text = (await err.count()) ? ((await err.first().textContent()) ?? '').trim() : '';
+          throw new Error(
+            `${period} slot ${i}: the slot was not saved — the picker stayed open. ` +
+              `App error: ${text || '(no banner rendered)'}`,
+          );
+        }
       }
     }
 

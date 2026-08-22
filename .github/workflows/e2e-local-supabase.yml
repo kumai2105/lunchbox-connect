@@ -208,38 +208,44 @@ jobs:
       #   * anon holds nothing at all         — 0004 revoked it.
       # Those are the boundaries the suite exists to defend, and they do not
       # vary with how the environment was built.
-      # CAN A SUPER ADMIN WRITE EVERY LINK OF THE BUSINESS CHAIN?
+      # THE BUSINESS CHAIN MUST STAY WRITABLE BY A SUPER ADMIN.
       #
-      # institutions turned out to hold SELECT only for `authenticated` while
-      # 0033 carried insert/update policies that grants made unreachable. That
-      # is a whole CLASS of defect, and finding the members one CI round at a
-      # time is wasteful — the end-to-end test hangs on the first refusal it
-      # meets and reports a timeout, not a cause.
+      # institutions once held SELECT only for `authenticated` while 0033
+      # carried insert/update policies that grants made unreachable — so
+      # onboarding a nursery, an ordinary commercial operation, required a
+      # developer. This asserts the whole chain rather than that one table,
+      # because the defect was a CLASS: a policy expressing authority the
+      # grants never permitted.
       #
-      # So audit the chain in one pass: the grant list for every table a Super
-      # Admin must write to onboard and run an Institution, and a real INSERT
-      # attempted as a super_admin with the SQLSTATE captured.
-      - name: Diagnostic — Super Admin write access across the whole chain
-        if: always()
+      # meal_services is deliberately EXCLUDED from the writable set. Dated
+      # services are written only through publish_meal_services (0036), a
+      # SECURITY DEFINER RPC, so a direct client INSERT there would let anyone
+      # fabricate an operational fact. Its absence is the design working.
+      - name: Assert the Super Admin business chain is writable
         run: |
-          PSQL="psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -X -q -At -v ON_ERROR_STOP=0"
-          {
-            for t in institutions rotations rotation_slots institution_service_plans \
-                     institution_rotation_assignments calendar_exceptions meals \
-                     meal_revisions meal_services classes students class_staff; do
-              g=$($PSQL -c "select coalesce(string_agg(privilege_type,',' order by privilege_type),'(NONE)')
-                              from information_schema.role_table_grants
-                             where table_schema='public' and table_name='$t'
-                               and grantee='authenticated';")
-              printf 'GRANT %-34s %s\n' "$t" "$g"
-            done
-          } > /tmp/chain.txt 2>&1
-          cat /tmp/chain.txt
-          # Only the rows that cannot be written are worth an annotation.
-          grep -E 'GRANT' /tmp/chain.txt | grep -vE 'INSERT' | while IFS= read -r l; do
-            echo "::error::CHAIN-NO-INSERT $l"
+          PSQL="psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -X -q -At"
+          FAILED=0
+          for t in institutions rotations rotation_slots institution_service_plans \
+                   institution_rotation_assignments calendar_exceptions meals \
+                   meal_revisions classes students class_staff; do
+            g=$($PSQL -c "select coalesce(string_agg(privilege_type,',' order by privilege_type),'(NONE)')
+                            from information_schema.role_table_grants
+                           where table_schema='public' and table_name='$t'
+                             and grantee='authenticated';")
+            case "$g" in
+              *INSERT*) printf '  ok    %-34s %s\n' "$t" "$g" ;;
+              *) echo "::error::A Super Admin cannot INSERT into $t (has $g). Onboarding or operating an Institution would need a developer."; FAILED=1 ;;
+            esac
           done
-          echo "::error::CHAIN-SUMMARY $(grep -c INSERT /tmp/chain.txt) of 12 chain tables are insertable by authenticated"
+          MS=$($PSQL -c "select coalesce(string_agg(privilege_type,',' order by privilege_type),'(NONE)')
+                           from information_schema.role_table_grants
+                          where table_schema='public' and table_name='meal_services'
+                            and grantee='authenticated';")
+          case "$MS" in
+            *INSERT*) echo "::error::authenticated can INSERT meal_services directly. Publication must go through publish_meal_services (0036) so a dated service cannot be fabricated."; FAILED=1 ;;
+            *) printf '  ok    %-34s %s (RPC-only by design)\n' meal_services "$MS" ;;
+          esac
+          exit $FAILED
 
       - name: Assert the server-side and client boundaries
         run: |
