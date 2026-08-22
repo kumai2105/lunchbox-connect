@@ -67,6 +67,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
   const STUDENT_NO = `EON-${stamp}`;
   const STAFF_EMAIL = `e2e.onboard.staff.${stamp}@lunchbox.app`;
   const STAFF_PASS = 'E2e-pass!12345';
+  const PARENT_EMAIL = `e2e.onboard.parent.${stamp}@lunchbox.app`;
   const MEAL = `E2E Onboard Meal ${stamp}`;
   const MENU = `E2E Onboard Menu ${stamp}`;
   const FROM = dubaiToday();
@@ -341,14 +342,31 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     step('roster.e guardian link');
     // FIXTURE, not a missing control: guardian linking is BLOCKED_BY_SPEC and
     // has no Super Admin action by design, so the link is seeded directly.
-    const parent = await db
-      .from('app_users')
-      .select('user_id')
-      .eq('email', s.parentEmail)
-      .single();
+    //
+    // A DEDICATED parent, not the shared fixture one. Linking the seeded
+    // parent to this test's student added a child to an account other specs
+    // assert on: parent-portal.spec expects exactly two children in the
+    // switcher and found five, because every attempt of this test added
+    // another. An acceptance test that mutates fixtures other tests depend on
+    // manufactures failures elsewhere and hides its own.
+    const created = await db.auth.admin.createUser({
+      email: PARENT_EMAIL,
+      password: STAFF_PASS,
+      email_confirm: true,
+      user_metadata: { full_name: 'Onboard Parent' },
+    });
+    const parentId = created.data.user?.id;
+    expect(parentId, 'could not create the dedicated parent account').toBeTruthy();
+    await db.from('app_users').insert({
+      user_id: parentId as string,
+      role: 'parent',
+      institution_id: null,
+      full_name: 'Onboard Parent',
+      email: PARENT_EMAIL,
+    });
     await db
       .from('student_parents')
-      .insert({ student_id: studentId, user_id: parent.data?.user_id as string });
+      .insert({ student_id: studentId, user_id: parentId as string });
 
     step('15 nursery schedule');
     // ---- 8. the Nursery Admin sees its own published schedule ----------
@@ -392,9 +410,11 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
 
     step('18 parent result');
     // ---- 11. the Parent sees the authorized result --------------------
-    await login(page, s.parentEmail);
+    await login(page, PARENT_EMAIL);
     await page.goto('/parent');
     await expect(page.locator('#root')).toBeVisible();
+    // This parent has exactly one child — the Student this chain created — so
+    // seeing that name is the authorized result reaching the right family.
     await expect(page.getByText(/Onboard/).first()).toBeVisible();
 
     step('19 kitchen demand');
