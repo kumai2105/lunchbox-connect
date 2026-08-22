@@ -263,7 +263,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
       })
       .toEqual(['breakfast', 'lunch']);
 
-    step('roster: class/student/staff');
+    step('roster.a class');
     // ---- roster: a Class, a Student and a Classroom account ------------
     // All three through the UI — they are ordinary Super Admin actions.
     await page.goto(`/classes?institution=${instId}`);
@@ -276,6 +276,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     const classId = classRow.data?.id as string;
     expect(classId, 'the Class was not created through the UI').toBeTruthy();
 
+    step('roster.b student');
     await page.goto('/students');
     await page.getByRole('button', { name: /add student/i }).first().click();
     await page.getByLabel('Given name', { exact: true }).fill('Onboard');
@@ -296,6 +297,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
 
     // A Classroom Staff account scoped to the NEW institution, created from the
     // institution's own Staff tab.
+    step('roster.c staff account');
     await page.goto(`/institutions/${instId}?tab=staff`);
     await page.getByLabel('Full name', { exact: true }).fill('Onboard Teacher');
     await page.getByLabel('Email', { exact: true }).fill(STAFF_EMAIL);
@@ -309,6 +311,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
       .toBe('classroom_staff');
 
     // Assign that account to the class — Classes -> Manage staff.
+    step('roster.d assign staff to class');
     const staffRow = await db
       .from('app_users')
       .select('user_id')
@@ -319,7 +322,10 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     // By value, not by a label pattern: selectOption takes a string, and the
     // id is the only thing guaranteed to identify this one account.
     await page.getByRole('combobox').last().selectOption(staffRow.data?.user_id as string);
-    await page.getByRole('button', { name: /^Add$/ }).click();
+    // "Add to class", read from ClassesPage — not "Add". /^Add$/ matched
+    // nothing, and a click on a locator that never resolves is a silent stall,
+    // which is where this chain spent four minutes.
+    await page.getByRole('button', { name: 'Add to class', exact: true }).click();
     await expect
       .poll(async () => {
         const r = await db.from('class_staff').select('user_id').eq('class_id', classId);
@@ -327,6 +333,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
       })
       .toBeGreaterThan(0);
 
+    step('roster.e guardian link');
     // FIXTURE, not a missing control: guardian linking is BLOCKED_BY_SPEC and
     // has no Super Admin action by design, so the link is seeded directly.
     const parent = await db
