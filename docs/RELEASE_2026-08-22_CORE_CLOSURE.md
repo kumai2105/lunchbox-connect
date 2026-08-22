@@ -7,20 +7,19 @@ execution checkpoint, which is archived into this document.
 
 | | |
 |---|---|
-| Git SHA | `648d72985e4c66cbe376e33ef41eabfc68ba6c5b` |
+| Git SHA | `2e03b842` — the closure release `9e44e786` plus the provisioning-copy correction below |
 | Branch | `claude/new-session-k5dd5u` — the branch every production deploy to date has been cut from |
 | Working tree | clean, pushed |
-| Commits after the released SHA | CI and documentation only — `.github/workflows/prod-browser-auth.yml`, `.gitignore`, `docs/`. **No `src/`, no `supabase/`.** The running application is unchanged. |
 | Migration ceiling in repo | `0042_state_the_reads_the_policies_assume.sql` |
-| Migration ceiling in production | **`0042`** — applied 2026-08-22, ledger `20260822192151` |
+| Migration ceiling in production | **`0042`** — applied 2026-08-22, ledger `20260822192151`, unchanged by this release |
 | Production Supabase | `llnofriwvnerntrbpehc` |
-| Deployed frontend | **`9e44e786`** (deploy run `32593668941`, success) |
+| Deployed frontend | **`2e03b842`** (deploy run `32597938339`, success) — supersedes `9e44e786` (run `32593668941`) |
 
 ## Gate, dynamically derived
 
 | Gate | Result |
 |---|---|
-| Browser E2E | **84 / 84** — 0 failed, 0 skipped, 0 flaky (run `32593855792`, on the released SHA `9e44e786`) |
+| Browser E2E | **84 / 84** — 0 failed, 0 skipped, 0 flaky (run `32597678520`, on the released SHA `2e03b842`; previously run `32593855792` on `9e44e786`) |
 | SQL suites | **21 suites, 223 named assertions**, 0 failures |
 | Authorization matrix | **520 checks**, all pass |
 | Unit tests | **122**, 13 files |
@@ -143,6 +142,46 @@ here because the distinction matters:
   itself was never at fault.
 
 **This item is closed. No blocker remains.**
+
+## Follow-up release `2e03b842` — the account model, stated
+
+The Founder confirmed the account model: **accounts are administrator-issued**.
+The administrator sets the password when creating the account and tells the
+person. No invitation email, no self-registration, no self-service reset.
+
+The software already worked that way — all three provisioning screens take a
+password typed by the administrator — but it described itself as something
+else. Every one of them labelled the field "Temporary password" and instructed
+the administrator that "the user signs in and should change it". `src/lib/auth.tsx`
+exposes `signIn` and `signOut` and nothing more: there is no change-password
+screen, no forgot-password link, no account screen. The copy told a nursery
+admin to tell their staff to do something that does not exist.
+
+Corrected on all three screens (`UsersPage`, `StaffPage`,
+`InstitutionDetailPage`): the field is "Password", no email is sent, there is no
+self-service reset, keep a record of what you set. The same three banners cited
+`BLOCKED_BY_SPEC` on email self-activation, which reads as an open question —
+the question is now decided, so they state the model instead. `BLOCKED_BY_SPEC`
+is untouched everywhere it is still true: guardian linking, the structured
+allergy/dietary model, Kitchen actions, the Reports scope note.
+
+The two code comments and the `admin-create-user` comment that originated the
+word "temporary" were corrected with them.
+`docs/SUPER_ADMIN_OPERATING_GUIDE.md` gained an **Accounts and passwords**
+section: the three screens that create accounts, why the password must be
+recorded, and the Supabase dashboard steps for issuing a new one.
+
+Copy, comments and documentation only — no behaviour, no schema, no policy, no
+migration. Two E2E specs addressed the renamed field by its label and were
+updated with it.
+
+| Verification | Result |
+|---|---|
+| Typecheck · lint · 122 unit tests · build | pass |
+| Browser E2E on `2e03b842` | run `32597678520` — 84/84, "every test executed, 0 failed, 0 skipped" |
+| Deploy | run `32597938339`, success |
+| Production smoke | run `32597992480`, success |
+| Production browser sign-in/sign-out | run `32597995886`, success |
 
 ## Deployment path
 
