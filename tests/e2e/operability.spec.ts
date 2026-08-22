@@ -299,6 +299,11 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     // institution's own Staff tab.
     step('roster.c staff account');
     await page.goto(`/institutions/${instId}?tab=staff`);
+    // The invite fields live inside a modal. Filling them without opening it
+    // waits forever on controls that do not exist yet — the same silent stall
+    // as the 'Add to class' label, and the reason this phase burned a run.
+    await page.getByRole('button', { name: /Provision classroom staff/ }).click();
+    await expect(page.getByLabel('Full name', { exact: true })).toBeVisible();
     await page.getByLabel('Full name', { exact: true }).fill('Onboard Teacher');
     await page.getByLabel('Email', { exact: true }).fill(STAFF_EMAIL);
     await page.getByLabel('Temporary password (min 8 chars)', { exact: true }).fill(STAFF_PASS);
