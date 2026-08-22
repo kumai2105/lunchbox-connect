@@ -109,55 +109,34 @@ cross-tenant creation still refused.
 
 ---
 
-## 3. The bare domain serves GoDaddy's "Launching Soon" page
+## 3. The bare domain — CLOSED
 
-**Status:** open · **Severity:** moderate — was recorded as minor, wrongly
-**Needs:** Founder or a Cloudflare token with Zone:DNS — I cannot fix this
+**Status:** closed 2026-08-22 · verified from outside the network
 
-**CORRECTION.** This entry previously said "`https://lunchboxconnect.com/`
-returns no response". That was wrong. It answers, and what it answers with is
-GoDaddy's parked builder page reading **"Launching Soon"** above a "Contact Us"
-form. Anyone who types the domain without `www` is told the product has not
-launched. Silence would have been better; this actively contradicts the live
-service sitting at `www`.
+`lunchboxconnect.com` and `www.lunchboxconnect.com` both resolve to the same
+Cloudflare addresses and both serve the application. The read-only production
+smoke suite passes against the bare domain, not only against `www`.
 
-**What is established**
+**What it was.** Two `A` records on the apex, `13.248.243.5` and
+`76.223.105.230` — GoDaddy's website-builder servers, left over from before the
+app existed. Cloudflare proxied them faithfully, so anyone typing the domain
+without `www` was told "Launching Soon" while the live product sat at `www`.
 
-| | |
-|---|---|
-| `lunchboxconnect.com` | `104.21.67.249`, `172.67.183.138` (Cloudflare) |
-| `www.lunchboxconnect.com` | same Cloudflare addresses |
-| bare domain serves | GoDaddy Airo "Launching Soon" placeholder |
-| `www` serves | the application, correctly |
+**What fixed it.** Deleting those two A records, then attaching
+`lunchboxconnect.com` to the Worker as a Custom Domain alongside `www`.
 
-Both names resolve into Cloudflare, so the zone is on Cloudflare and the apex
-record inside it still points at GoDaddy's website builder — left over from
-before the app existed. Cloudflare is proxying GoDaddy's placeholder faithfully.
+**Email was never touched** and is intact: MX to Microsoft 365, the
+`secureserver.net` SPF include, DMARC, the Microsoft verification TXT, and the
+`autodiscover` / `sip` / `lyncdiscover` / `msoid` / `email` CNAMEs.
 
-**Why it is not fixed here.** The Cloudflare credential available to CI is
-Workers-scoped. It can deploy the Worker and it cannot read or write DNS: the
-zone's record list answers `Authentication error`. So the apex record cannot be
-inspected or changed from this repository, and the zone's MX / SPF / DKIM /
-DMARC records remain **unread** — they must be enumerated before any DNS change,
-not assumed absent.
-
-**To close it** (Cloudflare dashboard → the `lunchboxconnect.com` zone):
-
-1. **DNS → Records.** Find the record for the bare name (`@` or
-   `lunchboxconnect.com`) — an A or CNAME pointing at GoDaddy. Leave every MX
-   and TXT record alone; those carry mail delivery and domain verification, and
-   removing one silently breaks email.
-2. Point the apex at the same Worker that serves `www` — Workers & Pages → the
-   Worker → Settings → Domains & Routes → add `lunchboxconnect.com` — **or**
-   keep it simple and redirect: Rules → Redirect Rules → new rule, hostname
-   equals `lunchboxconnect.com`, dynamic redirect to
-   `concat("https://www.lunchboxconnect.com", http.request.uri.path)`, status
-   301, preserve query string.
-3. Re-run `prod-smoke.yml` with `app_url: https://lunchboxconnect.com` to prove
-   it from outside.
-
-A redirect is the better default: one canonical hostname, no duplicate content,
-and nothing to keep in sync between two bindings.
+**A note for the next person reading a Cloudflare API result here.** Through
+this whole diagnosis, `GET /accounts/{id}/workers/domains` reported only
+`www.lunchboxconnect.com` while the dashboard showed the apex attached as well.
+The dashboard was right. That endpoint's output was treated as authoritative
+and it should not have been — the screen under Workers → Settings lists Custom
+Domains AND Routes together, and the API view of it proved incomplete against
+the Workers-scoped token in use. Where the two disagree, check the dashboard
+before concluding something is missing.
 
 ---
 
