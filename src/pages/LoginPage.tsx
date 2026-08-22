@@ -55,7 +55,7 @@ export default function LoginPage() {
           <img className="brand-logo" src={logoUrl} alt="LunchBox Connect" />
         </div>
         <h1>Sign in to your institution</h1>
-        <p className="tagline">Accounts are created by your school's administrator.</p>
+        <p className="tagline">Accounts are created by your institution's administrator.</p>
 
         {error && <div className="auth-error">{error}</div>}
 

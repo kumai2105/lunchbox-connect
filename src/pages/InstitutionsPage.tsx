@@ -9,7 +9,10 @@ export default function InstitutionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
-  const [kind, setKind] = useState<Institution['kind']>('school');
+  // Neither type is the assumed one, but the field must open on something and
+  // `nursery` is the first option in the list below, so the control agrees with
+  // what it shows rather than silently starting on the second entry.
+  const [kind, setKind] = useState<Institution['kind']>('nursery');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -58,7 +61,7 @@ export default function InstitutionsPage() {
         }
       />
       <Banner kind="info">
-        Every school or nursery in the chain — staff and data are scoped to these boundaries.
+        Every nursery or school in the chain — staff and data are scoped to these boundaries.
       </Banner>
 
       {!rows ? (
