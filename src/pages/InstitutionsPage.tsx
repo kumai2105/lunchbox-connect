@@ -127,13 +127,19 @@ export default function InstitutionsPage() {
                 autoFocus
               />
             </Field>
-            <div className="field" style={{ marginTop: 12 }}>
-              <label>Type</label>
-              <select value={kind} onChange={(e) => setKind(e.target.value as Institution['kind'])}>
+            {/* Built with Field, not a hand-rolled div+label. The hand-rolled
+                version carried no htmlFor and no nesting, so the Type control
+                was unreachable by its label even after Field itself was fixed —
+                the one control in the Super Admin onboarding chain that
+                bypassed the shared component. */}
+            <div style={{ marginTop: 12 }}>
+              <Field label="Type">
+                <select value={kind} onChange={(e) => setKind(e.target.value as Institution['kind'])}>
                 {/* §6: nursery | school are the only supported types. */}
-                <option value="nursery">Nursery</option>
-                <option value="school">School</option>
-              </select>
+                  <option value="nursery">Nursery</option>
+                  <option value="school">School</option>
+                </select>
+              </Field>
             </div>
           </form>
         </Modal>
