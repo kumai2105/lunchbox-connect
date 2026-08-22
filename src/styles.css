@@ -133,9 +133,10 @@ textarea {
   max-width: 260px;
 }
 
-/* Sidebar: smaller than the login placement. The rail is navy and the logo
-   carries its own navy outline, so the artwork sits on the smallest light
-   plate that gives it contrast. The logo is NOT recoloured to solve this. */
+/* Sidebar: smaller than the login placement. The supplied artwork is on white
+   and its own outline is navy, so against the navy rail it gets the smallest
+   white plate that separates it — padding, a radius, a soft shadow. The logo
+   itself is NOT recoloured to solve this. */
 .side-brand {
   margin: 18px 16px 14px;
 }
