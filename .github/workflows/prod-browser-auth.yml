@@ -104,7 +104,11 @@ jobs:
           V_EMAIL: ${{ secrets.PROD_VERIFY_EMAIL }}
           V_PASS: ${{ secrets.PROD_VERIFY_PASSWORD }}
         run: |
-          cat > /tmp/prod-auth.mjs <<'JS'
+          # Node resolves ESM imports relative to the SCRIPT's own directory,
+          # not the working directory. A script in /tmp cannot see the
+          # repository's node_modules, so `import { chromium } from 'playwright'`
+          # threw ERR_MODULE_NOT_FOUND. Write it inside the checkout instead.
+          cat > "$GITHUB_WORKSPACE/prod-auth.mjs" <<'JS'
           import { chromium } from 'playwright';
 
           const APP = process.env.APP;
@@ -219,7 +223,7 @@ jobs:
             await browser.close();
           }
           JS
-          node /tmp/prod-auth.mjs
+          node "$GITHUB_WORKSPACE/prod-auth.mjs"
 
       - name: Result
         run: echo "Production browser authentication verified against ${{ inputs.app_url || 'https://www.lunchboxconnect.com' }}."

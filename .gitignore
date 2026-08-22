@@ -32,3 +32,6 @@ tests/e2e/.seeded.json
 
 # Packaged release candidates (build output, named for the release commit)
 lunchbox-connect-*.zip
+
+# Written by .github/workflows/prod-browser-auth.yml at run time
+prod-auth.mjs
