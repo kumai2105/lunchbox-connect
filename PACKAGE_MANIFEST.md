@@ -27,7 +27,7 @@ All gates were run immediately before packaging.
 | Unit tests | `pnpm test:unit` | **PASS — 116** across 12 files |
 | Production build | `pnpm build` | **PASS** |
 | Worker config | `wrangler deploy --dry-run` | **PASS** — prints `env.ASSETS  Assets`; no upload, no deploy |
-| Database suites | `./tests/sql/run_verification.sh` | **PASS — 19 suites**, 207 named assertions + the 520-check authorization matrix |
+| Database suites | `./tests/sql/run_verification.sh` | **PASS — 21 suites**, 223 named assertions + the 520-check authorization matrix |
 
 Unit files: `mealAnalytics.test.ts` (22), `api.errors.test.ts` (6, the
 PostgrestError shape and the "[object Object]" regression), `format.test.ts` (15, Asia/Dubai
@@ -55,7 +55,7 @@ guard.
 ## 2. Database verification
 
 `./tests/sql/run_verification.sh` builds a PostgreSQL 16 cluster from nothing,
-applies `supabase/migrations/0001`–`0041` verbatim, and runs 19 suites. Each
+applies `supabase/migrations/0001`–`0042` verbatim, and runs 21 suites. Each
 suite is mutation-tested (deliberately broken to prove it can fail).
 
 Per-suite named assertions: `db_boundary` 51 · `note_privacy_and_states` 40 ·

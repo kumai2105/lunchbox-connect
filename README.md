@@ -61,7 +61,7 @@ pnpm typecheck   # full-project TypeScript
 pnpm lint
 pnpm test:unit   # RBAC, calendar, meal analytics, kitchen, operational date, effective-dated configuration (122 tests)
 pnpm test:e2e    # live-boundary Playwright suite — needs the env below
-./tests/sql/run_verification.sh   # 19 SQL suites on a throwaway PostgreSQL 16
+./tests/sql/run_verification.sh   # 21 SQL suites on a throwaway PostgreSQL 16
 ```
 
 `run_verification.sh` builds a PostgreSQL 16 cluster from nothing, applies

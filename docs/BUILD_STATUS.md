@@ -87,7 +87,7 @@ Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
   child-switch selection/readiness invariant, the four factual dashboard
   completion states, exhaustive analytics pagination past 5,000 rows, and the
   nav-link/route reachability check)
-- `./tests/sql/run_verification.sh` — **19 SQL suites** (207 assertions) on a throwaway
+- `./tests/sql/run_verification.sh` — **21 SQL suites** (223 assertions) on a throwaway
   PostgreSQL 16, incl. the 520-check authorization matrix and the raw-path
   DB-boundary suite (RPC-only writes, note-publish authority, tenant/eligibility
   triggers, meal-image storage visibility, meal-image historical immutability,
