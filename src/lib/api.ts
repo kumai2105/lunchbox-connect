@@ -111,6 +111,26 @@ export async function createInstitution(
   return { data: data as Institution, error: null };
 }
 
+// Institution identity is normal Super Admin configuration, not a developer
+// task: a nursery gets renamed, or was recorded under the wrong type. 0033's
+// institutions_update policy and 0041's UPDATE grant already permit exactly
+// this — until now nothing in the UI reached them, so the only way to correct
+// a name was a database edit. Archival/delete stays impossible by design.
+export async function updateInstitution(
+  id: string,
+  name: string,
+  kind: Institution['kind'],
+): Promise<ApiResult<Institution>> {
+  const { data, error } = await supabase
+    .from('institutions')
+    .update({ name, kind })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) return err(error);
+  return { data: data as Institution, error: null };
+}
+
 export async function dashboardSummary(): Promise<ApiResult<DashboardInstitutionRow[]>> {
   const { data, error } = await supabase.from('v_dashboard_institutions').select('*');
   if (error) return err(error);
@@ -548,51 +568,109 @@ export async function deleteCalendarException(id: string): Promise<ApiResult<nul
 // ---------------------------------------- institution service config (§7,§12,§47)
 // The Admin sets, per institution, the CONTRACTED meal periods (service plan)
 // and which menu (rotation) applies from when. Never inferred from the menu.
-export interface InstitutionServiceConfig {
-  periods: AppPeriod[] | null;
-  plan_effective_from: string | null;
-  rotation_id: string | null;
+// ------------------------------------------- per-institution configuration
+// An Institution's supported configuration is not a fixed list of fields. It
+// is three effective-dated record sets plus one action:
+//
+//   institution_service_plans          which meal periods this institution
+//                                      receives, from a date (0016)
+//   institution_rotation_assignments   which menu applies, from a date, and
+//                                      which of that menu's weeks that date
+//                                      lands on (0016)
+//   calendar_exceptions                closures / one-off meal changes /
+//                                      special periods, by date range (0016)
+//   publish_meal_services(...)         materializes the above into dated
+//                                      Meal Services for a window
+//
+// "Change it later" therefore means adding a row with a LATER effective_from,
+// never editing the old one — which is why every read here is a timeline and
+// not a single value. The resolver picks the newest row at or before the date
+// being resolved (resolve_rotation_week / service_plan_includes, 0016), so a
+// row dated in the future is SCHEDULED, not current, and the UI must say so.
+export interface ServicePlanRow {
+  id: string;
+  periods: AppPeriod[];
+  effective_from: string;
+}
+export interface RotationAssignmentRow {
+  id: string;
+  rotation_id: string;
   rotation_name: string | null;
-  anchor_week: number | null;
-  rotation_effective_from: string | null;
+  anchor_week: number;
+  effective_from: string;
+}
+export interface InstitutionConfigTimeline {
+  plans: ServicePlanRow[];
+  assignments: RotationAssignmentRow[];
 }
 
-export async function getInstitutionServiceConfig(
+/**
+ * Which row governs `onDate`, given rows ordered newest effective_from first.
+ *
+ * This is the client-side mirror of the database's `order by effective_from
+ * desc limit 1` (0016). It exists so the UI cannot claim a future-dated row is
+ * in effect today — the previous read took the newest row unconditionally and
+ * labelled it "Current", which was wrong the moment anyone scheduled a change.
+ */
+export function configInEffectOn<T extends { effective_from: string }>(
+  rows: T[],
+  onDate: string,
+): T | null {
+  return rows.find((r) => r.effective_from <= onDate) ?? null;
+}
+
+export async function getInstitutionConfigTimeline(
   institutionId: string,
-): Promise<ApiResult<InstitutionServiceConfig>> {
+): Promise<ApiResult<InstitutionConfigTimeline>> {
   const [planRes, assignRes] = await Promise.all([
     supabase
       .from('institution_service_plans')
-      .select('periods,effective_from')
+      .select('id,periods,effective_from')
       .eq('institution_id', institutionId)
-      .order('effective_from', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .order('effective_from', { ascending: false }),
     supabase
       .from('institution_rotation_assignments')
-      .select('rotation_id,anchor_week,effective_from,rotation:rotations!rotation_id(name)')
+      .select('id,rotation_id,anchor_week,effective_from,rotation:rotations!rotation_id(name)')
       .eq('institution_id', institutionId)
-      .order('effective_from', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .order('effective_from', { ascending: false }),
   ]);
   if (planRes.error) return err(planRes.error);
   if (assignRes.error) return err(assignRes.error);
-  const plan = planRes.data as { periods: AppPeriod[]; effective_from: string } | null;
-  const asg = assignRes.data as
-    | { rotation_id: string; anchor_week: number; effective_from: string; rotation: { name: string } | null }
-    | null;
+  type RawAssign = {
+    id: string;
+    rotation_id: string;
+    anchor_week: number;
+    effective_from: string;
+    rotation: { name: string } | null;
+  };
   return {
     data: {
-      periods: plan?.periods ?? null,
-      plan_effective_from: plan?.effective_from ?? null,
-      rotation_id: asg?.rotation_id ?? null,
-      rotation_name: asg?.rotation?.name ?? null,
-      anchor_week: asg?.anchor_week ?? null,
-      rotation_effective_from: asg?.effective_from ?? null,
+      plans: (planRes.data ?? []) as ServicePlanRow[],
+      assignments: ((assignRes.data ?? []) as unknown as RawAssign[]).map((a) => ({
+        id: a.id,
+        rotation_id: a.rotation_id,
+        rotation_name: a.rotation?.name ?? null,
+        anchor_week: a.anchor_week,
+        effective_from: a.effective_from,
+      })),
     },
     error: null,
   };
+}
+
+// Withdrawing a configuration change that has not taken effect yet is a
+// correction, not history rewriting. The caller decides what is still
+// withdrawable; the Super Admin-only RLS (0016/0036) is unchanged.
+export async function deleteServicePlanRow(id: string): Promise<ApiResult<null>> {
+  const { error } = await supabase.from('institution_service_plans').delete().eq('id', id);
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+export async function deleteRotationAssignmentRow(id: string): Promise<ApiResult<null>> {
+  const { error } = await supabase.from('institution_rotation_assignments').delete().eq('id', id);
+  if (error) return err(error);
+  return { data: null, error: null };
 }
 
 // Both of these are EFFECTIVE-DATED configuration: the history of rows is

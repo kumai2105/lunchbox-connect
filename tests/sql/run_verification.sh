@@ -52,7 +52,7 @@ echo "==> seeding baseline actors"
 $PSQL -d lbc -f "$HERE/01_actors.sql" >/dev/null
 
 fail=0
-for suite in verify_fresh_deploy verify_golden_path verify_rls_cross_portal verify_menu_cutover verify_downstream_wiring verify_authorization_matrix verify_special_period verify_class_staff verify_kitchen_demand verify_correction_order verify_publish_future verify_db_boundary verify_insert_returning verify_super_admin_onboarding verify_note_privacy_and_states verify_slot_resize_concurrency verify_publish_record_race verify_analytics_volume; do
+for suite in verify_fresh_deploy verify_golden_path verify_rls_cross_portal verify_menu_cutover verify_downstream_wiring verify_authorization_matrix verify_special_period verify_class_staff verify_kitchen_demand verify_correction_order verify_publish_future verify_db_boundary verify_insert_returning verify_super_admin_onboarding verify_rotation_autoadvance verify_note_privacy_and_states verify_slot_resize_concurrency verify_publish_record_race verify_analytics_volume; do
   echo
   echo "==================== $suite ===================="
   # NOTE: ON_ERROR_STOP is deliberately ON. A failed assertion RAISEs, which

@@ -4,9 +4,10 @@
 
 **Live:** https://www.lunchboxconnect.com — released 2026-08-21 against
 production schema `0039`. The Worker also answers on its origin
-`https://lunchbox-connect.koumai-2105.workers.dev`, kept as a rollback path. **Before real meals can flow, six
-business decisions must be entered in the app — see
-`docs/FOUNDER_GO_LIVE_CHECKLIST.md`.** The full release record, with the
+`https://lunchbox-connect.koumai-2105.workers.dev`, kept as a rollback path. **Before real meals can flow, each
+Institution has to be configured in the app — its service plan, its menu
+assignment and its calendar, all as Super Admin, all by clicking. See
+`docs/SUPER_ADMIN_OPERATING_GUIDE.md`.** The full release record, with the
 executed evidence and the open items, is `docs/RELEASE_2026-08-21.md`.
 
 Institutional child-nutrition operations platform. One authoritative system
@@ -58,9 +59,9 @@ Privileged steps that need your accounts (the tool cannot supply them):
 ```bash
 pnpm typecheck   # full-project TypeScript
 pnpm lint
-pnpm test:unit   # RBAC, calendar, meal analytics, kitchen, operational date (116 tests)
+pnpm test:unit   # RBAC, calendar, meal analytics, kitchen, operational date, effective-dated configuration (122 tests)
 pnpm test:e2e    # live-boundary Playwright suite — needs the env below
-./tests/sql/run_verification.sh   # 18 SQL suites on a throwaway PostgreSQL 16
+./tests/sql/run_verification.sh   # 19 SQL suites on a throwaway PostgreSQL 16
 ```
 
 `run_verification.sh` builds a PostgreSQL 16 cluster from nothing, applies

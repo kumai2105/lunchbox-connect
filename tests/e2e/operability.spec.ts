@@ -39,6 +39,21 @@ function dubaiToday(offsetDays = 0): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai' }).format(now);
 }
 
+/** The next Monday on or after today, in the Asia/Dubai operational calendar. */
+function nextMonday(): string {
+  const today = dubaiToday();
+  const [y, m, d] = today.split('-').map(Number);
+  const utc = Date.UTC(y, m - 1, d);
+  const dow = new Date(utc).getUTCDay(); // 0=Sun
+  const ahead = (8 - (dow === 0 ? 7 : dow)) % 7 || 7;
+  return new Date(utc + ahead * 86_400_000).toISOString().slice(0, 10);
+}
+
+function addDays(iso: string, n: number): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d) + n * 86_400_000).toISOString().slice(0, 10);
+}
+
 test.describe('operability — a Super Admin onboards an Institution end to end', () => {
   test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
 
@@ -74,6 +89,18 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
   const TO = dubaiToday(6);
   const CLOSED = dubaiToday(3);      // a future day inside the window, unserved
   const OPEN_AFTER = dubaiToday(4);  // the day after it, which must survive
+  const UPGRADE_FROM = dubaiToday(30); // a package change the Founder schedules ahead
+
+  // Fixtures for the rotation auto-advance test below. The assertion dates are
+  // Mondays so "which rotation week" is a whole-ISO-week question with no
+  // partial week at either end — the same basis resolve_rotation_week uses.
+  const ROT_INST = `E2E Rotation ${stamp}`;
+  const ROT_MENU = `E2E Rotation Menu ${stamp}`;
+  const MEAL_W1 = `E2E Rot Week1 Meal ${stamp}`;
+  const MEAL_W2 = `E2E Rot Week2 Meal ${stamp}`;
+  const MON1 = nextMonday();
+  const MON2 = addDays(MON1, 7);
+  const MON3 = addDays(MON1, 14);
 
   test('the complete chain, Super Admin through to Kitchen', async ({ page }) => {
     const s = seeded();
@@ -232,7 +259,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     await page.getByLabel('Lunch', { exact: true }).check();
     await page.getByLabel('Effective from', { exact: true }).first().fill(FROM);
     await page.getByRole('button', { name: 'Save service plan' }).click();
-    await expect(page.getByText(/Current: .*Breakfast.*Lunch/)).toBeVisible();
+    await expect(page.getByTestId('plan-in-effect')).toHaveText(/In effect today: Breakfast, Lunch/);
 
     step('11 assign menu + anchor');
     // ---- 5-6. assign the menu and the anchor week ----------------------
@@ -243,7 +270,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     await page.getByLabel('Starting rotation week', { exact: true }).fill('1');
     await page.getByLabel('Effective from', { exact: true }).last().fill(FROM);
     await page.getByRole('button', { name: 'Assign menu' }).click();
-    await expect(page.getByText(/Current:.*anchor week 1/)).toBeVisible();
+    await expect(page.getByTestId('rotation-in-effect')).toHaveText(/started on week 1/);
 
     step('13 publish window');
     // ---- 7. publish a dated window -------------------------------------
@@ -522,11 +549,266 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
       're-publishing destroyed a recorded observation',
     ).toBeGreaterThan(0);
 
+    step('20 reconfigure: the Founder changes the configuration later');
+    // ---- 20. ENTER IS NOT ENOUGH — IT MUST BE CHANGEABLE ---------------
+    //
+    // A nursery upgrades its package, is renamed, or switches menu. None of
+    // that is a developer task, and none of it may rewrite what already
+    // happened. Everything below is done by clicking, as the Super Admin.
+    await login(page, s.superAdminEmail);
+
+    // (a) the Institution record itself — name and type. Until now this was
+    // displayed read-only and the only way to correct it was a database edit.
+    await page.goto(`/institutions/${instId}`);
+    await page.getByRole('button', { name: 'Edit institution' }).click();
+    await page.getByLabel('Name', { exact: true }).fill(`${INST} Renamed`);
+    await page.getByLabel('Type', { exact: true }).selectOption('school');
+    await page.getByRole('button', { name: 'Save institution' }).click();
+    await expect
+      .poll(async () => {
+        const r = await db.from('institutions').select('name,kind').eq('id', instId).single();
+        return `${r.data?.name}|${r.data?.kind}`;
+      }, { message: 'the Institution record could not be corrected through the UI' })
+      .toBe(`${INST} Renamed|school`);
+
+    // Put it back — the rest of the chain named this institution a nursery.
+    await page.getByRole('button', { name: 'Edit institution' }).click();
+    await page.getByLabel('Name', { exact: true }).fill(INST);
+    await page.getByLabel('Type', { exact: true }).selectOption('nursery');
+    await page.getByRole('button', { name: 'Save institution' }).click();
+
+    // (b) the contracted package, from a FUTURE date. The upgrade adds an
+    // afternoon snack from next month; today's package must not change.
+    await page.goto(`/institutions/${instId}?tab=service`);
+    await expect(page.getByTestId('plan-in-effect')).toHaveText(/Breakfast, Lunch/);
+    await page.getByLabel('Afternoon snack', { exact: true }).check();
+    await page.getByLabel('Effective from', { exact: true }).first().fill(UPGRADE_FROM);
+    await page.getByRole('button', { name: 'Save service plan' }).click();
+
+    // The screen must not claim a future change is live. This is the exact
+    // defect the timeline replaced: the old read took the newest row
+    // unconditionally and labelled it "Current".
+    await expect(
+      page.getByTestId('plan-in-effect'),
+      'a package change dated in the future was reported as in effect today',
+    ).toHaveText(/In effect today: Breakfast, Lunch \(since/);
+    await expect(
+      page.getByTestId('plan-timeline').getByText('Scheduled'),
+      'the scheduled package change is not visible anywhere',
+    ).toBeVisible();
+
+    // The database agrees: two dated rows, the old one still governing today.
+    await expect
+      .poll(async () => {
+        const r = await db
+          .from('institution_service_plans')
+          .select('effective_from')
+          .eq('institution_id', instId)
+          .order('effective_from', { ascending: true });
+        return (r.data ?? []).map((x) => x.effective_from as string);
+      }, { message: 'changing the package overwrote the old one instead of dating a new one' })
+      .toEqual([FROM, UPGRADE_FROM]);
+
+    // (c) re-publishing TODAY's window still yields the contracted two
+    // periods — a future upgrade does not leak backwards into the present.
+    await page.getByLabel('From', { exact: true }).fill(FROM);
+    await page.getByLabel('To', { exact: true }).fill(TO);
+    await page.getByRole('button', { name: 'Publish window' }).click();
+    await expect(page.getByText(/Published \d+ dated meal services/)).toBeVisible();
+    await expect
+      .poll(async () => {
+        const r = await db
+          .from('meal_services')
+          .select('period')
+          .eq('institution_id', instId)
+          .eq('service_date', OPEN_AFTER)
+          .eq('published', true);
+        return (r.data ?? []).map((x) => x.period as string).sort();
+      }, { message: 'a future package upgrade changed a day it does not cover' })
+      .toEqual(['breakfast', 'lunch']);
+
+    // (d) a scheduled change that has not taken effect can be withdrawn.
+    // One that already governs real days cannot — there is no control for it,
+    // because withdrawing it would silently restate what those days were.
+    const timeline = page.getByTestId('plan-timeline');
+    await expect(timeline.getByRole('button', { name: 'withdraw' })).toHaveCount(1);
+    await timeline.getByRole('button', { name: 'withdraw' }).click();
+    await expect
+      .poll(async () => {
+        const r = await db
+          .from('institution_service_plans')
+          .select('effective_from')
+          .eq('institution_id', instId);
+        return (r.data ?? []).map((x) => x.effective_from as string);
+      }, { message: 'a scheduled package change could not be withdrawn' })
+      .toEqual([FROM]);
+
     step('19 kitchen demand');
     // ---- 12. the Kitchen receives the production demand ----------------
     await login(page, s.kitchenEmail);
     await page.goto('/kitchen');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     await expect(page.locator('.banner.err')).toHaveCount(0);
+  });
+
+  /**
+   * THE ROTATION ANCHOR IS ENTERED ONCE. THE CALENDAR DOES THE REST.
+   *
+   * The Founder's requirement, verbatim: "the rotation anchor should allow the
+   * system to calculate subsequent weeks automatically, not require me to
+   * manually choose the rotation week every week."
+   *
+   * verify_rotation_autoadvance proves the resolver's arithmetic against the
+   * real function. This proves the consequence an operator actually cares
+   * about: after ONE menu assignment, three consecutive weeks of published
+   * meals come out as week 1, week 2, week 1 — a different meal each week,
+   * with nobody touching the configuration in between.
+   *
+   * The two weeks carry DIFFERENT meals on purpose. A test where both weeks
+   * held the same meal would pass even if the rotation never advanced at all.
+   */
+  test('one anchor, and the weeks advance by themselves', async ({ page }) => {
+    test.setTimeout(240_000);
+    const s = seeded();
+    const db = adminDb();
+    const step = (n: string) => console.log(`OPSTEP ${n}`);
+
+    await login(page, s.superAdminEmail);
+
+    step('rot.1 two distinguishable meals');
+    for (const name of [MEAL_W1, MEAL_W2]) {
+      await page.goto('/meals');
+      await page.getByRole('button', { name: /add meal/i }).first().click();
+      await page.getByLabel('Name', { exact: true }).fill(name);
+      await page.getByPlaceholder('chicken, pasta, tomato').fill('rice');
+      await page.getByPlaceholder('gluten, dairy').fill('none');
+      await page.getByRole('button', { name: /save meal/i }).click();
+      await expect
+        .poll(async () => {
+          const r = await db
+            .from('meals')
+            .select('current_revision_id')
+            .eq('name', name)
+            .maybeSingle();
+          return r.data?.current_revision_id ? 'linked' : 'missing';
+        }, { message: `the Meal ${name} never persisted with a revision` })
+        .toBe('linked');
+    }
+
+    step('rot.2 a two-week menu');
+    await page.goto('/menu-builder');
+    await page.getByRole('button', { name: /new menu/i }).click();
+    await page.getByLabel('Menu name', { exact: true }).fill(ROT_MENU);
+    await page.getByLabel('Number of weeks', { exact: true }).fill('2');
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
+    await page.locator('.menu-list-item', { hasText: ROT_MENU }).first().click();
+    await expect(page.locator('.menu-grid')).toBeVisible();
+
+    step('rot.3 week 1 lunch, then week 2 lunch, with different meals');
+    // Only Lunch is filled, and only Mon–Fri: the assertion dates are all
+    // Mondays, so this is the smallest menu that can show the weeks turning.
+    for (const [weekTab, meal] of [
+      ['Week 1', MEAL_W1],
+      ['Week 2', MEAL_W2],
+    ] as const) {
+      await page.getByRole('button', { name: weekTab, exact: true }).click();
+      const row = page.locator('.menu-grid tr', { hasText: 'Lunch' });
+      const cells = row.locator('.slot-cell');
+      const n = await cells.count();
+      expect(n, `${weekTab}: the Lunch row has no slots`).toBeGreaterThan(0);
+      for (let i = 0; i < n; i++) {
+        await cells.nth(i).click();
+        await expect(
+          page.locator('.meal-picker'),
+          `${weekTab} lunch slot ${i}: the picker did not open`,
+        ).toBeVisible({ timeout: 8000 });
+        await page.locator('.meal-pick', { hasText: meal }).first().click();
+        try {
+          await expect(page.locator('.meal-picker')).toHaveCount(0, { timeout: 8000 });
+        } catch {
+          const err = page.locator('.banner.err');
+          const text = (await err.count()) ? ((await err.first().textContent()) ?? '').trim() : '';
+          throw new Error(
+            `${weekTab} lunch slot ${i}: the slot was not saved. App error: ${text || '(none)'}`,
+          );
+        }
+      }
+    }
+
+    step('rot.4 institution, lunch-only plan, ONE menu assignment');
+    await page.goto('/institutions');
+    await page.getByRole('button', { name: '+ Add institution', exact: true }).click();
+    await page.getByLabel('Name', { exact: true }).fill(ROT_INST);
+    await page.getByLabel('Type', { exact: true }).selectOption('nursery');
+    await page.getByRole('button', { name: 'Add institution', exact: true }).click();
+
+    let rotInstId = '';
+    await expect
+      .poll(async () => {
+        const r = await db.from('institutions').select('id').eq('name', ROT_INST).maybeSingle();
+        rotInstId = (r.data?.id as string) ?? '';
+        return rotInstId !== '';
+      }, { message: 'the Institution was never written' })
+      .toBe(true);
+
+    await page.goto(`/institutions/${rotInstId}?tab=service`);
+    await page.getByLabel('Lunch', { exact: true }).check();
+    await page.getByLabel('Effective from', { exact: true }).first().fill(MON1);
+    await page.getByRole('button', { name: 'Save service plan' }).click();
+
+    // THE ONLY ROTATION INPUT IN THIS TEST. Nothing below re-enters a week.
+    await page.getByLabel('Menu', { exact: true }).selectOption({ label: `${ROT_MENU} (2 weeks)` });
+    await page.getByLabel('Starting rotation week', { exact: true }).fill('1');
+    await page.getByLabel('Effective from', { exact: true }).last().fill(MON1);
+    await page.getByRole('button', { name: 'Assign menu' }).click();
+    await expect(page.getByTestId('rotation-in-effect')).toBeVisible();
+
+    step('rot.5 publish three weeks in one action');
+    await page.getByLabel('From', { exact: true }).fill(MON1);
+    await page.getByLabel('To', { exact: true }).fill(MON3);
+    await page.getByRole('button', { name: 'Publish window' }).click();
+    await expect(page.getByText(/Published \d+ dated meal services/)).toBeVisible();
+
+    step('rot.6 the three Mondays are week 1, week 2, week 1');
+    const mealOn = async (date: string): Promise<string> => {
+      const r = await db
+        .from('meal_services')
+        .select('meal_revision_id')
+        .eq('institution_id', rotInstId)
+        .eq('service_date', date)
+        .eq('period', 'lunch')
+        .eq('published', true)
+        .maybeSingle();
+      const revId = r.data?.meal_revision_id as string | undefined;
+      if (!revId) return '(no service)';
+      const rev = await db
+        .from('meal_revisions')
+        .select('meal_id')
+        .eq('id', revId)
+        .maybeSingle();
+      const mealId = rev.data?.meal_id as string | undefined;
+      if (!mealId) return '(no meal)';
+      const m = await db.from('meals').select('name').eq('id', mealId).maybeSingle();
+      return (m.data?.name as string) ?? '(unnamed)';
+    };
+
+    await expect
+      .poll(async () => [await mealOn(MON1), await mealOn(MON2), await mealOn(MON3)], {
+        message:
+          'three consecutive Mondays did not come out as week 1, week 2, week 1 — the anchor is ' +
+          'not advancing the rotation on its own, and the Founder would have to pick a week weekly',
+      })
+      .toEqual([MEAL_W1, MEAL_W2, MEAL_W1]);
+
+    // And it came from ONE assignment. If the rotation only looked right
+    // because something wrote a row per week, this is where that shows.
+    const assignments = await db
+      .from('institution_rotation_assignments')
+      .select('id')
+      .eq('institution_id', rotInstId);
+    expect(
+      (assignments.data ?? []).length,
+      'more than one rotation assignment exists — three correct weeks must come from a single anchor',
+    ).toBe(1);
   });
 });

@@ -195,3 +195,100 @@ Admin is still refused and that nobody may delete, and the E2E boundary step
 fails the build if the grant ever regresses.
 
 ---
+
+## 7. The Institution record itself could not be edited — CLOSED
+
+**Status:** closed 2026-08-22 · UI only, no migration
+**Classification:** PRODUCT OPERABILITY DEFECT
+
+**What was wrong.** The Institution Detail Overview tab printed Name and Type
+into a read-only table. There was no control anywhere in the application to
+change either one. Renaming a nursery, or correcting one first recorded as a
+school, therefore required a developer with database access — for one of the
+most ordinary business changes there is.
+
+The authority already existed and had for eight migrations: `0033` carries
+`institutions_update` gated on `app_is_super_admin()`, and `0041` states the
+matching `UPDATE` grant. Nothing in the product reached them.
+
+**Fixed by** `updateInstitution()` and an **Edit institution** control on the
+Overview tab, shown only to a Super Admin — the role the policy already names.
+Deletion remains impossible for everyone, unchanged: history references
+institutions, so they are archived, never destroyed.
+
+**Proved by** the step-20 reconfiguration phase of `tests/e2e/operability.spec.ts`,
+which renames the Institution and changes its type through the UI, reads both
+back from the database, and puts them back.
+
+---
+
+## 8. A future-dated configuration change was reported as current — CLOSED
+
+**Status:** closed 2026-08-22 · UI only, no migration
+**Classification:** PRODUCT OPERABILITY DEFECT
+
+**What was wrong.** `getInstitutionServiceConfig()` read the service plan and
+the menu assignment as:
+
+```
+order by effective_from desc limit 1
+```
+
+with **no upper bound on the date**, and the Service tab printed the result as
+`Current:`. The database resolver filters the same query to `effective_from <=
+the date being resolved` (`resolve_rotation_week`, `service_plan_includes`, both
+0016). So the moment anyone scheduled a change for a future date — the supported
+way to change a package or switch menus — the screen claimed that change was
+already live while the database went on resolving the older row. An operator
+publishing a window on the strength of that screen would have been reading one
+configuration and shipping another.
+
+There was also no way to see, or to withdraw, a change that had been scheduled:
+the tab showed one value and no history at all.
+
+**Fixed by** replacing the single-row read with
+`getInstitutionConfigTimeline()`, which returns every dated row, and
+`configInEffectOn()`, the client-side mirror of the database's rule. The Service
+tab now states what is **in effect today** and renders the full timeline with
+each row marked **In effect**, **Scheduled** or **Superseded**. A scheduled row
+can be withdrawn; a row that already governs real days cannot, and has no
+control offered — withdrawing it would silently restate what those days were.
+
+**Proved by** `src/lib/institutionConfig.test.ts` (six assertions on the
+effective-dating rule, including that a future row is not in effect and that no
+configuration resolves to nothing rather than to a guessed default), by
+`tests/sql/verify_rotation_autoadvance.sql` sections b1–b3 at the database
+boundary, and by the step-20 reconfiguration phase end to end.
+
+---
+
+## 9. Does the rotation anchor auto-advance? — INVESTIGATED, NOT A DEFECT
+
+**Status:** verified 2026-08-22 · no change required
+
+The requirement: the anchor must let the system calculate subsequent weeks
+automatically, rather than requiring a rotation week to be chosen every week.
+
+It already does, and now it is asserted rather than assumed.
+`resolve_rotation_week` (0016) computes position as whole ISO weeks elapsed
+since the assignment's `effective_from`:
+
+```sql
+(((anchor_week - 1) + floor(weeks_between(date, effective_from))) % week_count) + 1
+```
+
+`tests/sql/verify_rotation_autoadvance.sql` proves against the real function
+that from a **single** stored anchor: nine consecutive weeks resolve correctly;
+a year later it is still right; every day of an ISO week resolves to the same
+week; an effective date set mid-week anchors that whole week; dates before the
+anchor resolve to *nothing* rather than to a guess; and a whole-week closure
+does not shift the cycle. The "one anchor, and the weeks advance by themselves"
+end-to-end test proves the consequence through the UI: a two-week menu with a
+different meal in each week, assigned once, publishes three consecutive Mondays
+as week 1, week 2, week 1 — and asserts that exactly one assignment row exists,
+so three correct weeks cannot have come from three weekly entries.
+
+The Service tab now says this on screen, where the operator needs it, instead of
+leaving it to be inferred from a number field.
+
+---

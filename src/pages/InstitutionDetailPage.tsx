@@ -7,6 +7,7 @@ import {
   listClasses,
   listStudents,
   staffForInstitution,
+  updateInstitution,
   type ClassWithMeta,
 } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -53,10 +54,23 @@ export default function InstitutionDetailPage() {
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<string | null>(null);
   const [invite, setInvite] = useState({ fullName: '', email: '', password: '' });
+  // Institution identity is Super Admin configuration too: a nursery gets
+  // renamed, or was first recorded under the wrong type. 0033/0041 already
+  // permit the update — nothing in the UI reached it, so the only remedy was a
+  // database edit.
+  const [showEdit, setShowEdit] = useState(false);
+  const [editBusy, setEditBusy] = useState(false);
+  const [editMsg, setEditMsg] = useState<string | null>(null);
+  const [edit, setEdit] = useState<{ name: string; kind: Institution['kind'] }>({
+    name: '',
+    kind: 'nursery',
+  });
   // §17: Super Admin anywhere, or the Nursery Admin OF THIS institution.
   const canInviteStaff =
     profile?.role === 'super_admin' ||
     (profile?.role === 'school_admin' && profile?.institution_id === id);
+  // Only the Super Admin owns the institution record itself (0033).
+  const canEditInstitution = profile?.role === 'super_admin';
 
   async function onInvite() {
     setInviteBusy(true);
@@ -78,6 +92,19 @@ export default function InstitutionDetailPage() {
     setInvite({ fullName: '', email: '', password: '' });
     const stf = await staffForInstitution(id);
     setStaff(stf.data ?? []);
+  }
+
+  async function onSaveInstitution() {
+    setEditBusy(true);
+    setEditMsg(null);
+    const res = await updateInstitution(id, edit.name.trim(), edit.kind);
+    setEditBusy(false);
+    if (res.error) {
+      setEditMsg(`Error: ${res.error}`);
+      return;
+    }
+    setInstitution(res.data);
+    setShowEdit(false);
   }
   const [params, setParams] = useSearchParams();
   const tab = (params.get('tab') as Tab) ?? 'overview';
@@ -179,7 +206,24 @@ export default function InstitutionDetailPage() {
 
       {tab === 'overview' && (
         <>
-          <Card title="Institution record" hint="the authoritative row every portal reads">
+          <Card
+            title="Institution record"
+            hint="the authoritative row every portal reads"
+            actions={
+              canEditInstitution ? (
+                <Btn
+                  variant="ghost"
+                  onClick={() => {
+                    setEditMsg(null);
+                    setEdit({ name: institution.name, kind: institution.kind });
+                    setShowEdit(true);
+                  }}
+                >
+                  Edit institution
+                </Btn>
+              ) : undefined
+            }
+          >
             <table>
               <tbody>
                 <tr>
@@ -363,6 +407,46 @@ export default function InstitutionDetailPage() {
             </table>
           )}
         </Card>
+      )}
+
+      {showEdit && institution && (
+        <Modal
+          title="Edit institution"
+          onClose={() => setShowEdit(false)}
+          footer={
+            <>
+              <Btn variant="ghost" onClick={() => setShowEdit(false)}>
+                Cancel
+              </Btn>
+              <Btn
+                variant="brand"
+                onClick={() => void onSaveInstitution()}
+                disabled={editBusy || edit.name.trim().length === 0}
+              >
+                {editBusy ? 'Saving…' : 'Save institution'}
+              </Btn>
+            </>
+          }
+        >
+          {editMsg && <Banner kind="err">{editMsg}</Banner>}
+          <Banner kind="info">
+            Changes the institution record every portal reads. It does not touch this institution's
+            service plan, menu assignment, calendar or already-published meals — those are
+            effective-dated and live on the Service and Calendar tabs.
+          </Banner>
+          <Field label="Name">
+            <input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
+          </Field>
+          <Field label="Type">
+            <select
+              value={edit.kind}
+              onChange={(e) => setEdit({ ...edit, kind: e.target.value as Institution['kind'] })}
+            >
+              <option value="nursery">Nursery</option>
+              <option value="school">School</option>
+            </select>
+          </Field>
+        </Modal>
       )}
 
       {showInvite && (
