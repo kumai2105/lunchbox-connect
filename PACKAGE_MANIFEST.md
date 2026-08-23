@@ -35,10 +35,10 @@ while whole specs silently stopped being collected; this cannot. The step named
 "Assert every test executed, 0 failed, 0 skipped" is what makes the 98 above a
 measurement rather than a claim.
 
-### Two failures were found and fixed during this verification
+### Three failures were found during this verification, and the split matters
 
-Run `32640684885` failed on two tests, and **both were defects in my
-assertions, not in the product**:
+**Two were mine.** Run `32640684885` failed on two tests, and both were defects
+in my assertions, not in the product:
 
 - `lifecycle.spec.ts` looked for the phrase "how you sign in" in the account
   edit dialog; the dialog says "what this person signs in with". Corrected to
@@ -50,8 +50,22 @@ assertions, not in the product**:
   retired "billable to nursery" from what a person reads.
 
 The six tests reported as "did not run" were the remainder of the serial block
-that aborted on the first failure, not silent skips. Recorded here because a
-gate that never caught anything would not be evidence of much.
+that aborted on the first failure, not silent skips.
+
+**One was the product.** Run `32641054574` came back 97/98, and the single
+failure was real: a Parent with **no child linked** could not reach their own
+profile, because the Parent shell rendered the "no children are linked" empty
+state and nothing else — no navigation, no route. Such a Parent could not
+change their password and **could not sign out**, since the sign-out control
+lives on that screen. Two ordinary people reach that state: one whose account
+is created before their child is linked, which is the normal provisioning
+order, and one whose guardian link has just been revoked.
+
+No previous test had ever created a Parent with no children. This closure's
+lifecycle spec makes a Parent account and then uses it, which is how it
+surfaced. Recorded here because a gate that never caught anything would not be
+evidence of much — and because the interesting failure was the one that was not
+the test's fault.
 
 ### What this closure added to the evidence
 

@@ -461,3 +461,35 @@ migrations → `pnpm functions:deploy` (all three functions) →
 Until then `0042` remains the truth in production, and the deployed frontend
 `2793a90c` remains correct for it. **Nothing in this closure has changed the
 live site.**
+
+---
+
+## 13. A Parent with no linked child was locked inside their own account — CLOSED
+
+**Status:** closed 2026-08-23 · `src/pages/parent/ParentShell.tsx`,
+`ParentAccountCards.tsx`
+**Classification:** PRODUCT defect. **Found by this closure's own gate**, on
+its second run, in a state no previous test had ever created.
+
+The Parent shell rendered the "No children are linked to this account yet"
+empty state **and nothing else** — no navigation, no `Outlet`, no route. Every
+Parent-portal test to date had a linked child, so the branch had never been
+exercised by anything but a glance.
+
+Two real people reach that branch: a Parent whose account is created before
+their child is linked (which is the normal provisioning order — the account is
+made on the Users screen, the link on the Guardians screen), and a Parent whose
+guardian link has just been revoked. Both could sign in, and then do nothing at
+all. They could not change their password, and **they could not sign out**,
+because the sign-out control lives on the profile screen the shell would not
+render.
+
+Their own account never depended on a child, so it no longer disappears with
+one. The account cards — name, phone, password, sign out — are a component used
+by both the normal profile and the childless state. The empty state is still
+shown, because it is true; it is simply no longer the whole screen.
+
+Worth recording for what it says about the gate: the new lifecycle spec creates
+a Parent account and then uses it, which is the first time anything had driven
+a Parent with no children. The assertion now also requires the way out to be
+present.

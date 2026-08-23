@@ -70,6 +70,19 @@ a second, weaker copy that could drift from the real one.
 - There is still **no "forgot password" email**. Accounts are
   administrator-issued by decision.
 
+## What the gate caught, which is the point of having one
+
+Three failures were found by running this, and the split matters:
+
+- **Two were mine** (run `32640684885`): assertions written against copy this
+  same closure had changed. Corrected in the test.
+- **One was the product** (run `32641054574`, 97/98): a Parent with no linked
+  child could not reach their own profile, so they could not change their
+  password and could not sign out. No previous test had ever created that
+  state; the new lifecycle spec makes a Parent account and then uses it, which
+  is how it surfaced. Corrected in the product, and the assertion now requires
+  the way out to be present.
+
 ## Gate, dynamically derived
 
 Every number below was produced by executing the thing, not by reading a
