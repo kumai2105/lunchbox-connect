@@ -480,7 +480,11 @@ begin
   insert into audit_log (actor_user_id, action, entity_type, entity_id,
                          previous_value, new_value, reason)
   values (auth.uid(),
-          case when p_active then 'class.restore' else 'class.archive' end,
+          -- `class.reactivate`, matching `user.reactivate` and
+          -- `institution.reactivate`. Every lifecycle pair in this migration
+          -- uses the same two verbs, so the Audit screen can translate them
+          -- from one table rather than carrying a special case.
+          case when p_active then 'class.reactivate' else 'class.archive' end,
           'classes', p_class,
           jsonb_build_object('active', v_prev),
           jsonb_build_object('active', p_active),

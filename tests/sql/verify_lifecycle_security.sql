@@ -498,7 +498,7 @@ begin
   -- ---- x1: every new lifecycle action left a traceable record ------------
   select count(*) into v_n from audit_log
    where action in ('user.deactivate','user.reactivate','institution.archive',
-                    'institution.reactivate','class.archive','class.restore',
+                    'institution.reactivate','class.archive','class.reactivate',
                     'guardian.revoke');
   if v_n < 7 then
     raise exception 'FAIL x1: only % lifecycle audit rows were written', v_n;
