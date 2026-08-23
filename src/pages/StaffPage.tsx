@@ -408,7 +408,7 @@ export default function StaffPage() {
               onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
           </Field>
-          <Field label="Password (min 8 — share securely)">
+          <Field label="Password (min 8)">
             <PasswordInput
               value={form.password}
               onChange={(v) => setForm({ ...form, password: v })}

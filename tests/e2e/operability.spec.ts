@@ -390,7 +390,11 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     await expect(page.getByLabel('Full name', { exact: true })).toBeVisible();
     await page.getByLabel('Full name', { exact: true }).fill('Onboard Teacher');
     await page.getByLabel('Email', { exact: true }).fill(STAFF_EMAIL);
-    await page.getByLabel('Password (min 8 chars)', { exact: true }).fill(STAFF_PASS);
+    // One label across all three provisioning screens — Users, Staff and this
+    // one. They had drifted ("min 8", "min 8 chars", "min 8 — share
+    // securely"), which is how a locator here broke on a change made two
+    // screens away.
+    await page.getByLabel('Password (min 8)', { exact: true }).fill(STAFF_PASS);
     await page.getByRole('button', { name: 'Create account' }).click();
     await expect
       .poll(async () => {

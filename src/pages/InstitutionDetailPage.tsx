@@ -625,7 +625,7 @@ export default function InstitutionDetailPage() {
               onChange={(e) => setInvite({ ...invite, email: e.target.value })}
             />
           </Field>
-          <Field label="Password (min 8 — share securely)">
+          <Field label="Password (min 8)">
             <PasswordInput
               value={invite.password}
               onChange={(v) => setInvite({ ...invite, password: v })}
