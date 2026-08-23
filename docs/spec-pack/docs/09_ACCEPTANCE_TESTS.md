@@ -684,6 +684,124 @@ until relevant field rules exist.
 
 ---
 
+# PART XIV-B — LIFECYCLE, CREDENTIALS AND AUDIT (added 2026-08-23)
+
+Every test in this part has a named implementation. `verify_lifecycle_security`
+refers to `tests/sql/verify_lifecycle_security.sql`; `lifecycle.spec` refers to
+`tests/e2e/lifecycle.spec.ts`.
+
+## AT-150 — A deactivated account can do nothing, token or no token
+
+**Expected:** With a valid, already-issued JWT, a deactivated account reads no
+row of any table — including its own `app_users` row — and every write is
+refused. **Proven by:** verify_lifecycle_security a1, a2; lifecycle.spec
+("deactivating stops the sign-in and deletes nothing", from a fresh browser).
+
+## AT-151 — Deactivation ends class assignments; reactivation does not restore them
+
+**Expected:** Deactivating Classroom Staff removes their `class_staff` rows.
+Reactivating returns their role scope and leaves those rows removed.
+**Proven by:** verify_lifecycle_security a3, a4, a5.
+
+## AT-152 — Nothing is deleted
+
+**Expected:** After deactivation the `app_users` row still exists, carries the
+reason, and every record naming that person is unchanged. **Proven by:**
+lifecycle.spec (database assertion after the UI action).
+
+## AT-153 — The last active Super Admin cannot be deactivated
+
+**Expected:** Refused, with a reason the operator can read on screen. Nobody may
+deactivate their own account either. **Proven by:** verify_lifecycle_security
+a6; lifecycle.spec ("the last active Super Admin cannot be deactivated, and is
+told why").
+
+## AT-154 — An Institution Admin's account authority is exactly their own classroom staff
+
+**Expected:** They may deactivate and reset their own institution's Classroom
+Staff, and no Super Admin, Parent, Kitchen user, peer Institution Admin, or any
+account of another institution. **Proven by:** verify_lifecycle_security a7,
+a8, a9.
+
+## AT-155 — A person may correct their own name and phone, and nothing else
+
+**Expected:** An ACTIVE person may write their own `full_name` and `phone`. A
+deactivated one may not, even on their own row. Nobody may write another
+person's. **Proven by:** verify_lifecycle_security a10.
+
+## AT-156 — Email is unreachable through the profile edit
+
+**Expected:** `update_user_profile` takes no email argument at all, and the
+interface presents the email as disabled with the reason given. **Proven by:**
+verify_lifecycle_security a10 (fails if the argument ever appears);
+lifecycle.spec ("email and role are not editable, and the screen says why").
+
+## AT-157 — An administrator issues a password; the old one dies; the audit holds neither
+
+**Expected:** After a Super Admin issues a replacement, the new password signs
+in and the old one is refused. The `user.password_reset` audit row carries the
+actor, the subject and the reason, and contains neither the old nor the new
+value. **Proven by:** lifecycle.spec; verify_lifecycle_security x2.
+
+## AT-158 — Any signed-in person can change their own password
+
+**Expected:** Including a Parent, from their own profile, with no
+administrator involved and no privileged key. The new password then signs them
+in. **Proven by:** lifecycle.spec ("a Parent changes their own password from
+their own profile").
+
+## AT-159 — A Class is archived only when empty
+
+**Expected:** Archiving is refused while students or staff remain, and the
+refusal names what is in the way. An empty Class archives, then takes no
+student, no staff assignment and no meal record, and stops being offered as
+somewhere to put a child. **Proven by:** verify_lifecycle_security c1–c4;
+lifecycle.spec (both halves).
+
+## AT-160 — An Institution is archived only by a Super Admin, and not over a live commitment
+
+**Expected:** Only a Super Admin may archive. Archiving is refused while meal
+service is published for today or any future date. Once archived it gains no
+class, student, configuration or publication — and every record it already owns
+is preserved and readable. **Proven by:** verify_lifecycle_security i1–i5.
+
+## AT-161 — Guardian revocation is deliberate, immediate, and narrow
+
+**Expected:** A Super Admin only; a reason required; the Parent's access to
+that child ends at once; the Parent account, the child and all meal history
+survive untouched. An Institution Admin is not offered the action. **Proven
+by:** verify_lifecycle_security g1–g5; lifecycle.spec (the reason requirement
+and the Institution Admin's absence of the control).
+
+## AT-162 — The audit covers the lifecycle and holds no password material
+
+**Expected:** Each lifecycle action writes one audit row carrying the actor and
+the state moved to; guardian revocation carries its reason; no row anywhere
+contains password material. **Proven by:** verify_lifecycle_security x1, x2.
+
+## AT-163 — A tag-only Meal edit is not a new revision
+
+**Expected:** Changing only which sittings a Meal is suitable for updates the
+tags and appends no `meal_revisions` row. Changing the recipe still appends
+one. The Meal keeps one identity across both. **Proven by:**
+`tests/sql/verify_meal_period_tags.sql` t3.
+
+## AT-164 — Only roles with a screen are offered for provisioning
+
+**Expected:** The account-creation role picker offers Super Admin, Institution
+Admin, Parent, Classroom Staff and Kitchen. The four roles whose navigation is
+entirely shells are withheld, derived from the navigation rather than listed.
+**Proven by:** `src/lib/authorization.consistency.test.ts`;
+`tests/e2e/login.roles.spec.ts`.
+
+## AT-165 — An Institution Admin is shown no unbuilt module
+
+**Expected:** No `shell: true` entry appears in the Institution Admin
+navigation. The Super Admin keeps its shell entries. **Proven by:**
+`src/lib/authorization.consistency.test.ts`.
+
+---
+
 # PART XV — BUILD / RELEASE EVIDENCE
 
 ## AT-140 — Build Evidence

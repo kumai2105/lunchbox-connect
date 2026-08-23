@@ -597,3 +597,25 @@ For the MVP:
 This document contains facts only.
 
 Future files define implementation detail without changing these facts unless the user explicitly changes the source of truth.
+
+---
+
+## 35. Lifecycle Addendum (2026-08-23)
+
+Three facts were stated in this pack and not implemented, and are now both
+stated and true:
+
+1. **Core records are deactivated or archived, never destroyed.** Accounts,
+   Institutions and Classes each carry an explicit active/archived state. There
+   is no permanent delete for any of them, because each is referenced by the
+   record of meals actually served to children. Decision 037.
+2. **Email is an authentication identity**, not an editable profile field.
+   Decision 038.
+3. **An existing password is never retrievable by anyone**; an administrator
+   may issue a replacement, and any signed-in person may change their own.
+   Decision 039.
+
+Decisions 040 (roles are offered for provisioning only when they have a
+screen), 041 (guardian revocation is a Super Admin action requiring a reason)
+and 042 (a tag-only Meal edit is not a new revision) are recorded in
+`13_DECISION_LOG.md` and are equally binding.

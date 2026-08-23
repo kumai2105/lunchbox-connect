@@ -888,3 +888,65 @@ Additional access must not be assumed.
 Undefined permissions remain:
 
 `NOT_YET_DEFINED`
+
+---
+
+## 56. Every Role Owns Its Own Account (added 2026-08-23, Decision 039)
+
+Alongside the scopes above, **every one of the nine roles** may view and change
+its own account: full name, phone number and password. This grants authority
+over nobody else — the profile write is checked server-side as
+`p_user = auth.uid()`, and a password change goes through Supabase Auth on the
+caller's own session, which has no way to address another person's account.
+
+It is expressed in the frontend authorization matrix as the `account` resource,
+true for all nine roles. A role losing it means its people can no longer change
+the password an administrator first typed for them, which is the state this
+platform started in.
+
+Email, role and institution are **not** included. Email is the authentication
+identity (Decision 038); role and institution decide what an existing token may
+read.
+
+---
+
+## 57. Who May Act On Another Account (added 2026-08-23, Decision 037)
+
+One rule, `app_may_manage_account()`, governs every action taken on somebody
+else's account — deactivation, reactivation, profile correction, and issuing a
+password:
+
+- **Super Admin** — any account.
+- **Nursery / School Admin** — **Classroom Staff of their own institution, and
+  nobody else.** Not another institution's staff, not a Parent, not a Kitchen
+  user, not another Institution Admin, and never a Super Admin.
+- **Every other role** — nobody.
+
+Two refusals sit above it and apply to everyone, Super Admin included:
+
+- nobody may deactivate their own account;
+- the **last active Super Admin** may not be deactivated, because it would
+  leave the platform with no one able to administer it.
+
+The interface only shows the actions this rule permits, and the database
+re-checks every one of them regardless of what the interface did.
+
+---
+
+## 58. Guardian Revocation (added 2026-08-23, Decision 041)
+
+Ending one Parent's access to one child is a **Super Admin** action and
+**requires a reason**. An Institution Admin has read-only visibility of the
+guardian links their children already have; who at a nursery may end such a
+relationship remains `NOT_YET_DEFINED`.
+
+---
+
+## 59. Roles Offered For Provisioning (added 2026-08-23, Decision 040)
+
+All nine roles remain approved and stored. The account-creation picker offers
+only those with at least one built screen — currently Super Admin, Institution
+Admin, Parent, Classroom Staff and Kitchen. Operations Manager, Finance /
+Owner, Viewer and Driver are withheld from the picker while every page in their
+navigation is a shell, and each reappears automatically when its module is
+built. This is a provisioning restriction only; it changes no permission.

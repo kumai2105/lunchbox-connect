@@ -1121,3 +1121,82 @@ All other exact state names and transition rules remain:
 `NOT_YET_DEFINED`
 
 The software must preserve the confirmed workflow relationships without inventing missing states, shortcuts, exception rules, or transition authority.
+
+---
+
+## Lifecycle State Machines (added 2026-08-23)
+
+### Account
+
+```
+                  deactivate (reason)
+   ACTIVE  ─────────────────────────────►  DEACTIVATED
+      ▲   · ends current class assignments      │
+      │   · bans the Auth account               │
+      │   · identity helpers return NULL        │
+      └───────────────────────────────────◄─────┘
+                  reactivate
+        · role scope returns
+        · class assignments do NOT return
+```
+
+**Refused transitions:** deactivating yourself; deactivating the last active
+Super Admin. Neither has a fallback — the action fails and says why.
+
+**Terminal states:** none. There is no DELETED state for an account.
+
+### Institution
+
+```
+                   archive (reason)
+   OPERATING  ───────────────────────────►  ARCHIVED
+       ▲    refused while meal service is        │
+       │    published for today or later         │
+       └────────────────────────────────────◄────┘
+                   reactivate
+```
+
+While ARCHIVED: no new class, student, service plan, rotation assignment,
+calendar exception, publication or classroom record. Everything already
+recorded remains readable, including through the Parent portal.
+
+**Terminal states:** none.
+
+### Class
+
+```
+                   archive (reason)
+   RUNNING  ─────────────────────────────►  ARCHIVED
+      ▲     refused while any student or          │
+      │     staff member is still assigned        │
+      └─────────────────────────────────────◄─────┘
+                   reactivate
+```
+
+While ARCHIVED: takes no student, no `class_staff` row, no `serving_records`
+row. Stops being offered as a destination in every class picker, except as the
+current class of a child who is already in it — so the interface never
+misreports that child as unassigned.
+
+**Terminal states:** none.
+
+### Guardian link
+
+```
+   LINKED  ──── revoke (reason REQUIRED, Super Admin) ────►  (row deleted)
+```
+
+The link row is the only thing removed. The Parent account, the child and all
+meal history survive. The link can be made again at any time — this is the one
+lifecycle in the product that IS a row deletion, and it is safe precisely
+because the row carries no history of its own.
+
+### Password
+
+```
+   issued at creation ──► administrator issues a replacement ──► ...
+                     └──► the person changes it themselves ────► ...
+```
+
+At no point is any value readable. There is no "forgot password" email path.
+An audit row records each administrative issuance, never a value.

@@ -667,3 +667,79 @@ Confirmed security facts are:
 All unapproved technical security details remain:
 
 `NOT_YET_DEFINED`
+
+---
+
+## Lifecycle, Credentials and Audit (added 2026-08-23)
+
+### Deactivation is an identity fact, not a hidden row
+
+An account carries `app_users.active`. When it is false, the three identity
+helpers every RLS policy in the schema is built on — `app_current_role()`,
+`app_current_institution_id()`, `app_current_kitchen_id()` — resolve to NULL.
+The seven predicate helpers that read `app_users` directly carry the same
+condition. The effect is that a token issued a moment before the change reads
+nothing and writes nothing from the next statement onward: the account cannot
+even see its own `app_users` row.
+
+The Supabase Auth account is banned in the same action, so ordinarily no such
+token is ever issued. **That ban is defence in depth. RLS is the boundary.**
+The application recognises a settled session with no profile and shows a
+closed-account screen rather than an empty portal.
+
+Deactivation also ends the person's current `class_staff` assignments.
+Reactivation restores their role scope and **does not** restore those
+assignments — an assignment is a present-tense fact about who covers a
+classroom, and resurrecting it silently would put somebody back in a room
+nobody decided to put them in.
+
+### Passwords
+
+- **No password value is retrievable by anybody.** Supabase stores a bcrypt
+  hash; no path in this product reads, returns, echoes or logs a password.
+- **Issuing a replacement** requires the service-role key and therefore runs
+  only inside the `admin-set-password` Edge Function, never in a browser. The
+  caller's own JWT decides what they may do there, mirroring
+  `app_may_manage_account()`.
+- **Changing your own** while signed in needs no privileged key and is
+  available to every role.
+- **The audit records that a password was issued** — by whom, for whom, why —
+  and never the value. The write has no column that could carry one.
+
+### What the audit log is
+
+`audit_log` records **administrative** changes: a child's details, a menu, an
+account's state, a guardian link, an institution or class being archived. Each
+row carries the actor, the moment, the previous value, the new value and,
+where the action requires one, the reason.
+
+It is **not** the operational history. Meals served, classroom observations,
+published notes and menu publications are records in their own right, in their
+own tables, and are not duplicated here.
+
+Actions written by the lifecycle functions: `user.deactivate`,
+`user.reactivate`, `user.profile_update`, `user.password_reset`,
+`institution.archive`, `institution.reactivate`, `class.archive`,
+`class.reactivate`, `guardian.revoke`.
+
+### Guardian revocation
+
+A Super Admin may end one Parent's access to one child, and **must give a
+reason** — this removes a person's sight of a child, which is never recorded
+anonymously. It deletes the `student_parents` row and nothing else, and takes
+effect immediately including for an open session, because that row was the
+entire basis of the access.
+
+### Refusals that protect the platform
+
+- Nobody may deactivate their own account.
+- The last active Super Admin may not be deactivated.
+- An Institution may not be archived while it has meal service published for
+  today or any future date.
+- A Class may not be archived while students or staff are still assigned to it.
+
+Each refusal is surfaced to the operator verbatim. **The interface never
+substitutes a weaker action for the one that was refused.**
+
+All of the above is asserted in `tests/sql/verify_lifecycle_security.sql` and
+driven through a real browser in `tests/e2e/lifecycle.spec.ts`.

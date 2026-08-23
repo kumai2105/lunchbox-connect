@@ -654,6 +654,193 @@ result, and it clears the standing linter ERROR).
 
 ---
 
+## Decision 037 — Core records are DEACTIVATED or ARCHIVED, never destroyed
+
+**Decided:** 2026-08-23 (core operability closure) · **Status:** ACTIVE
+
+The spec said in several places that Institutions are "archived, never
+destroyed, because students, classes, meal services and serving records all
+reference them". It was written down and then not implemented: `institutions`
+had four columns — id, name, kind, created_at — and no state to archive into.
+The same was true of accounts and classes. The result was a product where the
+only lifecycle available was "leave it there forever", and the only way to
+correct anything was a database edit.
+
+**Rule.** For every core entity that anything historical references — user
+accounts, Institutions, Classes — the platform offers exactly two lifecycle
+actions, and the Super Admin chooses between them explicitly:
+
+* **Deactivate / Archive** — the record stops operating. It is refused all NEW
+  activity. Everything already recorded about it is preserved and stays
+  readable.
+* **Reactivate** — it operates again, with the scope its role or type gives it
+  and nothing more.
+
+**There is no permanent delete, and the absence is not an omission.** An
+account is named as the actor on audit rows and as the recorder on classroom
+observations. An Institution owns the record of meals actually served to
+children. A Class is what those meals were recorded against. Destroying any of
+them would either destroy that history or leave it pointing at nothing.
+
+**The interface must not silently substitute one action for another.** If an
+operator asks for something the database refuses — archiving an Institution
+that still has meal service published for today or later, archiving a Class
+that still holds students or staff — the refusal is shown verbatim, with its
+reason, and the action they asked for is not quietly downgraded into a weaker
+one behind their back.
+
+**Deactivation is enforced at the identity layer, not by hiding rows.**
+`app_current_role()`, `app_current_institution_id()` and
+`app_current_kitchen_id()` resolve to NULL for an inactive account, and every
+RLS policy in the schema is built on them — so a token issued a moment before
+the change reads nothing and writes nothing from the next statement onward.
+The Supabase Auth account is banned in the same action, so ordinarily no such
+token is ever issued; the ban is defence in depth, and RLS is the boundary.
+
+**Two refusals protect the platform from itself:** nobody may deactivate their
+own account, and the last active Super Admin may not be deactivated.
+
+**Implemented by:** migration `0044`; the `admin-set-active` Edge Function;
+asserted in `tests/sql/verify_lifecycle_security.sql` (a1–a10, c1–c4, i1–i5)
+and driven through a browser in `tests/e2e/lifecycle.spec.ts`.
+
+---
+
+## Decision 038 — Email is an authentication identity, not a profile field
+
+**Decided:** 2026-08-23 (core operability closure) · **Status:** ACTIVE
+
+A person's email lives in two places: Supabase Auth holds the credential, and
+`app_users.email` holds the copy every screen displays. A change is only
+correct if both move together, with confirmation of the new address.
+
+**Rule.** Until that synchronised workflow exists, email is **immutable** in
+the product. `update_user_profile()` accepts a name and a phone number and
+nothing else — it does not take an email argument at all, so there is no path
+through it that could desynchronise the two copies. The interface shows the
+email as a disabled field with the reason stated, rather than hiding it or
+offering an edit that would half-work. To move somebody to a new address,
+create their correctly-addressed account and deactivate the old one.
+
+**Role and institution are immutable for the same class of reason,** though a
+different one: they decide what an existing token is allowed to read. Changing
+them in place gives a live session a reach it was not issued for.
+
+**Implemented by:** migration `0044` (`update_user_profile`); asserted in
+`verify_lifecycle_security.sql` a10, which fails if the function ever grows an
+email argument.
+
+---
+
+## Decision 039 — An existing password is never retrievable; a signed-in person may change their own
+
+**Decided:** 2026-08-23 (core operability closure) · **Status:** ACTIVE
+
+Accounts are administrator-issued: there is no invitation email and no
+"forgot password" reset. That decision stands. What did not follow from it,
+and was wrong, is that nobody could ever change a password afterwards — every
+account was stuck on whatever an administrator first typed, and the interface
+told administrators to keep a written record of it.
+
+**Rule, in three parts.**
+
+1. **An existing password cannot be looked up, by anybody.** Supabase stores a
+   bcrypt hash. No path in this product retrieves, returns, echoes or logs a
+   password value. The interface says this outright where an administrator
+   might otherwise go looking.
+
+2. **An administrator may ISSUE a replacement.** A Super Admin for any account;
+   an Institution Admin only for their own classroom staff — the same rule as
+   every other account action, `app_may_manage_account()`. This requires the
+   service-role key, so it runs in the `admin-set-password` Edge Function and
+   never in a browser. The audit records **that** a password was issued, by
+   whom, for whom and why. It never records the value, and there is no column
+   in the write that could carry one by accident.
+
+3. **A signed-in person may change their own,** every role including Parents,
+   from their own account screen. This is not a self-service reset — they have
+   already proved who they are by holding a session — so it needs no privileged
+   key and grants authority over nobody else.
+
+**Implemented by:** the `admin-set-password` Edge Function, `changeMyPassword`
+over the caller's own Supabase Auth session, and the `account` RBAC resource;
+proven end to end in `tests/e2e/lifecycle.spec.ts`, including that the audit
+row contains neither the old nor the new value.
+
+---
+
+## Decision 040 — A role is offered for provisioning only when it has a screen
+
+**Decided:** 2026-08-23 (core operability closure) · **Status:** ACTIVE
+
+Nine role domains are approved and all nine remain in the database enum, in the
+RBAC matrix and in this spec pack. Four of them — Operations Manager, Finance /
+Owner, Viewer and Driver — have no built screen between them: every page in
+their navigation is a shell that says the module is not available.
+
+**Rule.** The account-creation role picker offers only roles with at least one
+real page, **derived from the navigation rather than listed by hand**. Creating
+an account in a role whose entire product is a placeholder hands somebody a
+working sign-in that leads nowhere. When one of those modules is built, its nav
+entry loses `shell: true` and the role reappears in the picker on its own.
+
+The same reasoning removed the three shell entries from the **Institution
+Admin** sidebar. A customer's own administrator should see the product they
+have, not three promises. The Super Admin keeps its shell entries: LunchBox
+Connect operating the platform is the one audience that benefits from seeing
+what is planned and unbuilt.
+
+**Implemented by:** `provisionableRoles()` in `src/lib/roles.ts`; asserted in
+`src/lib/authorization.consistency.test.ts` and
+`tests/e2e/login.roles.spec.ts`.
+
+---
+
+## Decision 041 — Guardian access is ended by a Super Admin, with a reason
+
+**Decided:** 2026-08-23 (core operability closure) · **Status:** ACTIVE ·
+**Supersedes the "unlink is NOT_YET_DEFINED" position**
+
+Ending one Parent's access to one child had no implementation, and the RBAC
+matrix advertised a `delete` on `guardians` that nothing served.
+
+**Rule.** A **Super Admin** may revoke a guardian link, and **a reason is
+required** — this removes a person's sight of a child, which is never recorded
+anonymously. The revocation removes the single `student_parents` row and
+nothing else: the Parent account survives (they may be guardian to other
+children), the child survives, and every observation, note and meal record
+stays exactly as it is. It takes effect immediately, including for a session
+the Parent already has open, because their access was only ever that row.
+
+An **Institution Admin** keeps read-only visibility of the links their
+children already have. Who at a nursery may end a guardian relationship, and on
+whose authority, remains **NOT_YET_DEFINED** and is not invented.
+
+**Implemented by:** migration `0044` (`revoke_guardian_access`); asserted in
+`verify_lifecycle_security.sql` g1–g5.
+
+---
+
+## Decision 042 — Editing a Meal's sittings is not a new recipe
+
+**Decided:** 2026-08-23 (core operability closure) · **Status:** ACTIVE
+
+`save_meal()` appended a `meal_revisions` row on every call. Tagging an
+existing Meal for an extra Meal Period therefore minted a revision identical to
+the one before it, which pollutes the revision history that analytics and
+historical immutability both depend on.
+
+**Rule.** A revision is appended only when the CONTENT actually changed — name,
+ingredients, allergens, nutrition, portion, image, nutrition status. Changing
+only which sittings a Meal is suitable for updates the tags and appends
+nothing. The Meal keeps one identity across both kinds of edit.
+
+**Implemented by:** migration `0045`; asserted in
+`tests/sql/verify_meal_period_tags.sql` t3, which proves both halves — a
+tag-only edit adds no revision, and a content edit still does.
+
+---
+
 ## Change-Control Rule
 
 When the user explicitly changes an active decision:

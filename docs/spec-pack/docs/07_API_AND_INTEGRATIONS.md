@@ -1194,3 +1194,49 @@ All exact API design choices and external provider decisions remain:
 `NOT_YET_DEFINED`
 
 This document does not authorize Claude Code to invent permanent API architecture or third-party integrations.
+
+---
+
+## Lifecycle Functions and Privileged Endpoints (added 2026-08-23)
+
+### Database functions (`security definer`, executable by `authenticated`)
+
+| function | authority | refuses |
+|---|---|---|
+| `set_user_active(p_user, p_active, p_reason)` | `app_may_manage_account()` | deactivating yourself; deactivating the last active Super Admin |
+| `update_user_profile(p_user, p_full_name, p_phone)` | your own row while active, or `app_may_manage_account()` | an empty name; a deactivated caller; another person's row |
+| `set_institution_active(p_inst, p_active, p_reason)` | Super Admin only | archiving over meal service published for today or later |
+| `set_class_active(p_class, p_active, p_reason)` | `app_can_manage_institution()` of the class's institution | archiving while students or staff remain |
+| `revoke_guardian_access(p_student, p_user, p_reason)` | Super Admin only | a missing reason; a link that does not exist |
+
+Each writes its own `audit_log` row inside the same transaction as the change
+it describes. `update_user_profile` deliberately takes **no email argument**
+(Decision 038).
+
+### Edge Functions
+
+All three hold the service-role key inside the Deno environment and **never**
+expose it to a browser.
+
+| function | what it does | how it authorises |
+|---|---|---|
+| `admin-create-user` | creates the Auth user and the `app_users` row atomically | reads the caller's JWT; Super Admin any role, Institution Admin only `classroom_staff` of their own institution |
+| `admin-set-password` | `auth.admin.updateUserById({ password })`, then an audit row recording that it happened | same rule, re-expressed; refuses a deactivated caller |
+| `admin-set-active` | calls `set_user_active` **with the caller's own JWT**, then bans or unbans the Auth account | the DATABASE decides; the function only adds the Auth half |
+
+`admin-set-active` is the pattern to follow for any future privileged action:
+the authorization decision, the audit row and the transactional cleanup all
+stay in the database, where they are tested. Re-deciding the rule in TypeScript
+would create a second, weaker copy that could drift from the real one.
+
+A non-2xx from any of them carries the human-readable refusal in the RESPONSE
+BODY. supabase-js reports only "Edge Function returned a non-2xx status code"
+in `error.message`, so the client reads the body (`invokeFunction` in
+`src/lib/api.ts`) or every server-side refusal reaches the operator as that one
+useless sentence.
+
+### Client self-service
+
+Changing your own password is `supabase.auth.updateUser({ password })` on the
+caller's own session. No privileged key, no Edge Function, available to every
+role.

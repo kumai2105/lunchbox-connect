@@ -887,3 +887,27 @@ The product must:
 This document defines what the MVP must accomplish.
 
 It does not authorize Claude Code to invent how undefined requirements should work.
+
+---
+
+## Operability Requirements Closed 2026-08-23
+
+The platform previously had no way, inside the product, to end anything. These
+are now requirements met rather than gaps:
+
+- an account can be **deactivated and reactivated**, with a reason, and cannot
+  be deleted;
+- an Institution and a Class can be **archived and reactivated**, with a
+  reason, and cannot be deleted;
+- a person's **name and phone** can be corrected, by them or by whoever
+  administers their account;
+- a **password can be issued** by an administrator and **changed by its owner**
+  while signed in;
+- a **guardian relationship can be ended** by a Super Admin, with a reason;
+- a **child's own details** can be corrected where the child is.
+
+Requirements explicitly NOT met, and deliberately so: changing an email
+address (it is an authentication identity and the synchronised workflow does
+not exist — Decision 038), changing a role in place (it would give a live
+session a reach it was not issued for), and self-service password reset by
+email (accounts are administrator-issued by decision).

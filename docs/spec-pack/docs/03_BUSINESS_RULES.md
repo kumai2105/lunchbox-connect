@@ -948,3 +948,51 @@ The confirmed rules are:
 This file contains business rules only.
 
 It does not authorize Claude Code to invent missing operational policy.
+
+---
+
+## Lifecycle Rules (added 2026-08-23)
+
+**R-L1. Nothing operational is destroyed.** Accounts, Institutions and Classes
+are deactivated or archived. There is no permanent delete for any of them,
+because each is referenced by the record of meals actually served to children.
+
+**R-L2. The operator chooses the action; the database decides whether it is
+allowed.** Deactivation is never automatic and is never silently substituted
+for a delete the operator asked for. When the database refuses, the refusal and
+its reason are shown as written, and the weaker action is offered rather than
+performed.
+
+**R-L3. An archived Institution takes nothing new.** No class, no student, no
+service-plan or rotation change, no calendar exception, no publication, no
+classroom recording. Everything it already owns stays readable.
+
+**R-L4. An Institution with meal service published for today or any future date
+cannot be archived.** That is a commitment the kitchen and the classrooms are
+already working to. Resolve it first.
+
+**R-L5. An archived Class takes no student, no staff assignment and no meal
+record,** and cannot be archived while it still holds either students or staff.
+A closed class holding a roster is a lie.
+
+**R-L6. Deactivation ends current class assignments; reactivation does not
+restore them.** An assignment is a present-tense fact about who covers a
+classroom.
+
+**R-L7. The last active Super Admin cannot be deactivated, and nobody may
+deactivate themselves.**
+
+**R-L8. Ending a guardian relationship requires a reason,** and removes only
+that link.
+
+**R-L9. Archiving a Meal removes it from future menu building only.** Menus
+that already use it keep it, days already published keep it, and every record
+of a child eating it keeps the recipe it had on the day.
+
+**R-L10. Archiving a Menu closes it for editing and assignment only.** Days
+already published from it are dated meal services in their own right and are
+unaffected.
+
+**R-L11. Changing only a Meal's sittings is not a new revision.** A revision is
+appended when the content changes; the Meal keeps one identity across both
+kinds of edit.

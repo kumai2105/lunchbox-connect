@@ -144,51 +144,163 @@ expects.
 ## Not on this list, on purpose
 
 These remain `NOT_YET_DEFINED` in the specification and are deliberately not
-implemented. They are not missing work; they are decisions not yet taken:
-guardian unlink semantics, the structured allergy/dietary model, retention and
-archival policy, Packing/Dispatch/Delivery, multi-kitchen routing, cross-
-institution student transfer, per-institution timezones, meal-performance
-classification thresholds.
+implemented. They are not missing work; they are decisions not yet taken: the
+structured allergy/dietary model, Packing/Dispatch/Delivery, multi-kitchen
+routing, cross-institution student transfer, per-institution timezones,
+meal-performance classification thresholds, and who at a nursery (as opposed to
+a Super Admin) may end a guardian relationship.
+
+Two things that used to be on this list are now built and are described below:
+**ending a guardian relationship** and **the whole account, institution and
+class lifecycle**.
 
 ## Accounts and passwords
 
 Accounts in this platform are **administrator-issued**. This is a product
 decision, not a gap: no invitation email is sent, nobody self-registers, and
-there is no self-service password reset.
+there is **no "forgot password" link**. What has changed is what happens
+afterwards — a password is no longer frozen at whatever you first typed.
 
-**Creating an account.** Three screens create accounts, all through the same
-server-side path (`admin-create-user`), and all three ask you to type the
-password yourself:
+### Creating an account
+
+Three screens create accounts, all through the same server-side path
+(`admin-create-user`), and all three ask you to type the password yourself:
 
 | Screen               | Who it creates                             | Where            |
 | -------------------- | ------------------------------------------ | ---------------- |
-| Users                | any role, any institution                  | Super Admin only |
+| Users                | any offered role, any institution          | Super Admin only |
 | Institution → Invite | Classroom Staff scoped to that institution | Super Admin      |
 | Staff                | Classroom Staff in your own institution    | Nursery Admin    |
 
 The password must be at least 8 characters; Create stays disabled until it is.
-The account works the moment it is created — the person signs in with their
-email address and the password you set. Give it to them over a channel you
-trust.
+Every password box has a **Show** control, so you can read back what you typed
+before you send it. The account works the moment it is created — the person
+signs in with their email address and the password you set. Give it to them
+over a channel you trust.
 
-**Keep a record of what you set.** There is no screen in the application where
-anyone — the account holder, a Nursery Admin, or you — can change a password.
-The password you type at creation is that person's password until an
-administrator issues a different one.
+**The role list is shorter than the nine roles in the spec, on purpose.** It
+offers Super Admin, Institution Admin, Parent, Classroom staff and Kitchen —
+the roles that have a screen behind them. Operations Manager, Finance / Owner,
+Viewer and Driver are withheld while their modules are unbuilt, because
+creating one of those accounts would hand somebody a working sign-in that leads
+to a page saying "not available yet". Each returns to the list on the day its
+module ships.
 
-**Issuing a new password.** When someone forgets theirs, it is done in the
-Supabase dashboard, not in the application:
+### Issuing a new password
 
-1. Supabase → project `llnofriwvnerntrbpehc` → **Authentication** → **Users**
-2. Find the account by email address
-3. Set a new password
-4. Tell the person, over a channel you trust
+**In the application, on the Users screen.** Find the person, click **Set
+password**, type a new one and (optionally) a reason. That is all — you no
+longer need the Supabase dashboard for this.
 
-Tell each institution this at onboarding, so their staff know that a forgotten
-password goes to their administrator and not to a "forgot password" link that
-does not exist.
+**You cannot look up their existing password, and neither can anyone else.**
+The platform stores a one-way hash of it, not the password. If somebody has
+forgotten theirs, you issue a replacement; there is nothing to retrieve. There
+is no need to keep a written record of passwords you set, and you should not:
+the person can change it themselves the moment they are signed in.
 
-**If this model should change**, the two pieces that would replace it are a
-"Forgot password?" link on the sign-in screen (which needs email sending
-configured on the domain first) and a "Change password" control for a signed-in
-user (which needs no email at all). Neither is built today.
+The audit log records **that** you issued a password, for whom, and the reason
+you gave. It never records the password.
+
+A **Nursery Admin** can do this too, for their own Classroom Staff and for
+nobody else.
+
+### Changing your own password
+
+Everyone — you, a nursery manager, a teacher, a kitchen user, a parent — can
+change their own password from their own account screen, reached by clicking
+their name at the bottom of the sidebar (in the Parent app, from Profile). They
+do not need their old password, because they are already signed in.
+
+Tell each institution this at onboarding: a forgotten password goes to their
+administrator, and everyone can change their own once they are in.
+
+## Ending things: accounts, institutions and classes
+
+Nothing in this platform is deleted. Everything is **deactivated** or
+**archived**, and can be brought back. That is not caution — an account is
+named as the actor on audit entries and as the recorder on classroom
+observations, an institution owns the record of meals actually served to
+children, and a class is what those meals were recorded against. Deleting any
+of them would destroy that record or leave it pointing at nothing.
+
+You choose the action. The platform decides whether it is allowed, and when it
+refuses it tells you why in words, and does **not** quietly do something weaker
+instead.
+
+### Deactivating a person — Users screen
+
+They stop being able to sign in, and any session they already have open stops
+reading and writing immediately. Their current class assignments end. Nothing
+is deleted, and you can reactivate them at any time.
+
+**Reactivating does not put them back in their old classrooms.** Assign them
+again if that is still right — nobody should be returned to a room without
+somebody deciding it.
+
+Two things you cannot do, and the screen will say so: **deactivate yourself**,
+and **deactivate the last active Super Admin**.
+
+A Nursery Admin can deactivate their own Classroom Staff. Nobody else's.
+
+### Archiving an institution — Institution detail screen
+
+It stops operating: no new classes or students, no schedule or calendar
+changes, no publishing, no classroom recording. Everything it has ever recorded
+stays exactly where it is and stays readable.
+
+**It is refused while that institution has meal service published for today or
+any future date.** That is a commitment the kitchen and its classrooms are
+already working to. Resolve the window first.
+
+### Archiving a class — Classes screen
+
+**It must be empty first.** If students or staff are still assigned, archiving
+is refused and says so — move them to another class rather than leaving a
+closed class holding a roster. Once archived it takes no student, no staff and
+no meal record, and it stops appearing anywhere you might put a child.
+
+### Ending a guardian relationship — Parents / guardians screen
+
+**End access** removes one parent's sight of one child, at once, including for
+a session they have open. **A reason is required** — this is not something that
+should ever be recorded anonymously.
+
+It removes the link and nothing else. Their account survives (they may be
+guardian to another child), the child survives, and every meal record survives.
+You can link them again at any time.
+
+Only you can do this. Whether a nursery should be able to, and on whose
+authority, is a decision that has not been taken.
+
+### Correcting details
+
+- **A person's name or phone** — Users → Edit, or from their own account
+  screen.
+- **A child's name, ID or grade** — the child's profile → Edit details.
+- **An institution's name or type** — Institution detail → Edit institution.
+
+**An email address cannot be changed anywhere.** It is what the person signs in
+with, and it is held both by the sign-in service and in their profile; a change
+is only correct if both move together with the new address confirmed, and that
+workflow does not exist yet. To move somebody to a new address, create their
+new account and deactivate the old one.
+
+**A role cannot be changed in place either.** A role decides what an account is
+allowed to read, and rewriting it would give a session already in someone's
+browser a reach it was never issued for. Create a correctly-scoped account and
+deactivate the old one.
+
+### Archiving a meal or a menu
+
+Both are on their own screens, both confirm first, and they do different
+things:
+
+- **Archiving a Meal** takes it out of menu building. Menus that already use it
+  keep it, days already published keep it, and every record of a child eating
+  it keeps the recipe it had on the day.
+- **Archiving a Menu** closes it for editing and stops it being assigned to an
+  institution. Days already published from it are unaffected — publishing makes
+  a dated meal service in its own right, which does not read back from the
+  menu.
+
+Neither is a delete; both restore.

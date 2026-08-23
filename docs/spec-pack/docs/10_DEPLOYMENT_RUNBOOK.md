@@ -579,3 +579,45 @@ The technical architecture, environment model, commands, providers, credentials,
 until explicitly approved.
 
 Once they are defined, this runbook must be updated before production release.
+
+---
+
+## Edge Functions In The Go-Live Sequence (updated 2026-08-23)
+
+Three Edge Functions must be deployed alongside the schema, or the actions
+that depend on them fail in the browser with a 404 that looks like a product
+bug:
+
+```
+pnpm functions:deploy
+```
+
+which is `supabase functions deploy admin-create-user && supabase functions
+deploy admin-set-password && supabase functions deploy admin-set-active`.
+
+Each needs `SUPABASE_SERVICE_ROLE_KEY` set as a function secret
+(`supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...`). That key is a full
+bypass of every RLS policy in the project and must exist **only** in the Deno
+environment — never in the frontend build, never in a repository variable that
+reaches a bundle.
+
+| Function | Breaks if not deployed |
+|---|---|
+| `admin-create-user` | no account can be created from any screen |
+| `admin-set-password` | an administrator cannot issue a replacement password |
+| `admin-set-active` | no account can be deactivated or reactivated |
+
+Changing your own password needs none of them — it goes through Supabase Auth
+on the caller's own session.
+
+## Schema-before-frontend, and why it is not negotiable
+
+The frontend deploy workflow refuses to run until `BACKEND_READY_MIGRATION`
+attests the highest migration applied to production. That gate exists because
+the frontend reads columns and calls functions that a lagging backend does not
+have, and the failure is **silent and wrong** rather than loud: a missing
+`active` column reads back as `undefined`, which is falsy, so every account
+would render as "Deactivated" and every institution as "Archived" on a live
+site.
+
+Order, always: **migrations → Edge Functions → frontend.**

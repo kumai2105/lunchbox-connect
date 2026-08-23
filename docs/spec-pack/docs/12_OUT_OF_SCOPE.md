@@ -414,3 +414,29 @@ Excluded means:
 `OUT_OF_SCOPE`
 
 Neither means permission to invent.
+
+---
+
+## Still Out Of Scope After The 2026-08-23 Lifecycle Closure
+
+Closing the lifecycle gaps did not widen the MVP. These remain out:
+
+- **Permanent deletion of any core record.** Not deferred — refused by design
+  (Decision 037). Accounts, Institutions and Classes are deactivated or
+  archived; the record of meals served to children depends on all three
+  continuing to exist.
+- **Changing an email address.** Requires a synchronised Auth + profile change
+  with confirmation of the new address; not built (Decision 038).
+- **Changing a role or institution in place.** Would give a live session a
+  reach it was not issued for; the supported path is a new account plus a
+  deactivation.
+- **Self-service password reset by email.** Accounts are administrator-issued
+  by decision, and no email sending is configured on the domain. A signed-in
+  person changing their own password is a different thing, and that IS built.
+- **Nursery-side guardian revocation.** Who at an institution may end a
+  guardian relationship, and on whose authority, remains `NOT_YET_DEFINED`
+  (Decision 041). A Super Admin can do it.
+- **Retention and purge policy.** How long archived records are kept, and
+  whether anything is ever removed, is not decided. Archive is not retention.
+- **Packing, Dispatch, Delivery, structured Allergy/Dietary, Parent chat, AI
+  and procurement** — unchanged, still out.

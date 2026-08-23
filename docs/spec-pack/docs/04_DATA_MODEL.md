@@ -1842,3 +1842,58 @@ production demand.
 
 Quantity-stage fields beyond expected demand remain `NOT_YET_DEFINED` pending the
 approved production and delivery state machines.
+
+---
+
+## Lifecycle State (added 2026-08-23, migration 0044)
+
+Three tables gained an explicit lifecycle state. In every case the pattern is
+the same — a boolean, a timestamp, an actor, and a reason — and in every case
+the record is **never deleted**, because operational history references it.
+
+### `app_users`
+
+| column | type | meaning |
+|---|---|---|
+| `active` | `boolean not null default true` | False = the person cannot act. Every identity helper resolves to NULL for them, so RLS refuses an already-issued token. |
+| `deactivated_at` | `timestamptz` | When. |
+| `deactivated_by` | `uuid → app_users(user_id)` | Who did it. `on delete set null`. |
+| `deactivated_reason` | `text` | Why, as typed by the administrator. |
+
+Indexed as `app_users_active_idx`.
+
+### `institutions`
+
+| column | type | meaning |
+|---|---|---|
+| `active` | `boolean not null default true` | False = the customer relationship is not operating. No new configuration, publication or classroom activity. Everything already recorded is preserved and readable. |
+| `archived_at` | `timestamptz` | When. |
+| `archived_by` | `uuid → app_users(user_id)` | Who. |
+| `archived_reason` | `text` | Why. |
+
+### `classes`
+
+Same four columns, with `active` meaning the Class takes no student, no staff
+assignment and no new meal record.
+
+### Guard triggers
+
+`app_guard_active_institution()` fires before insert/update on `classes`,
+`students`, `meal_services`, `institution_service_plans`,
+`institution_rotation_assignments` and `calendar_exceptions`.
+`app_guard_active_class()` fires on `students`, `class_staff` and
+`serving_records`. They enforce the archived state at the table, not only in
+the functions that normally write it.
+
+### `meal_periods` (migration 0043)
+
+| column | type | meaning |
+|---|---|---|
+| `meal_id` | `uuid → meals(id) on delete cascade` | |
+| `period` | `app_period` | breakfast · snack (morning) · lunch · afternoon_snack |
+
+Primary key `(meal_id, period)`, with an index on `(period, meal_id)` for the
+Menu Builder's "meals suitable for this sitting" read. A Meal may carry several
+sittings; it is never duplicated to appear in more than one. Tags guide
+authoring and never block a slot — the Menu Builder offers a deliberate "show
+all meals" override.

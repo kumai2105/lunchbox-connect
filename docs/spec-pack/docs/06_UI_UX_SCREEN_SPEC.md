@@ -1555,3 +1555,92 @@ Confirmed interface principles are:
 This document defines the confirmed UI / UX scope only.
 
 It does not authorize Claude Code to invent unapproved screens, actions, navigation, visual design, or business behavior.
+
+---
+
+## Lifecycle and Account Screens (added 2026-08-23)
+
+### Users & roles (`/users`)
+
+Each row shows the person, their role in readable form, their scope and their
+**state** (Active / Deactivated, with the reason beneath when deactivated).
+Deactivated rows stay visible but visibly out of play, behind a "Show
+deactivated accounts (n)" toggle — a deactivated account is still real
+information, and fading it to illegibility would be a worse lie than hiding it.
+
+Three per-row actions, shown only for accounts the signed-in person may manage:
+
+- **Edit** — full name and phone. Email is rendered **disabled** with the
+  reason stated, not hidden. Role and scope carry the same explanation.
+- **Set password** — states outright that the current one cannot be looked up,
+  takes a new one and an optional reason, and warns that the audit records the
+  fact and never the value.
+- **Deactivate / Reactivate** — states the consequence before it happens
+  (deactivate: cannot sign in, an open session stops reading immediately, class
+  assignments end, **nothing is deleted**; reactivate: signs in again, class
+  assignments are **not** restored) and takes an optional reason. A database
+  refusal is shown in the dialog, which stays open.
+
+The role picker offers only roles with a built screen (Decision 040). Every
+password field carries a Show / Hide control — an administrator types a
+password here and then has to read it back to somebody.
+
+### Your account (`/account`, and the Parent portal's Profile)
+
+One screen per person, reachable by clicking your own name in the sidebar
+footer. Shows email, role and scope as facts; lets you change your name, phone
+and **password**. States that a signed-in change needs no old password, and
+that a forgotten password means asking an administrator, because there is no
+email reset.
+
+### This account is not active
+
+A settled session with no profile — deactivated, or never provisioned — reaches
+one screen for the whole product, saying so plainly and offering Sign out.
+Previously both cases fell through to an empty Parent portal.
+
+### Institution detail (`/institutions/:id`)
+
+The Institution record card carries a **State** row (Operating / Archived, with
+the reason) and, for a Super Admin, an **Archive / Reactivate** action. The
+archive dialog states what stops and what is preserved, states that there is no
+permanent delete and why, and names the published-service condition that can
+refuse it. An archived Institution shows a standing banner at the top of its
+own page. The "← All institutions" action appears only for a Super Admin.
+
+### Classes (`/classes`)
+
+An **Archive / Reactivate** action per row, with a "Show archived classes (n)"
+toggle. Archived rows are muted and lose their Manage staff and Open Today
+actions. For any role that is not a Super Admin the page is implicitly scoped
+to their own institution: no institution filter, no "← All institutions", no
+institution column, and the create dialog states which institution the class
+will belong to rather than asking.
+
+### Students (`/students`, `/students/:id`)
+
+Same implicit scoping. The class filter and every class picker exclude archived
+classes — except the child's own current class, which stays listed with
+"(archived)" so the control never misreports them as unassigned. The Student
+profile gains **Edit details**: given name, family name, student number
+(clearable — optional in the canonical model) and grade.
+
+### Parents / guardians (`/guardians`)
+
+A Super Admin gains **End access** per link. The dialog names the person and
+the child, states that it takes effect at once including for an open session,
+states that nothing else is touched, and **requires a reason** — the confirm
+button is disabled until one is typed.
+
+### Meal Library and Menu Builder
+
+Archive and Restore now confirm, and each explains its own consequence: an
+archived Meal leaves future menu building while every menu and meal already
+served keeps it; an archived Menu closes for editing and assignment while every
+day already published carries on.
+
+### Audit (`/audit`)
+
+Names the actor rather than a UUID fragment, translates the action, shows the
+reason, and states plainly what the log is and is not — including that a
+password reset appears as the fact that it happened, never as a value.
