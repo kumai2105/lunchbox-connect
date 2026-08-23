@@ -241,11 +241,16 @@ export default function StaffPage() {
         <Card bodyClassName="filters">
           <select value={institutionId} onChange={(e) => setInstitutionId(e.target.value)}>
             <option value="">Select an institution…</option>
-            {institutions.map((i) => (
-              <option key={i.id} value={i.id}>
-                {i.name}
-              </option>
-            ))}
+            {/* An archived institution takes on no new people — migration 0046
+                refuses the write even from the service role the Edge Function
+                uses. Listing it here would offer a refusal. */}
+            {institutions
+              .filter((i) => i.active)
+              .map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.name}
+                </option>
+              ))}
           </select>
         </Card>
       )}

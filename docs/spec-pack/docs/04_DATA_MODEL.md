@@ -1885,6 +1885,15 @@ assignment and no new meal record.
 `serving_records`. They enforce the archived state at the table, not only in
 the functions that normally write it.
 
+`app_guard_active_institution_for_account()` (migration 0046) fires on
+`app_users` and refuses pointing an account AT an archived Institution. It has
+to be a trigger rather than a policy: accounts are written by the
+`admin-create-user` Edge Function under the **service role**, which bypasses
+every policy in the project. It deliberately does not block anything about an
+account that already belongs there — deactivating them, correcting their name,
+or moving them out — because an archived Institution's staff are exactly the
+people an administrator still needs to tidy up.
+
 ### `meal_periods` (migration 0043)
 
 | column    | type                                 | meaning                                               |

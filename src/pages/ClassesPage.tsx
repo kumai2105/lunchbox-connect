@@ -370,11 +370,15 @@ export default function ClassesPage() {
                   disabled={Boolean(institutionFilter)}
                 >
                   <option value="">Select…</option>
-                  {institutions.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.name}
-                    </option>
-                  ))}
+                  {/* An archived institution gains no classes; the database
+                      refuses the insert, so it is not offered. */}
+                  {institutions
+                    .filter((i) => i.active)
+                    .map((i) => (
+                      <option key={i.id} value={i.id}>
+                        {i.name}
+                      </option>
+                    ))}
                 </select>
               </Field>
             ) : (

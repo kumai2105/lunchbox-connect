@@ -736,6 +736,10 @@ entire basis of the access.
 - The last active Super Admin may not be deactivated.
 - An Institution may not be archived while it has meal service published for
   today or any future date.
+- An archived Institution may not be given a new staff account. This one is a
+  **trigger, not a policy**, because the writer — the `admin-create-user` Edge
+  Function — holds the service role and bypasses RLS. It is the one write in
+  the product where a policy would have been the wrong instrument.
 - A Class may not be archived while students or staff are still assigned to it.
 
 Each refusal is surfaced to the operator verbatim. **The interface never

@@ -8,7 +8,7 @@ Legend: ✅ built · ⬜ honest shell (BLOCKED_BY_SPEC) · ⬣ claimed-with-caut
 
 **Live in production:** frontend `2793a90c`, database at migration `0042`.
 
-**PENDING, not deployed:** migrations `0043`–`0045` and the frontend that
+**PENDING, not deployed:** migrations `0043`–`0046` and the frontend that
 depends on them (the lifecycle closure of 2026-08-23). The order is
 **migrations → Edge Functions → frontend**, and the frontend must not go first:
 `app_users.active` and `institutions.active` do not exist at `0042`, and their
@@ -85,7 +85,7 @@ README only. The full spec pack introduced corrections:
 The stack is **approved** (A1–A3) and recorded in `docs/13` **Decision 034**:
 TypeScript · React 18 + Vite (SPA) · Supabase (PostgreSQL, Auth, Storage, Edge
 Functions) · Row Level Security as the boundary · Supabase CLI migrations
-(`0001`–`0045`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
+(`0001`–`0046`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
 Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
 `TECHNICAL_STACK = NOT_YET_DEFINED` statements are SUPERSEDED.
 
@@ -100,7 +100,7 @@ Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
   nav-link/route reachability check, the `account` resource every role holds
   over its own sign-in details, and the derivation that withholds a role from
   the account-creation picker while every screen in its navigation is a shell)
-- `./tests/sql/run_verification.sh` — **23 SQL suites** (278 assertions) on a
+- `./tests/sql/run_verification.sh` — **23 SQL suites** (280 assertions) on a
   throwaway PostgreSQL 16, incl. the 520-check authorization matrix, the
   raw-path DB-boundary suite (RPC-only writes, note-publish authority,
   tenant/eligibility triggers, meal-image storage visibility, meal-image

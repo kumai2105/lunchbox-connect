@@ -7,14 +7,14 @@ columns to hold.
 
 ## Release identity
 
-|                                    |                                                                               |
-| ---------------------------------- | ----------------------------------------------------------------------------- |
-| Branch                             | `claude/new-session-k5dd5u`                                                   |
-| Baseline this closure started from | `6f94b017db9f3388e0386c9f4318cc133625804b`                                    |
-| Migration ceiling in repo BEFORE   | `0043_meal_period_tags.sql`                                                   |
-| Migration ceiling in repo AFTER    | `0045_tag_only_edit_is_not_a_new_revision.sql`                                |
-| Migration ceiling in production    | **`0042`** — unchanged. `0043`, `0044` and `0045` are **PENDING**, see below. |
-| Production Supabase                | `llnofriwvnerntrbpehc`                                                        |
+|                                    |                                                                   |
+| ---------------------------------- | ----------------------------------------------------------------- |
+| Branch                             | `claude/new-session-k5dd5u`                                       |
+| Baseline this closure started from | `6f94b017db9f3388e0386c9f4318cc133625804b`                        |
+| Migration ceiling in repo BEFORE   | `0043_meal_period_tags.sql`                                       |
+| Migration ceiling in repo AFTER    | `0046_an_archived_institution_gains_no_people.sql`                |
+| Migration ceiling in production    | **`0042`** — unchanged. `0043`–`0046` are **PENDING**, see below. |
+| Production Supabase                | `llnofriwvnerntrbpehc`                                            |
 
 ## What was actually wrong
 
@@ -91,7 +91,7 @@ previous document.
 | Gate                 | Result                                                                                              |
 | -------------------- | --------------------------------------------------------------------------------------------------- |
 | Browser E2E          | **100 / 100** — 0 failed, 0 skipped, 0 flaky (run `RUN_PLACEHOLDER`, on `SHA_PLACEHOLDER`)          |
-| SQL suites           | **23 suites, 278 named assertions**, 0 failures, replayed from nothing on a throwaway PostgreSQL 16 |
+| SQL suites           | **23 suites, 280 named assertions**, 0 failures, replayed from nothing on a throwaway PostgreSQL 16 |
 | Authorization matrix | **520 checks**, all pass                                                                            |
 | Unit tests           | **125**, 13 files                                                                                   |
 | TypeScript           | app + node + e2e, all pass                                                                          |
@@ -99,7 +99,7 @@ previous document.
 | Production build     | pass                                                                                                |
 
 Suite growth this closure: 85 → 100 browser tests, 22 → 23 SQL suites,
-237 → 278 assertions, 122 → 125 unit tests.
+237 → 280 assertions, 122 → 125 unit tests.
 
 ### New this closure
 
@@ -119,7 +119,7 @@ Suite growth this closure: 85 → 100 browser tests, 22 → 23 SQL suites,
 
 ## PENDING — this release is NOT deployed, and deliberately so
 
-**Migrations `0043`, `0044` and `0045` have NOT been applied to production.**
+**Migrations `0043` through `0046` have NOT been applied to production.**
 The Supabase connector this session would need in order to apply them requires
 an interactive authorisation that a non-interactive session cannot perform.
 This is stated rather than worked around.
@@ -133,17 +133,18 @@ fail.
 
 ### The go-live sequence, in this order
 
-1. Apply `0043`, `0044`, `0045` to `llnofriwvnerntrbpehc`.
+1. Apply `0043`, `0044`, `0045`, `0046` to `llnofriwvnerntrbpehc`.
 2. Capture a recovery point first, as was done for `0042` in
    `docs/recovery/2026-08-22-pre-0042.md`. `0044` is additive (new nullable
-   columns, new functions, new triggers) and `0045` replaces `save_meal` — both
-   are reversible, but the point is to have checked rather than to assume.
+   columns, new functions, new triggers), `0045` replaces `save_meal` and
+   `0046` adds one trigger — all reversible, but the point is to have checked
+   rather than to assume.
 3. `pnpm functions:deploy` — **all three** Edge Functions
    (`admin-create-user`, `admin-set-password`, `admin-set-active`). Each needs
    `SUPABASE_SERVICE_ROLE_KEY` set as a function secret. Without
    `admin-set-active`, deactivation fails in the browser with a 404 that looks
    like a product bug.
-4. Set `BACKEND_READY_MIGRATION` to `0045`.
+4. Set `BACKEND_READY_MIGRATION` to `0046`.
 5. Deploy the frontend at the **exact SHA this gate ran against**.
 6. Run `prod-smoke` and `prod-browser-auth` against that same SHA.
 

@@ -421,6 +421,33 @@ begin
     raise notice 'PASS i4: an archived institution cannot receive new publication';
   end;
 
+  -- ---- i4b: nor a new PERSON, and this one has to be a trigger -----------
+  --
+  -- Accounts are written by the admin-create-user Edge Function under the
+  -- SERVICE ROLE, which bypasses every policy in the project. So this is
+  -- asserted the way that writer behaves — as the table owner, with RLS out of
+  -- the picture. A policy could not have caught it; migration 0046 is a
+  -- trigger for exactly that reason.
+  begin
+    insert into app_users (user_id, role, institution_id, full_name, email)
+      values (gen_random_uuid(), 'classroom_staff', v_a, 'Late Hire', 'late.hire@e2e.test');
+    raise exception 'FAIL i4b: an archived institution took on a new staff account';
+  exception when check_violation then
+    raise notice 'PASS i4b: an archived institution takes on no new people';
+  end;
+
+  -- ...while its EXISTING people stay manageable, which is the point of not
+  -- blocking an update that leaves institution_id alone. An archived
+  -- institution's staff are precisely who an administrator still needs to
+  -- deactivate afterwards.
+  update app_users set full_name = 'Renamed After Archive'
+   where institution_id = v_a and role = 'classroom_staff';
+  if not exists (select 1 from app_users
+                  where institution_id = v_a and full_name = 'Renamed After Archive') then
+    raise exception 'FAIL i4b: an archived institution''s existing staff became unmanageable';
+  end if;
+  raise notice 'PASS i4b: and its existing people stay manageable';
+
   -- ---- i5: history survives the archive ----------------------------------
   select count(*) into v_n from students where institution_id = v_a;
   if v_n < 1 then raise exception 'FAIL i5: archiving destroyed student rows'; end if;

@@ -765,6 +765,13 @@ service is published for today or any future date. Once archived it gains no
 class, student, configuration or publication — and every record it already owns
 is preserved and readable. **Proven by:** verify_lifecycle_security i1–i5.
 
+## AT-160b — An archived Institution gains no people, service role included
+
+**Expected:** Inserting an `app_users` row pointed at an archived Institution
+is refused **as the table owner**, with RLS out of the picture — the context
+the Edge Function actually writes in. Its existing staff remain fully
+manageable. **Proven by:** verify_lifecycle_security i4b.
+
 ## AT-161 — Guardian revocation is deliberate, immediate, and narrow
 
 **Expected:** A Super Admin only; a reason required; the Parent's access to

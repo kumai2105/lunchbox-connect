@@ -965,7 +965,10 @@ performed.
 
 **R-L3. An archived Institution takes nothing new.** No class, no student, no
 service-plan or rotation change, no calendar exception, no publication, no
-classroom recording. Everything it already owns stays readable.
+classroom recording — and **no new staff account**. Everything it already owns
+stays readable, and its existing people stay manageable: they can be
+deactivated, corrected and moved out, which is precisely what an administrator
+needs to do after archiving.
 
 **R-L4. An Institution with meal service published for today or any future date
 cannot be archived.** That is a commitment the kitchen and the classrooms are

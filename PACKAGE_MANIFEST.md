@@ -18,20 +18,20 @@ require a fresh run.**
 | Gate                 | Command                                        | Result                                                                 |
 | -------------------- | ---------------------------------------------- | ---------------------------------------------------------------------- |
 | Browser suite        | `e2e-local-supabase.yml` run `RUN_PLACEHOLDER` | **PASS — 100 / 100** in 14 spec files · 0 failed · 0 skipped · 0 flaky |
-| Database suites      | `./tests/sql/run_verification.sh`              | **PASS — 23 suites**, 278 named assertions                             |
+| Database suites      | `./tests/sql/run_verification.sh`              | **PASS — 23 suites**, 280 named assertions                             |
 | Authorization matrix | `verify_authorization_matrix`                  | **PASS — 520 checks**                                                  |
 | Unit tests           | `pnpm test:unit`                               | **PASS — 125** across 13 files                                         |
 | TypeScript           | `pnpm typecheck`                               | **PASS** — app + node + `tests/e2e`, three projects                    |
 | Lint                 | `pnpm lint`                                    | **PASS**, 0 warnings                                                   |
 | Production build     | `pnpm build`                                   | **PASS**                                                               |
 
-**Migration ceiling in this tree:** `0045_tag_only_edit_is_not_a_new_revision.sql`
-(45 migrations).
-**Migration ceiling in production:** `0042` — `0043`, `0044` and `0045` are
+**Migration ceiling in this tree:** `0046_an_archived_institution_gains_no_people.sql`
+(46 migrations).
+**Migration ceiling in production:** `0042` — `0043` through `0046` are
 **PENDING**. See "Not deployed" below.
 
 Growth since the previous snapshot (`6f94b017`): 85 → 100 browser tests,
-22 → 23 SQL suites, 237 → 278 assertions, 122 → 125 unit tests.
+22 → 23 SQL suites, 237 → 280 assertions, 122 → 125 unit tests.
 
 ### The browser gate is self-counting
 
@@ -93,7 +93,7 @@ that test and removed afterwards.
 
 ### NOT DEPLOYED — and this is the important line in this manifest
 
-**Migrations `0043`, `0044` and `0045` have not been applied to production**,
+**Migrations `0043` through `0046` have not been applied to production**,
 because applying them requires an interactive authorisation a non-interactive
 session cannot perform. The frontend in this tree **must not be deployed ahead
 of them**: `app_users.active` and `institutions.active` do not exist at `0042`,

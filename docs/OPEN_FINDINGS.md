@@ -441,7 +441,7 @@ browser and proves a deactivated account cannot get in from a fresh context.
 this stops.
 
 Migrations `0043`, `0044` and `0045` are in the repository, replay cleanly from
-nothing, and pass 278 assertions. They have **not** been applied to
+nothing, and pass 280 assertions. They have **not** been applied to
 `llnofriwvnerntrbpehc`, because the Supabase connector needed to apply them
 requires an interactive authorisation that a non-interactive session cannot
 perform.
