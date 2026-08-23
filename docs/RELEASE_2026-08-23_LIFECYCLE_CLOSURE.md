@@ -226,18 +226,59 @@ check that `0047`'s `revoke ... from authenticated` took effect.
 The pre-existing items belong in a dedicated pass with its own evidence, not
 folded into a release — see finding 14.
 
-### The one thing not directly confirmed
+### SUPABASE_SERVICE_ROLE_KEY — VERIFIED 23 August 2026
 
-`SUPABASE_SERVICE_ROLE_KEY` was not read back as a function secret — the
-tooling available here lists Edge Functions but not their secrets, and this
-environment cannot reach the project over the network to exercise them.
+**Status: VERIFIED.** This was the release's one unverified item and it is now
+closed by measurement, not by inference.
 
-It is very probably present: Supabase injects it into Edge Functions as a
-platform default, and `admin-create-user` reads the same variable and has been
-working in production since before this release. But "very probably" is not
-"verified", so it is written down here rather than counted as evidence.
+It was proven without touching a single row, because both functions read their
+environment *before* they read the caller:
 
-**How to settle it in ten seconds:** sign in as a Super Admin, open Users, and
-use Set password on a disposable account. If the key were missing the function
-would answer `missing server env` with a 500. Any other outcome — success, or a
-refusal naming an authorization rule — proves the key is there.
+```ts
+if (!url || !serviceKey || !anonKey) return bad('missing server env', 500);
+if (!token)                          return bad('missing bearer token', 401);
+```
+
+An unauthenticated POST therefore separates the two cases exactly. Reaching the
+401 means the function booted, read all three variables, found all three
+non-empty, and only then refused the caller — a **positive** proof of the
+secret rather than an inference from silence.
+
+| Probe | Result |
+| --- | --- |
+| `POST /functions/v1/admin-set-password`, no Authorization header | `HTTP 401` · `{"error":"missing bearer token"}` |
+| `POST /functions/v1/admin-set-active`, no Authorization header | `HTTP 401` · `{"error":"missing bearer token"}` |
+| `OPTIONS` preflight, both functions | `HTTP 200` |
+
+Evidence: workflow `prod-verify-edge-secrets.yml`, run `32657668778`, on
+`80be6e39`. Strictly read-only — every request carried no credential and was
+refused before a row was read or written, so there was nothing to clean up.
+The preflight check matters independently: `verify_jwt` is false on both
+precisely so the platform does not reject the `OPTIONS` request, which carries
+no Authorization header, before the function runs. A browser could not call
+them otherwise.
+
+**Conclusion:** `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL` and
+`SUPABASE_ANON_KEY` are all present for both Edge Functions, and both functions
+are operational in production.
+
+### End-to-end password-reset proof — still outstanding
+
+Proving the *full* flow through the live product — a reset performed on a
+disposable account, the new password accepted in a fresh session, the old one
+rejected, the role and scope unchanged, and no password value in the audit row
+— requires an authenticated **account-managing** session in production, and no
+such credential is available to the automated path:
+
+- the only `super_admin` is the Founder's own account, and its password is not
+  known to this process and must not be reset to obtain one;
+- both `school_admin` personas' passwords are likewise unknown;
+- the credential held in CI (`PROD_VERIFY_EMAIL`) is the **Viewer** persona,
+  which by design has no account-management authority.
+
+The authorization branches themselves are already proven by
+`lifecycle.spec.ts`, which drives exactly this flow through a real browser
+against a disposable stack — including that a reissued password works while the
+old one is refused. What remains unproven is only that the same flow completes
+against the *production* origin, and the Edge Function underneath it is now
+confirmed operational above.

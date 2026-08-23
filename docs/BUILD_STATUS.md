@@ -23,6 +23,11 @@ advisors report **0 ERROR**, and `anon` holds `EXECUTE` on none of the fourteen
 functions in this batch. The 39 anon-executable definer functions the advisor
 still warns about all predate this work; see `docs/OPEN_FINDINGS.md` finding 14.
 
+`SUPABASE_SERVICE_ROLE_KEY` is **verified present** for both new Edge
+Functions — proven read-only by an unauthenticated probe that reaches the
+`401 missing bearer token` refusal, which is only reachable once all three
+server variables are read and found non-empty (run `32657668778`).
+
 See `docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md` for the executed gate and
 `docs/recovery/2026-08-23-pre-0043.md` for the pre-change recovery point.
 

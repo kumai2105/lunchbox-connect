@@ -576,3 +576,55 @@ be able to invoke `set_user_active` — the function then decides whether that
 caller may proceed. Revoking it would delete the feature, not secure it. None of
 the four trigger functions appears in that list, which is how `0047`'s
 `revoke ... from authenticated` is confirmed to have taken.
+
+---
+
+## 15. The service-role secret was assumed rather than proven — CLOSED
+
+**Status:** closed 2026-08-23 · `.github/workflows/prod-verify-edge-secrets.yml`
+**Classification:** EVIDENCE gap. Not a defect — a claim that had been carried
+on plausibility instead of measurement.
+
+The 0043–0047 release shipped with one item written down as unverified: whether
+`SUPABASE_SERVICE_ROLE_KEY` was actually present as a function secret for
+`admin-set-password` and `admin-set-active`. The reasoning for believing it was
+sound — Supabase injects that variable into Edge Functions by default, and
+`admin-create-user` reads the same variable and had been working in production
+for weeks — but that is an inference about a platform, not an observation of
+this project, and the authoring environment cannot reach `*.supabase.co` to
+settle it.
+
+**It is now proven, and without touching any data.** Both functions read their
+environment *before* they read the caller:
+
+```ts
+if (!url || !serviceKey || !anonKey) return bad('missing server env', 500);
+if (!token)                          return bad('missing bearer token', 401);
+```
+
+That ordering is what makes an unauthenticated request diagnostic. A missing
+secret answers `500 missing server env` before the token is ever examined; a
+present one falls through to `401 missing bearer token`. Reaching the 401 means
+the function booted, read all three variables, found all three non-empty, and
+only then refused the caller.
+
+Both functions answered **`HTTP 401 {"error":"missing bearer token"}`**, and
+both answered the CORS preflight with **`HTTP 200`** — the latter mattering
+independently, because `verify_jwt` is false on both precisely so the platform
+does not reject the `OPTIONS` request, which carries no Authorization header,
+before the function runs.
+
+**Evidence:** run `32657668778` on `80be6e39`. Every request carried no
+credential and was refused before a row was read or written, so the probe is
+read-only by construction rather than by convention, and left nothing to clean
+up. The workflow fails closed on any other outcome — including a request that
+does not complete, because a probe that never reaches the env check tests
+nothing.
+
+**What this does not prove.** That the whole reset flow completes against the
+production origin — new password accepted, old one rejected, role preserved,
+audit row carrying no value. That needs an authenticated account-managing
+session, and the only `super_admin` is the Founder's own account; the CI
+credential is the Viewer persona, which has no such authority by design. The
+flow itself is proven by `lifecycle.spec.ts` against a disposable stack; what
+is unproven is only the production repetition of it.
