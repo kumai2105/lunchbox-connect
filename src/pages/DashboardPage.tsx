@@ -123,7 +123,7 @@ export default function DashboardPage() {
           icon="checkCircle"
           label="Operationally eligible"
           value={eligibleStudents}
-          trend="billable to the nursery"
+          trend="in the meal service"
           to={can(role, 'status', 'view') ? '/status' : undefined}
         />
         <StatCard

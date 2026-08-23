@@ -61,9 +61,11 @@ export default function StatusPage() {
     <div>
       <PageHead title="Status / eligibility" hint="who may be served, and who may not" />
       <Banner kind="info">
-        A child is eligible to be served when the institution is billed for them —{' '}
-        <b>Active — billable to nursery</b>. That is the only status that makes a child eligible;
-        anyone without it cannot be served. Every change here is recorded in the audit log.
+        A child enters the meal service when their institution is billed for them —{' '}
+        <b>Active — in the meal service</b>. That is the only status that makes a child eligible:
+        the kitchen counts them, the classroom register expects them, and their institution is
+        charged for them. Anyone without it cannot be served. Every change here is recorded in the
+        audit log.
       </Banner>
 
       {error && <Banner kind="err">{error}</Banner>}
@@ -136,7 +138,7 @@ export default function StatusPage() {
                             disabled={busyId === s.id}
                             onClick={() => void apply(s.id, 'ACTIVE_BILLABLE_TO_NURSERY')}
                           >
-                            {busyId === s.id ? 'Saving…' : 'Mark billable — eligible to be served'}
+                            {busyId === s.id ? 'Saving…' : 'Put into the meal service'}
                           </Btn>
                         )}
                       </td>

@@ -457,7 +457,15 @@ export async function updateStudent(
   patch: Partial<
     Pick<
       Student,
-      'class_id' | 'given_name' | 'family_name' | 'grade' | 'enrollment_status' | 'photo_path'
+      | 'class_id'
+      | 'given_name'
+      | 'family_name'
+      // Optional in the canonical model (§7): a setting that issues no student
+      // numbers stores NULL, so the field must be clearable, not just editable.
+      | 'student_no'
+      | 'grade'
+      | 'enrollment_status'
+      | 'photo_path'
     >
   >,
 ): Promise<ApiResult<Student>> {

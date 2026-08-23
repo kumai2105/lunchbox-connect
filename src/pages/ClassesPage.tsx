@@ -8,19 +8,50 @@ import {
   listInstitutions,
   listUsers,
   removeClassStaff,
+  setClassActive,
   type ClassStaffMember,
   type ClassWithMeta,
 } from '../lib/api';
 import type { AppUser, Institution } from '../lib/types';
-import { useRole } from '../lib/auth';
+import { useAuth, useRole } from '../lib/auth';
 import { can } from '../lib/rbac';
-import { Banner, Btn, Card, EmptyState, Field, Modal, PageHead, Spinner } from '../components/ui';
+import {
+  Banner,
+  Btn,
+  Card,
+  EmptyState,
+  Field,
+  Modal,
+  PageHead,
+  Pill,
+  Spinner,
+} from '../components/ui';
 
 export default function ClassesPage() {
   const [params] = useSearchParams();
-  const institutionFilter = params.get('institution') ?? '';
-
+  const { profile } = useAuth();
   const role = useRole();
+
+  /**
+   * WHOSE CLASSES THIS PAGE IS SHOWING.
+   *
+   * A Super Admin works across the chain, so their scope comes from the URL —
+   * they arrive here by drilling into one institution, or open the page with
+   * no filter to see everything.
+   *
+   * Everyone else IS an institution. An Institution Admin has exactly one, and
+   * it is not a filter they chose — it is who they are. Before this, their
+   * sidebar "Classes" opened the unfiltered page, which then offered them "←
+   * All institutions" and a link to /institutions: two routes their role
+   * cannot open, and a question ("which institution?") with one possible
+   * answer. Their own institution is the scope, implicitly and always.
+   */
+  const isGlobalOperator = role === 'super_admin';
+  const institutionFilter = isGlobalOperator
+    ? (params.get('institution') ?? '')
+    : (profile?.institution_id ?? '');
+  // Whether the SCOPE was chosen (and can therefore be left) or is inherent.
+  const scopeIsChosen = isGlobalOperator && institutionFilter !== '';
   // §5: mutation controls appear only for roles authorized to perform them.
   // Classroom staff reach this page read-only (RLS enforces the same server-side).
   const canCreateClass = can(role, 'classes', 'create');
@@ -61,6 +92,35 @@ export default function ClassesPage() {
   const [managing, setManaging] = useState<ClassWithMeta | null>(null);
   const [members, setMembers] = useState<ClassStaffMember[]>([]);
   const [addUserId, setAddUserId] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
+  const [archiving, setArchiving] = useState<ClassWithMeta | null>(null);
+  const [archiveReason, setArchiveReason] = useState('');
+  const [archiveBusy, setArchiveBusy] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  async function onSetClassActive(c: ClassWithMeta, next: boolean) {
+    setArchiveBusy(true);
+    setArchiveError(null);
+    const res = await setClassActive(c.id, next, archiveReason || null);
+    setArchiveBusy(false);
+    if (res.error) {
+      // The database says exactly what is in the way — "still has 12 students
+      // assigned". Show that, rather than a generic failure or a silent
+      // downgrade of the action.
+      setArchiveError(res.error);
+      return;
+    }
+    setArchiving(null);
+    setArchiveReason('');
+    setNotice(
+      next
+        ? `${c.name} is running again.`
+        : `${c.name} is archived. Everything recorded against it is still there.`,
+    );
+    const fresh = await listClasses();
+    setRows(fresh.data ?? []);
+  }
 
   async function openStaff(c: ClassWithMeta) {
     setManaging(c);
@@ -83,10 +143,15 @@ export default function ClassesPage() {
     await openStaff(managing);
   }
 
-  const filteredRows = useMemo(
+  const inScope = useMemo(
     () =>
       institutionFilter ? (rows ?? []).filter((c) => c.institution_id === institutionFilter) : rows,
     [rows, institutionFilter],
+  );
+  const archivedCount = (inScope ?? []).filter((c) => !c.active).length;
+  const filteredRows = useMemo(
+    () => (inScope === null ? null : inScope.filter((c) => showArchived || c.active)),
+    [inScope, showArchived],
   );
 
   const scopedInstitution = institutions.find((i) => i.id === institutionFilter);
@@ -120,12 +185,14 @@ export default function ClassesPage() {
         title="Classes"
         hint={
           scopedInstitution
-            ? `${scopedInstitution.name} only`
-            : 'every institution — filter from Institutions →'
+            ? scopedInstitution.name
+            : isGlobalOperator
+              ? 'across every institution'
+              : 'your institution'
         }
         actions={
           <>
-            {institutionFilter && (
+            {scopeIsChosen && (
               <Btn
                 variant="ghost"
                 size="sm"
@@ -151,21 +218,39 @@ export default function ClassesPage() {
       />
 
       {error && <Banner kind="err">{error}</Banner>}
+      {notice && <Banner kind="ok">{notice}</Banner>}
 
-      {!scopedInstitution && !institutionFilter && (
+      {isGlobalOperator && !institutionFilter && (
         <Banner kind="info">
           A class always belongs to one institution. Open an institution from{' '}
           <a href="/institutions">Institutions</a> and use "Manage classes" to work within its
           scope, or create one here and pick the institution directly.
         </Banner>
       )}
+      <Banner kind="info">
+        A class that is no longer running is <b>archived, not deleted</b> — the meals its children
+        were served were recorded against it. Archiving is refused while students or staff are still
+        assigned to it: move them first, so the class is genuinely empty before it closes.
+      </Banner>
 
-      {!filteredRows ? (
+      {!inScope ? (
         <Spinner />
-      ) : filteredRows.length === 0 ? (
+      ) : inScope.length === 0 ? (
         <EmptyState text="No classes yet." />
       ) : (
         <Card>
+          {archivedCount > 0 && (
+            <div style={{ padding: '12px 18px 0' }}>
+              <label className="check-inline">
+                <input
+                  type="checkbox"
+                  checked={showArchived}
+                  onChange={(e) => setShowArchived(e.target.checked)}
+                />
+                Show archived classes ({archivedCount})
+              </label>
+            </div>
+          )}
           <table>
             <thead>
               <tr>
@@ -178,16 +263,24 @@ export default function ClassesPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map((c) => (
-                <tr key={c.id}>
-                  <td className="cell-name">{c.name}</td>
+              {(filteredRows ?? []).map((c) => (
+                <tr key={c.id} className={c.active ? undefined : 'row-muted'}>
+                  <td className="cell-name">
+                    {c.name}
+                    {!c.active && (
+                      <>
+                        {' '}
+                        <Pill variant="slate">Archived</Pill>
+                      </>
+                    )}
+                  </td>
                   {!institutionFilter && (
                     <td>{institutions.find((i) => i.id === c.institution_id)?.name ?? '—'}</td>
                   )}
                   <td>{c.grade ?? '—'}</td>
                   <td className="mono">{c.student_count}</td>
                   <td>
-                    {canManageStaff ? (
+                    {canManageStaff && c.active ? (
                       <Btn size="sm" variant="ghost" onClick={() => void openStaff(c)}>
                         Manage staff
                       </Btn>
@@ -195,12 +288,26 @@ export default function ClassesPage() {
                       <span className="cell-sub">—</span>
                     )}
                   </td>
-                  <td>
+                  <td className="row-actions">
+                    {canManageStaff && (
+                      <Btn
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setArchiveError(null);
+                          setNotice(null);
+                          setArchiveReason('');
+                          setArchiving(c);
+                        }}
+                      >
+                        {c.active ? 'Archive' : 'Reactivate'}
+                      </Btn>
+                    )}
                     {/* Only a role that may RECORD gets a link into the
                         classroom register. A School Admin has no classroom
                         recording permission (NOT_YET_DEFINED), so offering the
                         link promised an action the route would refuse. */}
-                    {can(role, 'today', 'record') && (
+                    {can(role, 'today', 'record') && c.active && (
                       <a className="btn ghost sm" href={`/today?class=${c.id}`}>
                         Open Today →
                       </a>
@@ -251,21 +358,79 @@ export default function ClassesPage() {
                 />
               </Field>
             </div>
-            <Field label="Institution">
-              <select
-                value={institutionId}
-                onChange={(e) => setInstitutionId(e.target.value)}
-                disabled={Boolean(institutionFilter)}
-              >
-                <option value="">Select…</option>
-                {institutions.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            {/* Only a Super Admin is ever choosing between institutions. For
+                everyone else the institution is their own, already set above,
+                and a disabled dropdown with one entry asks a question that has
+                no second answer. */}
+            {isGlobalOperator ? (
+              <Field label="Institution">
+                <select
+                  value={institutionId}
+                  onChange={(e) => setInstitutionId(e.target.value)}
+                  disabled={Boolean(institutionFilter)}
+                >
+                  <option value="">Select…</option>
+                  {institutions.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : (
+              <p className="tmc-meta">
+                This class will belong to {scopedInstitution?.name ?? 'your institution'}.
+              </p>
+            )}
           </form>
+        </Modal>
+      )}
+      {archiving && (
+        <Modal
+          title={archiving.active ? `Archive ${archiving.name}` : `Reactivate ${archiving.name}`}
+          onClose={() => setArchiving(null)}
+          footer={
+            <>
+              <Btn variant="ghost" onClick={() => setArchiving(null)}>
+                Cancel
+              </Btn>
+              <Btn
+                variant={archiving.active ? 'danger' : 'brand'}
+                onClick={() => void onSetClassActive(archiving, !archiving.active)}
+                disabled={archiveBusy}
+              >
+                {archiveBusy ? 'Working…' : archiving.active ? 'Archive' : 'Reactivate'}
+              </Btn>
+            </>
+          }
+        >
+          {archiveError && <Banner kind="err">{archiveError}</Banner>}
+          {archiving.active ? (
+            <>
+              <Banner kind="warn">
+                An archived class takes no students, no staff assignments and no new meal records.
+                Everything already recorded against it is kept and stays readable.
+              </Banner>
+              <Banner kind="info">
+                It must be <b>empty first</b>. If students or staff are still assigned, this is
+                refused and says so — move them to another class rather than leaving a closed class
+                holding a roster. There is no permanent delete: the meals its children were served
+                are recorded against it.
+              </Banner>
+            </>
+          ) : (
+            <Banner kind="info">
+              Reactivating lets this class take students, staff and meal records again.
+            </Banner>
+          )}
+          <Field label="Reason (optional — recorded in Audit)">
+            <input
+              value={archiveReason}
+              onChange={(e) => setArchiveReason(e.target.value)}
+              placeholder={archiving.active ? 'e.g. class closed for the year' : 'e.g. reopened'}
+              autoFocus
+            />
+          </Field>
         </Modal>
       )}
       {managing && (

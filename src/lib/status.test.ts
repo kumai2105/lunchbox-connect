@@ -9,8 +9,12 @@ describe('operational status domain (single approved value)', () => {
   });
 
   it('labels the approved value and the "not eligible" fallback', () => {
-    expect(statusLabel('ACTIVE_BILLABLE_TO_NURSERY')).toContain('Active — billable to nursery');
-    expect(statusLabel(null)).toBe('Not operationally eligible');
+    // The STORED value is unchanged and still the only eligible one; only the
+    // words a person reads moved, because an institution here may be a school
+    // and "billable to nursery" told its administrator something untrue.
+    expect(statusLabel('ACTIVE_BILLABLE_TO_NURSERY')).toBe('Active — in the meal service');
+    expect(statusLabel(null)).toBe('Not in the meal service');
+    expect(statusLabel('ACTIVE_BILLABLE_TO_NURSERY')).not.toMatch(/nursery/i);
   });
 
   it('maps statuses to pill/dot classes consistently', () => {

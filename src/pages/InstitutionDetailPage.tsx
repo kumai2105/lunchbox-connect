@@ -6,6 +6,7 @@ import {
   getInstitution,
   listClasses,
   listStudents,
+  setInstitutionActive,
   staffForInstitution,
   updateInstitution,
   type ClassWithMeta,
@@ -61,6 +62,13 @@ export default function InstitutionDetailPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
   const [editMsg, setEditMsg] = useState<string | null>(null);
+  // Archive / reactivate. The Super Admin CHOOSES this; the database decides
+  // whether it is allowed and says why when it is not (migration 0044).
+  const [showArchive, setShowArchive] = useState(false);
+  const [archiveBusy, setArchiveBusy] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [archiveReason, setArchiveReason] = useState('');
+  const [archiveNotice, setArchiveNotice] = useState<string | null>(null);
   const [edit, setEdit] = useState<{ name: string; kind: Institution['kind'] }>({
     name: '',
     kind: 'nursery',
@@ -92,6 +100,29 @@ export default function InstitutionDetailPage() {
     setInvite({ fullName: '', email: '', password: '' });
     const stf = await staffForInstitution(id);
     setStaff(stf.data ?? []);
+  }
+
+  async function onSetInstitutionActive(next: boolean) {
+    setArchiveBusy(true);
+    setArchiveError(null);
+    const res = await setInstitutionActive(id, next, archiveReason || null);
+    setArchiveBusy(false);
+    if (res.error) {
+      // Verbatim. The refusal explains itself — "…still has published meal
+      // service on or after today" — and the action is NOT quietly turned into
+      // something weaker.
+      setArchiveError(res.error);
+      return;
+    }
+    const fresh = await getInstitution(id);
+    setInstitution(fresh.data);
+    setShowArchive(false);
+    setArchiveReason('');
+    setArchiveNotice(
+      next
+        ? 'This institution is operating again. Everything it had is exactly as it was.'
+        : 'This institution is archived. Its whole history is preserved and readable; it takes no new classes, students, publication or classroom activity.',
+    );
   }
 
   async function onSaveInstitution() {
@@ -169,9 +200,14 @@ export default function InstitutionDetailPage() {
         title={institution.name}
         hint={institution.kind}
         actions={
-          <Link to="/institutions" className="btn ghost">
-            <Icon name="arrowLeft" size={14} /> All institutions
-          </Link>
+          // Only the Super Admin has an "all institutions" list to go back to.
+          // An Institution Admin has exactly one institution — theirs — and
+          // this link sent them to a page their role cannot open.
+          profile?.role === 'super_admin' ? (
+            <Link to="/institutions" className="btn ghost">
+              <Icon name="arrowLeft" size={14} /> All institutions
+            </Link>
+          ) : undefined
         }
       />
 
@@ -208,21 +244,42 @@ export default function InstitutionDetailPage() {
 
       {tab === 'overview' && (
         <>
+          {archiveNotice && <Banner kind="ok">{archiveNotice}</Banner>}
+          {!institution.active && (
+            <Banner kind="warn">
+              This institution is <b>archived</b>. Everything it has ever recorded is still here and
+              still readable. What it cannot do is take on anything new: no new classes, no new
+              students, no new schedule configuration, no publication and no classroom recording.
+            </Banner>
+          )}
           <Card
             title="Institution record"
-            hint="the authoritative row every portal reads"
+            hint="the one record every screen in the platform reads from"
             actions={
               canEditInstitution ? (
-                <Btn
-                  variant="ghost"
-                  onClick={() => {
-                    setEditMsg(null);
-                    setEdit({ name: institution.name, kind: institution.kind });
-                    setShowEdit(true);
-                  }}
-                >
-                  Edit institution
-                </Btn>
+                <>
+                  <Btn
+                    variant="ghost"
+                    onClick={() => {
+                      setEditMsg(null);
+                      setEdit({ name: institution.name, kind: institution.kind });
+                      setShowEdit(true);
+                    }}
+                  >
+                    Edit institution
+                  </Btn>
+                  <Btn
+                    variant={institution.active ? 'danger' : 'brand'}
+                    onClick={() => {
+                      setArchiveError(null);
+                      setArchiveNotice(null);
+                      setArchiveReason('');
+                      setShowArchive(true);
+                    }}
+                  >
+                    {institution.active ? 'Archive' : 'Reactivate'}
+                  </Btn>
+                </>
               ) : undefined
             }
           >
@@ -245,6 +302,19 @@ export default function InstitutionDetailPage() {
                 <tr>
                   <td className="cell-sub">Students with safety notes</td>
                   <td className="mono">{safetyNoteCount}</td>
+                </tr>
+                <tr>
+                  <td className="cell-sub">State</td>
+                  <td>
+                    {institution.active ? (
+                      <Pill variant="green">Operating</Pill>
+                    ) : (
+                      <Pill variant="slate">Archived</Pill>
+                    )}
+                    {!institution.active && institution.archived_reason && (
+                      <div className="cell-sub">{institution.archived_reason}</div>
+                    )}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -448,6 +518,63 @@ export default function InstitutionDetailPage() {
               <option value="nursery">Nursery</option>
               <option value="school">School</option>
             </select>
+          </Field>
+        </Modal>
+      )}
+
+      {showArchive && institution && (
+        <Modal
+          title={
+            institution.active ? `Archive ${institution.name}` : `Reactivate ${institution.name}`
+          }
+          onClose={() => setShowArchive(false)}
+          footer={
+            <>
+              <Btn variant="ghost" onClick={() => setShowArchive(false)}>
+                Cancel
+              </Btn>
+              <Btn
+                variant={institution.active ? 'danger' : 'brand'}
+                onClick={() => void onSetInstitutionActive(!institution.active)}
+                disabled={archiveBusy}
+              >
+                {archiveBusy ? 'Working…' : institution.active ? 'Archive' : 'Reactivate'}
+              </Btn>
+            </>
+          }
+        >
+          {archiveError && <Banner kind="err">{archiveError}</Banner>}
+          {institution.active ? (
+            <>
+              <Banner kind="warn">
+                Archiving stops this institution operating. It keeps every class, student, published
+                meal and classroom record it has, and all of it stays readable — but it takes
+                nothing new: no new classes or students, no schedule or calendar changes, no
+                publication, no classroom recording.
+              </Banner>
+              <Banner kind="info">
+                <b>There is no permanent delete for an institution</b>, and there will not be one.
+                Its records are the record of meals actually served to children; destroying the
+                institution would destroy them. If it still has meal service published for today or
+                any future date, archiving is refused until that commitment is resolved — the
+                kitchen and its classrooms are already working to it.
+              </Banner>
+            </>
+          ) : (
+            <Banner kind="info">
+              Reactivating puts this institution back into normal operation. Everything it had is
+              exactly where it was; nothing was changed while it was archived.
+            </Banner>
+          )}
+          <Field label="Reason (optional — recorded in Audit)">
+            <input
+              value={archiveReason}
+              onChange={(e) => setArchiveReason(e.target.value)}
+              placeholder={
+                institution.active ? 'e.g. contract ended 31 August' : 'e.g. contract renewed'
+              }
+              autoFocus
+            />
           </Field>
         </Modal>
       )}

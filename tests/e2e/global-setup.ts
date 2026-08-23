@@ -586,16 +586,14 @@ export default async function globalSetup(): Promise<void> {
   const asStaff = await asUser('e2e.classroom@lunchbox.app');
   mustOk(
     'seed the DRAFT serving note as classroom staff (must stay unpublished)',
-    await asStaff
-      .from('serving_notes')
-      .upsert(
-        {
-          serving_record_id: lunchRecId,
-          body: 'E2E draft — must stay invisible',
-          published_at: null,
-        },
-        { onConflict: 'serving_record_id' },
-      ),
+    await asStaff.from('serving_notes').upsert(
+      {
+        serving_record_id: lunchRecId,
+        body: 'E2E draft — must stay invisible',
+        published_at: null,
+      },
+      { onConflict: 'serving_record_id' },
+    ),
   );
 
   const asAdmin = await asUser('e2e.super-admin@lunchbox.app');

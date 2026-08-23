@@ -20,6 +20,8 @@ import {
   Btn,
   Card,
   EmptyState,
+  Field,
+  Modal,
   PageHead,
   Pill,
   Spinner,
@@ -64,6 +66,12 @@ export default function StudentProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // §16: a child's own details are ordinary corrections — a misspelt name, a
+  // missing ID, a grade that moved up. There was nowhere in the product to
+  // make them, so the only remedy was a database edit.
+  const [showEdit, setShowEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [edit, setEdit] = useState({ given_name: '', family_name: '', student_no: '', grade: '' });
 
   const canManage = can(role, 'students', 'update');
   // 'set' is the approved action key for operational status (rbac.ts) — the
@@ -125,6 +133,27 @@ export default function StudentProfilePage() {
     await load();
   }
 
+  async function onSaveDetails() {
+    if (!student) return;
+    setBusy(true);
+    setEditError(null);
+    const res = await updateStudent(student.id, {
+      given_name: edit.given_name.trim(),
+      family_name: edit.family_name.trim(),
+      // A setting that issues no student numbers stores NULL rather than an
+      // empty string — the column is nullable by design (§7).
+      student_no: edit.student_no.trim() || null,
+      grade: edit.grade.trim() || null,
+    });
+    setBusy(false);
+    if (res.error) {
+      setEditError(res.error);
+      return;
+    }
+    setStudent(res.data);
+    setShowEdit(false);
+  }
+
   async function onClassChange(classId: string) {
     if (!student) return;
     setBusy(true);
@@ -167,9 +196,28 @@ export default function StudentProfilePage() {
         title={`${student.given_name} ${student.family_name}`}
         hint={student.student_no ?? undefined}
         actions={
-          <Link to="/students" className="btn ghost">
-            <Icon name="arrowLeft" size={14} /> All students
-          </Link>
+          <>
+            {canManage && (
+              <Btn
+                variant="ghost"
+                onClick={() => {
+                  setEditError(null);
+                  setEdit({
+                    given_name: student.given_name,
+                    family_name: student.family_name,
+                    student_no: student.student_no ?? '',
+                    grade: student.grade ?? '',
+                  });
+                  setShowEdit(true);
+                }}
+              >
+                Edit details
+              </Btn>
+            )}
+            <Link to="/students" className="btn ghost">
+              <Icon name="arrowLeft" size={14} /> All students
+            </Link>
+          </>
         }
       />
 
@@ -270,9 +318,14 @@ export default function StudentProfilePage() {
                     <option value="">Unassigned</option>
                     {classes
                       .filter((c) => c.institution_id === student.institution_id)
+                      // An archived class cannot take a student. Their current
+                      // one stays listed even if archived, so the control does
+                      // not misreport them as unassigned.
+                      .filter((c) => c.active || c.id === student.class_id)
                       .map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.name}
+                          {c.active ? '' : ' (archived)'}
                         </option>
                       ))}
                   </select>
@@ -290,8 +343,8 @@ export default function StudentProfilePage() {
                     onChange={(e) => void onEligibilityChange(e.target.value || null)}
                     disabled={busy}
                   >
-                    <option value="">Not eligible</option>
-                    <option value={ELIGIBLE_STATUS}>Active — billable to nursery</option>
+                    <option value="">Not in the meal service</option>
+                    <option value={ELIGIBLE_STATUS}>Active — in the meal service</option>
                   </select>
                 ) : (
                   statusLabel(student.operational_status)
@@ -409,6 +462,69 @@ export default function StudentProfilePage() {
           Your role has read access to this student. Editing placement, eligibility and photos is
           restricted, and the database enforces that independently of this screen.
         </Banner>
+      )}
+
+      {showEdit && (
+        <Modal
+          title={`Edit ${student.given_name} ${student.family_name}`}
+          onClose={() => setShowEdit(false)}
+          footer={
+            <>
+              <Btn variant="ghost" onClick={() => setShowEdit(false)}>
+                Cancel
+              </Btn>
+              <Btn
+                variant="brand"
+                onClick={() => void onSaveDetails()}
+                disabled={busy || !edit.given_name.trim() || !edit.family_name.trim()}
+              >
+                {busy ? 'Saving…' : 'Save'}
+              </Btn>
+            </>
+          }
+        >
+          {editError && <Banner kind="err">{editError}</Banner>}
+          <Banner kind="info">
+            This corrects the one authoritative record for this child — the same row the class
+            roster, the kitchen count, the parent's app and the analytics all read. It does not
+            touch anything already recorded about the meals they were served.
+          </Banner>
+          <div className="form-row">
+            <Field label="Given name">
+              <input
+                value={edit.given_name}
+                onChange={(e) => setEdit({ ...edit, given_name: e.target.value })}
+                autoFocus
+              />
+            </Field>
+            <Field label="Family name">
+              <input
+                value={edit.family_name}
+                onChange={(e) => setEdit({ ...edit, family_name: e.target.value })}
+              />
+            </Field>
+          </div>
+          <div className="form-row">
+            <Field label="Student no. (optional)">
+              <input
+                value={edit.student_no}
+                onChange={(e) => setEdit({ ...edit, student_no: e.target.value })}
+                placeholder="leave empty if your setting issues none"
+              />
+            </Field>
+            <Field label="Grade (optional)">
+              <input
+                value={edit.grade}
+                onChange={(e) => setEdit({ ...edit, grade: e.target.value })}
+              />
+            </Field>
+          </div>
+          <Banner kind="info">
+            Class is changed on the Placement card below, and whether the child is in the meal
+            service is set there too. Which institution a child belongs to is not editable: moving a
+            child between institutions would move their meal history with them.
+          </Banner>
+        </Modal>
       )}
 
       <Btn variant="ghost" onClick={() => void load()} disabled={busy} style={{ marginBottom: 24 }}>

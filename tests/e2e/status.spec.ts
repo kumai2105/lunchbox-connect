@@ -19,11 +19,11 @@ test.describe('operational status workflow', () => {
     await expect(page.getByRole('heading', { level: 1, name: /Status/ })).toBeVisible();
 
     const row = page.locator('tr', { hasText: 'E2E-001' });
-    await expect(row).toContainText('Not operationally eligible');
+    await expect(row).toContainText('Not in the meal service');
 
-    await row.getByRole('button', { name: /Mark billable/i }).click();
+    await row.getByRole('button', { name: /Put into the meal service/i }).click();
 
-    await expect(row).toContainText('Active — billable to nursery');
+    await expect(row).toContainText('Active — in the meal service');
 
     // DB reflects it
     const { data } = await adminDb()

@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { linkGuardian, listGuardians, listStudents, listUsers } from '../lib/api';
+import {
+  linkGuardian,
+  listGuardians,
+  listStudents,
+  listUsers,
+  revokeGuardianAccess,
+} from '../lib/api';
 import type { AppUser, Student } from '../lib/types';
 import { useRole } from '../lib/auth';
 import { can } from '../lib/rbac';
@@ -23,10 +29,18 @@ export default function GuardiansPage() {
   const [busy, setBusy] = useState(false);
 
   const role = useRole();
-  // §5: exact Nursery guardian actions are NOT_YET_DEFINED. Only Super Admin may
-  // link/create; a Nursery Admin gets read-only visibility of existing links,
-  // and the Parent association/provisioning workflow is BLOCKED_BY_SPEC.
+  // Only a Super Admin may create a guardian link or end one. An Institution
+  // Admin sees the links their children already have — who at a nursery may
+  // end a guardian relationship, and on whose authority, is NOT_YET_DEFINED,
+  // so it is not invented here.
   const canLink = can(role, 'guardians', 'create');
+  const canRevoke = can(role, 'guardians', 'delete');
+
+  const [revoking, setRevoking] = useState<GuardianRow | null>(null);
+  const [revokeReason, setRevokeReason] = useState('');
+  const [revokeError, setRevokeError] = useState<string | null>(null);
+  const [revokeBusy, setRevokeBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function load() {
     // student_parents embeds the authoritative student record (no copies)
@@ -55,6 +69,24 @@ export default function GuardiansPage() {
       ),
     [rows],
   );
+
+  async function onRevoke(row: GuardianRow) {
+    setRevokeBusy(true);
+    setRevokeError(null);
+    const res = await revokeGuardianAccess(row.student_id, row.user_id, revokeReason);
+    setRevokeBusy(false);
+    if (res.error) {
+      setRevokeError(res.error);
+      return;
+    }
+    const childName = `${row.student?.given_name ?? ''} ${row.student?.family_name ?? ''}`.trim();
+    setRevoking(null);
+    setRevokeReason('');
+    setNotice(
+      `Access ended. This person can no longer see ${childName || 'this child'}. Their account, the child, and every meal record are untouched.`,
+    );
+    await load();
+  }
 
   async function onLink(e: FormEvent) {
     e.preventDefault();
@@ -85,6 +117,7 @@ export default function GuardiansPage() {
         }
       />
       {error && <Banner kind="err">{error}</Banner>}
+      {notice && <Banner kind="ok">{notice}</Banner>}
       {!canLink && (
         <Banner kind="info">
           Read-only. Linking guardians, and creating Parent accounts from here, are{' '}
@@ -109,6 +142,7 @@ export default function GuardiansPage() {
                 <th>Student</th>
                 <th>Student no.</th>
                 <th>Guardian (user)</th>
+                {canRevoke && <th />}
               </tr>
             </thead>
             <tbody>
@@ -122,12 +156,76 @@ export default function GuardiansPage() {
                     {parentUsers.find((u) => u.user_id === r.user_id)?.full_name ??
                       `${r.user_id.slice(0, 8)}…`}
                   </td>
+                  {canRevoke && (
+                    <td className="row-actions">
+                      <Btn
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setRevokeError(null);
+                          setNotice(null);
+                          setRevokeReason('');
+                          setRevoking(r);
+                        }}
+                      >
+                        End access
+                      </Btn>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </Card>
+
+      {revoking && (
+        <Modal
+          title="End this guardian's access"
+          onClose={() => setRevoking(null)}
+          footer={
+            <>
+              <Btn variant="ghost" onClick={() => setRevoking(null)}>
+                Cancel
+              </Btn>
+              <Btn
+                variant="danger"
+                onClick={() => void onRevoke(revoking)}
+                disabled={revokeBusy || revokeReason.trim().length === 0}
+              >
+                {revokeBusy ? 'Ending…' : 'End access'}
+              </Btn>
+            </>
+          }
+        >
+          {revokeError && <Banner kind="err">{revokeError}</Banner>}
+          <Banner kind="warn">
+            <b>
+              {parentUsers.find((u) => u.user_id === revoking.user_id)?.full_name ?? 'This person'}
+            </b>{' '}
+            will immediately stop seeing {revoking.student?.given_name}{' '}
+            {revoking.student?.family_name} — the menu, the meal records, everything. It takes
+            effect at once, including for a session they already have open.
+          </Banner>
+          <Banner kind="info">
+            Nothing else is touched. Their account survives (they may be a guardian to other
+            children), the child survives, and every observation, note and meal record stays exactly
+            as it is. Link them again at any time.
+          </Banner>
+          <Field label="Reason (required — recorded in Audit)">
+            <input
+              value={revokeReason}
+              onChange={(e) => setRevokeReason(e.target.value)}
+              placeholder="e.g. no longer the child's guardian — confirmed by the nursery"
+              autoFocus
+            />
+          </Field>
+          <p className="tmc-meta">
+            A reason is required because this removes a person's sight of a child. That is never
+            recorded anonymously.
+          </p>
+        </Modal>
+      )}
 
       {showLink && (
         <Modal

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useRole } from '../lib/auth';
+import { useAuth, useRole } from '../lib/auth';
 import { can } from '../lib/rbac';
 import {
   createStudent,
@@ -30,6 +30,7 @@ import { statusLabel, statusPillClass } from '../lib/status';
 import { initials } from '../lib/format';
 
 export default function StudentsPage() {
+  const { profile } = useAuth();
   const [students, setStudents] = useState<Student[] | null>(null);
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [classes, setClasses] = useState<ClassRow[]>([]);
@@ -40,7 +41,19 @@ export default function StudentsPage() {
   // URL stays the source of truth for the institution filter so the link is
   // shareable and Back returns to the same filtered view.
   const [params, setParams] = useSearchParams();
-  const institutionFilter = params.get('institution') ?? '';
+  const role = useRole();
+  /**
+   * A Super Admin chooses which institution to look at. Nobody else has a
+   * choice to make: an Institution Admin's students are their institution's
+   * students, and a Classroom Staff member's are their classes'. Offering them
+   * an "All institutions" dropdown asked a question with one possible answer
+   * and implied there were others they might see — which RLS would refuse
+   * anyway, so the control could only ever produce an empty table.
+   */
+  const isGlobalOperator = role === 'super_admin';
+  const institutionFilter = isGlobalOperator
+    ? (params.get('institution') ?? '')
+    : (profile?.institution_id ?? '');
   const setInstitutionFilter = (value: string) => {
     const next = new URLSearchParams(params);
     if (value) next.set('institution', value);
@@ -51,7 +64,6 @@ export default function StudentsPage() {
   const [term, setTerm] = useState('');
   const [classFilter, setClassFilter] = useState('');
 
-  const role = useRole();
   const canCreate = can(role, 'students', 'create');
   // §5: photo edit and class assignment are mutations — admins only. Classroom
   // staff reach this roster read-only (RLS enforces the same server-side).
@@ -166,13 +178,18 @@ export default function StudentsPage() {
     <div>
       <PageHead
         title="Students"
-        hint="roster — RLS-scoped to your institution"
+        hint={
+          isGlobalOperator ? 'every child across the chain' : 'the children at your institution'
+        }
         actions={
           canCreate ? (
             <Btn
               variant="brand"
               onClick={() => {
                 setError(null);
+                // The institution is not a question for a single-institution
+                // role, so it is answered before the dialog opens.
+                setForm((f) => ({ ...f, institution_id: institutionFilter || f.institution_id }));
                 setShowCreate(true);
               }}
             >
@@ -193,21 +210,29 @@ export default function StudentsPage() {
             onChange={(e) => setTerm(e.target.value)}
           />
         </div>
-        <select value={institutionFilter} onChange={(e) => setInstitutionFilter(e.target.value)}>
-          <option value="">All institutions</option>
-          {institutions.map((i) => (
-            <option key={i.id} value={i.id}>
-              {i.name}
-            </option>
-          ))}
-        </select>
+        {isGlobalOperator && (
+          <select value={institutionFilter} onChange={(e) => setInstitutionFilter(e.target.value)}>
+            <option value="">All institutions</option>
+            {institutions.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.name}
+              </option>
+            ))}
+          </select>
+        )}
         <select value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
           <option value="">All classes</option>
-          {classes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
+          {classes
+            // Only classes that could actually hold a student in view, and only
+            // classes still running — an archived class takes no student, so
+            // offering it as a filter or a destination is offering a refusal.
+            .filter((c) => !institutionFilter || c.institution_id === institutionFilter)
+            .filter((c) => c.active)
+            .map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
         </select>
       </Card>
 
@@ -223,7 +248,7 @@ export default function StudentsPage() {
                 <th>Photo</th>
                 <th>Student</th>
                 <th>ID</th>
-                <th>Institution</th>
+                {isGlobalOperator && <th>Institution</th>}
                 <th>Class</th>
                 <th>Operational status</th>
                 <th>Safety notes (interim)</th>
@@ -265,7 +290,9 @@ export default function StudentsPage() {
                       </Link>
                     </td>
                     <td className="mono cell-sub">{s.student_no}</td>
-                    <td>{institutions.find((i) => i.id === s.institution_id)?.name ?? '—'}</td>
+                    {isGlobalOperator && (
+                      <td>{institutions.find((i) => i.id === s.institution_id)?.name ?? '—'}</td>
+                    )}
                     <td>
                       {canUpdate ? (
                         <select
@@ -276,9 +303,15 @@ export default function StudentsPage() {
                           <option value="">Unassigned</option>
                           {classes
                             .filter((c) => c.institution_id === s.institution_id)
+                            // An archived class cannot take a student — the
+                            // database refuses it. Keep the child's CURRENT
+                            // class in the list even if archived, or the
+                            // control would silently show them as unassigned.
+                            .filter((c) => c.active || c.id === s.class_id)
                             .map((c) => (
                               <option key={c.id} value={c.id}>
                                 {c.name}
+                                {c.active ? '' : ' (archived)'}
                               </option>
                             ))}
                         </select>
@@ -364,19 +397,33 @@ export default function StudentsPage() {
               </Field>
             </div>
             <div className="form-row">
-              <Field label="Institution">
-                <select
-                  value={form.institution_id}
-                  onChange={(e) => setForm({ ...form, institution_id: e.target.value })}
-                >
-                  <option value="">Select…</option>
-                  {institutions.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              {isGlobalOperator ? (
+                <Field label="Institution">
+                  <select
+                    value={form.institution_id}
+                    onChange={(e) => setForm({ ...form, institution_id: e.target.value })}
+                  >
+                    <option value="">Select…</option>
+                    {institutions
+                      // A child cannot be enrolled into an archived
+                      // institution; the database refuses the insert.
+                      .filter((i) => i.active)
+                      .map((i) => (
+                        <option key={i.id} value={i.id}>
+                          {i.name}
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+              ) : (
+                <Field label="Institution">
+                  <input
+                    value={institutions.find((i) => i.id === form.institution_id)?.name ?? ''}
+                    readOnly
+                    disabled
+                  />
+                </Field>
+              )}
               <Field label="Class">
                 <select
                   value={form.class_id}
@@ -385,6 +432,7 @@ export default function StudentsPage() {
                   <option value="">Unassigned</option>
                   {classes
                     .filter((c) => c.institution_id === form.institution_id)
+                    .filter((c) => c.active)
                     .map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}

@@ -2,7 +2,17 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { createInstitution, listInstitutions } from '../lib/api';
 import type { Institution } from '../lib/types';
-import { Banner, Btn, Card, EmptyState, Field, Modal, PageHead, Spinner } from '../components/ui';
+import {
+  Banner,
+  Btn,
+  Card,
+  EmptyState,
+  Field,
+  Modal,
+  PageHead,
+  Pill,
+  Spinner,
+} from '../components/ui';
 
 export default function InstitutionsPage() {
   const [rows, setRows] = useState<Institution[] | null>(null);
@@ -14,6 +24,7 @@ export default function InstitutionsPage() {
   // what it shows rather than silently starting on the second entry.
   const [kind, setKind] = useState<Institution['kind']>('nursery');
   const [busy, setBusy] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -43,6 +54,9 @@ export default function InstitutionsPage() {
 
   if (error && !rows) return <EmptyState text={`Could not load institutions: ${error}`} />;
 
+  const archivedCount = (rows ?? []).filter((r) => !r.active).length;
+  const visible = (rows ?? []).filter((r) => showArchived || r.active);
+
   return (
     <div>
       <PageHead
@@ -61,7 +75,10 @@ export default function InstitutionsPage() {
         }
       />
       <Banner kind="info">
-        Every nursery or school in the chain — staff and data are scoped to these boundaries.
+        Every nursery or school you serve. Staff, students and records belong to exactly one of
+        these, and never cross between them. An institution that stops trading is{' '}
+        <b>archived, never deleted</b> — its record of what children were actually served has to
+        survive the relationship.
       </Banner>
 
       {!rows ? (
@@ -70,23 +87,43 @@ export default function InstitutionsPage() {
         <EmptyState text="No institutions yet. Add the first one to start the chain." />
       ) : (
         <Card>
+          {archivedCount > 0 && (
+            <div style={{ padding: '12px 18px 0' }}>
+              <label className="check-inline">
+                <input
+                  type="checkbox"
+                  checked={showArchived}
+                  onChange={(e) => setShowArchived(e.target.checked)}
+                />
+                Show archived institutions ({archivedCount})
+              </label>
+            </div>
+          )}
           <table>
             <thead>
               <tr>
                 <th>Institution</th>
                 <th>Type</th>
+                <th>State</th>
                 <th>Added</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
+              {visible.map((r) => (
+                <tr key={r.id} className={r.active ? undefined : 'row-muted'}>
                   <td className="cell-name">
                     <Link to={`/institutions/${r.id}`}>{r.name}</Link>
                   </td>
                   <td>
                     <span className="pill slate">{r.kind}</span>
+                  </td>
+                  <td>
+                    {r.active ? (
+                      <Pill variant="green">Operating</Pill>
+                    ) : (
+                      <Pill variant="slate">Archived</Pill>
+                    )}
                   </td>
                   <td className="cell-sub">{new Date(r.created_at).toLocaleDateString()}</td>
                   <td>
