@@ -126,7 +126,7 @@ export default function ParentShell() {
       <div className="parent-shell">
         <div className="parent-body">
           {error && <Banner kind="err">{error}</Banner>}
-          <EmptyState text="No children are linked to this account yet. Your nursery links your child to your account — there is no way to add a child yourself." />
+          <EmptyState text="No children are linked to this account yet. Your child's nursery or school links them to your account — there is no way to add a child yourself." />
         </div>
       </div>
     );

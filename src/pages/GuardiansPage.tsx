@@ -107,7 +107,7 @@ export default function GuardiansPage() {
     <div>
       <PageHead
         title="Parents / guardians"
-        hint="linked to children through the authoritative student record"
+        hint="who is allowed to see which child"
         actions={
           canLink ? (
             <Btn variant="brand" onClick={() => setShowLink(true)}>

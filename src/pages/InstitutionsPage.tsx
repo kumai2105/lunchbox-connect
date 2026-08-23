@@ -61,7 +61,7 @@ export default function InstitutionsPage() {
     <div>
       <PageHead
         title="Institutions"
-        hint="only a Super Admin manages these"
+        hint="the nurseries and schools you serve"
         actions={
           <Btn
             variant="brand"

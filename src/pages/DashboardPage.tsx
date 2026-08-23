@@ -79,7 +79,7 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <PageHead title="Dashboard" hint="live boundary summary" />
+      <PageHead title="Dashboard" hint="what is happening across your institutions today" />
 
       {error && <Banner kind="err">{error}</Banner>}
 
@@ -258,7 +258,7 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      <Card title="Today's attention" hint="derived — nothing invented">
+      <Card title="Today's attention" hint="only what today's records actually say">
         <div style={{ padding: '4px 18px' }}>
           {needsAttention.length === 0 ? (
             <div className="center-box">

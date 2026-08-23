@@ -287,7 +287,7 @@ export default function StudentProfilePage() {
         />
       </div>
 
-      <Card title="Placement" hint="the authoritative institution and class assignment">
+      <Card title="Placement" hint="where this child is, and whether they are in the meal service">
         <table>
           <tbody>
             <tr>
@@ -357,7 +357,7 @@ export default function StudentProfilePage() {
 
       <Card
         title="Guardians"
-        hint="parent access derives from these links"
+        hint="a parent sees this child because of a link listed here"
         actions={
           // "Manage" only where guardian mutation is actually permitted.
           // A School Admin has read-only guardian visibility, so the link is
@@ -400,7 +400,7 @@ export default function StudentProfilePage() {
         )}
       </Card>
 
-      <Card title="Meal history" hint="the same Classroom Meal Records parents and analytics read">
+      <Card title="Meal history" hint="every meal recorded for this child">
         {history.length === 0 ? (
           <EmptyState text="No meal observations have been recorded for this student yet." />
         ) : (

@@ -150,15 +150,23 @@ export default function MenuBuilderPage() {
     setCell(null);
   }
 
+  // §23. What archiving a MENU does is different from archiving a meal, and
+  // saying nothing left an operator to find out by trying it.
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [archiveBusy, setArchiveBusy] = useState(false);
+
   async function toggleActive() {
     if (!selected) return;
+    setArchiveBusy(true);
     const res = await setRotationActive(selected.id, !selected.active);
+    setArchiveBusy(false);
     if (res.error) {
       setError(res.error);
       return;
     }
     const updated = { ...selected, active: !selected.active };
     setSelected(updated);
+    setConfirmArchive(false);
     await loadRotations();
   }
 
@@ -244,7 +252,7 @@ export default function MenuBuilderPage() {
                       ? 'Hide weekend days'
                       : 'Show weekend / camp days'}
                   </Btn>
-                  <Btn size="sm" variant="ghost" onClick={() => void toggleActive()}>
+                  <Btn size="sm" variant="ghost" onClick={() => setConfirmArchive(true)}>
                     {selected.active ? 'Archive' : 'Restore'}
                   </Btn>
                 </div>
@@ -383,6 +391,47 @@ export default function MenuBuilderPage() {
               />{' '}
               Show all meals, including those not tagged for {PERIOD_LABEL[cell.p].toLowerCase()}
             </label>
+          )}
+        </Modal>
+      )}
+
+      {confirmArchive && selected && (
+        <Modal
+          title={selected.active ? `Archive ${selected.name}` : `Restore ${selected.name}`}
+          onClose={() => setConfirmArchive(false)}
+          footer={
+            <>
+              <Btn variant="ghost" onClick={() => setConfirmArchive(false)}>
+                Cancel
+              </Btn>
+              <Btn
+                variant={selected.active ? 'danger' : 'brand'}
+                onClick={() => void toggleActive()}
+                disabled={archiveBusy}
+              >
+                {archiveBusy ? 'Working…' : selected.active ? 'Archive' : 'Restore'}
+              </Btn>
+            </>
+          }
+        >
+          {selected.active ? (
+            <>
+              <Banner kind="warn">
+                An archived menu is closed for editing and cannot be assigned to an institution. Its
+                days stay exactly as they are; you just cannot change them or start using it
+                somewhere new until it is restored.
+              </Banner>
+              <Banner kind="info">
+                <b>Days already published from this menu are untouched.</b> Publication makes a
+                dated meal service in its own right — it does not keep reading back from here — so
+                every institution already working to this menu carries on unaffected, and every meal
+                already served stays recorded. It is not a delete; restore it here at any time.
+              </Banner>
+            </>
+          ) : (
+            <Banner kind="info">
+              Restoring reopens this menu for editing and lets it be assigned to institutions again.
+            </Banner>
           )}
         </Modal>
       )}

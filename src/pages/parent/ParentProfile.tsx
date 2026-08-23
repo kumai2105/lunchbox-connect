@@ -148,7 +148,8 @@ export default function ParentProfile() {
           <Banner kind="info">
             These are general, interim safety notes — <b>not</b> a complete or authoritative
             allergy/dietary record (a structured allergy model is not yet available). To add or
-            change anything, contact your nursery — for safety, it can only be changed by them.
+            change anything, contact {institution?.name ?? "your child's nursery or school"} — for
+            safety, it can only be changed by them.
           </Banner>
         </div>
       </Card>
@@ -199,8 +200,8 @@ export default function ParentProfile() {
           )}
           <div style={{ marginTop: 10 }}>
             <Banner kind="info">
-              Your email address is how you sign in, so it cannot be changed here. Ask your nursery
-              if it needs to change.
+              Your email address is how you sign in, so it cannot be changed here. Ask{' '}
+              {institution?.name ?? "your child's nursery or school"} if it needs to change.
             </Banner>
           </div>
         </div>
@@ -211,7 +212,8 @@ export default function ParentProfile() {
           {pwMsg && <Banner kind={pwMsg.kind === 'ok' ? 'ok' : 'err'}>{pwMsg.text}</Banner>}
           <Banner kind="info">
             You are already signed in, so you do not need your old password. If you have forgotten
-            it and cannot sign in, your nursery can issue you a new one.
+            it and cannot sign in, {institution?.name ?? "your child's nursery or school"} can issue
+            you a new one.
           </Banner>
           <Field label="New password (min 8)">
             <PasswordInput value={pw} onChange={setPw} autoComplete="new-password" />

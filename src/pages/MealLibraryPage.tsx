@@ -166,12 +166,23 @@ export default function MealLibraryPage() {
     await reload();
   }
 
+  // §23. Archiving used to happen on one click with nothing said about what it
+  // means, and the two directions have quite different consequences: one takes
+  // a meal out of future menu building, the other puts it back. Neither
+  // touches anything already published or already eaten, and nobody could tell
+  // that from a bare "Archive" button.
+  const [confirmArchive, setConfirmArchive] = useState<MealLibraryItem | null>(null);
+  const [archiveBusy, setArchiveBusy] = useState(false);
+
   async function toggleArchive(m: MealLibraryItem) {
+    setArchiveBusy(true);
     const res = await setMealActive(m.id, !m.active);
+    setArchiveBusy(false);
     if (res.error) {
       setError(res.error);
       return;
     }
+    setConfirmArchive(null);
     await reload();
   }
 
@@ -262,7 +273,7 @@ export default function MealLibraryPage() {
                     <Btn size="sm" onClick={() => openEdit(m)}>
                       Edit
                     </Btn>
-                    <Btn size="sm" variant="ghost" onClick={() => void toggleArchive(m)}>
+                    <Btn size="sm" variant="ghost" onClick={() => setConfirmArchive(m)}>
                       {m.active ? 'Archive' : 'Restore'}
                     </Btn>
                   </div>
@@ -377,6 +388,51 @@ export default function MealLibraryPage() {
               </p>
             )}
           </form>
+        </Modal>
+      )}
+
+      {confirmArchive && (
+        <Modal
+          title={
+            confirmArchive.active
+              ? `Archive ${confirmArchive.name}`
+              : `Restore ${confirmArchive.name}`
+          }
+          onClose={() => setConfirmArchive(null)}
+          footer={
+            <>
+              <Btn variant="ghost" onClick={() => setConfirmArchive(null)}>
+                Cancel
+              </Btn>
+              <Btn
+                variant={confirmArchive.active ? 'danger' : 'brand'}
+                onClick={() => void toggleArchive(confirmArchive)}
+                disabled={archiveBusy}
+              >
+                {archiveBusy ? 'Working…' : confirmArchive.active ? 'Archive' : 'Restore'}
+              </Btn>
+            </>
+          }
+        >
+          {confirmArchive.active ? (
+            <>
+              <Banner kind="warn">
+                Archiving takes this meal out of menu building. It can no longer be placed on a menu
+                day, and it stops appearing in the meal picker.
+              </Banner>
+              <Banner kind="info">
+                <b>Nothing already scheduled or already served changes.</b> Menus that already use
+                this meal keep it, days already published keep it, and every record of a child
+                eating it stays exactly as it is — with the recipe it had on the day. Archiving is
+                about what you build next, not about the past. It is not a delete; restore it here
+                at any time.
+              </Banner>
+            </>
+          ) : (
+            <Banner kind="info">
+              Restoring puts this meal back in the picker so it can be placed on menu days again.
+            </Banner>
+          )}
         </Modal>
       )}
     </div>

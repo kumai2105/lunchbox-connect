@@ -105,7 +105,7 @@ export default function ParentMenu() {
         Allergen information shown here is the authoritative record <b>for this meal</b> — what the
         kitchen prepared. It is <b>not</b> matched against your child: their profile does not yet
         hold a structured allergy or dietary record, so nothing here is checked against one. Always
-        tell your nursery directly about your child's allergies and dietary needs.
+        tell your child's nursery or school directly about their allergies and dietary needs.
       </Banner>
 
       {detail && (

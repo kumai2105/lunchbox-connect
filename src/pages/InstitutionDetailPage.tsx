@@ -388,7 +388,7 @@ export default function InstitutionDetailPage() {
       {tab === 'students' && (
         <Card
           title="Students"
-          hint="same authoritative Student records as the Students page"
+          hint="the children enrolled here"
           actions={
             <Link to={`/students?institution=${id}`} className="btn ghost">
               Manage students <Icon name="arrowRight" size={14} />
@@ -436,7 +436,7 @@ export default function InstitutionDetailPage() {
       {tab === 'staff' && (
         <Card
           title="Staff accounts"
-          hint="institution-scoped users"
+          hint="the accounts that belong to this institution"
           actions={
             canInviteStaff ? (
               <Btn variant="brand" size="sm" onClick={() => setShowInvite(true)}>
