@@ -7,19 +7,19 @@ execution checkpoint, which is archived into this document.
 
 | | |
 |---|---|
-| Git SHA | `f7fb45c8` — deployed |
+| Git SHA | `2793a90c` — deployed |
 | Branch | `claude/new-session-k5dd5u` — the branch every production deploy to date has been cut from |
 | Working tree | clean, pushed |
 | Migration ceiling in repo | `0042_state_the_reads_the_policies_assume.sql` |
 | Migration ceiling in production | **`0042`** — applied 2026-08-22, ledger `20260822192151`, unchanged by this release |
 | Production Supabase | `llnofriwvnerntrbpehc` |
-| Deployed frontend | **`f7fb45c8`** (deploy run `32601124680`, success) — supersedes `e1f9d7b4`, `fc2e4c57`, `2e03b842` and `9e44e786` |
+| Deployed frontend | **`2793a90c`** (deploy run `32603280514`, success) — supersedes `56b8f7ed`, `f7fb45c8`, `e1f9d7b4`, `fc2e4c57`, `2e03b842` and `9e44e786` |
 
 ## Gate, dynamically derived
 
 | Gate | Result |
 |---|---|
-| Browser E2E | **84 / 84** — 0 failed, 0 skipped, 0 flaky (run `32600904850`, on the released SHA `f7fb45c8`) |
+| Browser E2E | **84 / 84** — 0 failed, 0 skipped, 0 flaky (run `32603062173`, on the released SHA `2793a90c`) |
 | SQL suites | **21 suites, 223 named assertions**, 0 failures |
 | Authorization matrix | **520 checks**, all pass |
 | Unit tests | **122**, 13 files |
@@ -338,6 +338,56 @@ counters.
 
 Asset and two explanatory comments only. No Supabase, migration, RLS,
 authentication, business-logic, route or permission change.
+
+## Follow-up release `2793a90c` — the logo everywhere, including the browser tab
+
+Two "LC in a box" placeholders were still in the product, both reported from a
+phone.
+
+**The narrow rail.** Below 900px the sidebar collapses to 64px, and the logo was
+swapped there for a blue square reading "LC" — on my assumption that the lockup
+would be illegible at that width. Rendered and looked at rather than assumed,
+that was wrong: at 48px it still reads as the brand, and a lettered placeholder
+on a customer's phone is worse than a small logo. The rail now carries the logo
+at 48px on the same white plate the desktop sidebar uses, in the horizontal
+space the square already occupied, so no tappable navigation width is lost.
+
+Removing it took the last of the old text lockup's CSS with it: `.logo`,
+`.logo-mark`, `.logo b`, `.logo .sub`, `.logo.white`, the `.sidebar .logo`
+margin and the two rail rules that hid its text. Nothing had rendered any of it
+since the logo replaced the lockup on every screen.
+
+**The browser tab.** The favicon was an inline SVG of the letters "LC" on a teal
+square, a placeholder from before the brand existed. `public/favicon.ico` now
+carries the logo at 16, 32 and 48px, each downscaled from the artwork with
+Lanczos rather than left for the browser to squash out of a single image, with
+the white ground removed so nothing sits behind it. At 32 and 48px it reads
+clearly; at 16 it is small, which is the nature of a 16px square and a
+horizontal lockup — measured, and accepted as the Founder's call after the
+alternative, cropping a mark out of the artwork, was rejected as redesigning the
+brand.
+
+`public/apple-touch-icon.png` (180px) is the single exception and keeps the
+white ground: iOS composites a home-screen icon onto black and imposes its own
+rounded square, so a transparent one would lose the navy outline entirely.
+
+The built `index.html` no longer contains the string "LC".
+
+| Verification | Result |
+|---|---|
+| Typecheck · lint · 122 unit tests · build | pass |
+| Browser E2E on `2793a90c` | run `32603062173` — 84/84, 0 failed, 0 skipped |
+| Real Chromium at 1440x900, 820x1180, 390x844 | logo 200x126 desktop and 48x33 on both narrow widths; **Log out** visible and on-screen at all three; no horizontal overflow |
+| Deploy | run `32603280514`, success |
+| Production smoke on `www.lunchboxconnect.com` | run `32631403624`, success |
+| Production browser sign-in/sign-out | run `32631407840`, success |
+
+The last two did not run when this SHA deployed — the job driving them died
+with the session container, silently — and were re-run afterwards. Recorded
+that way rather than presented as part of the deploy.
+
+Assets, layout and comments only. No Supabase, migration, RLS, authentication,
+business-logic, route or permission change.
 
 ## Deployment path
 
