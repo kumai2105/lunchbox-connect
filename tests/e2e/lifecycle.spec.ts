@@ -380,3 +380,37 @@ test.describe('guardian access is ended deliberately, or not at all', () => {
     await expect(page.getByRole('button', { name: 'End access', exact: true })).toHaveCount(0);
   });
 });
+
+test.describe('an Institution Admin holds the same authority, on the screen they can reach', () => {
+  test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
+  test.setTimeout(120_000);
+
+  test('Staff offers the account actions that Users & roles would not', async ({ page }) => {
+    // app_may_manage_account() has always let a Nursery Admin deactivate,
+    // rename and re-password THEIR OWN classroom staff. Nothing served it:
+    // Users & roles is Super-Admin-only, so an Institution Admin held the
+    // authority in the database with no way to use it. This asserts the way.
+    await login(page, seeded().schoolAdminEmail);
+    await page.goto('/staff');
+    await expect(page.locator('#root')).toBeVisible();
+
+    const row = page.locator('tbody tr').first();
+    await expect(row).toBeVisible({ timeout: 20_000 });
+    await expect(row.getByRole('button', { name: 'Edit', exact: true })).toBeVisible();
+    await expect(row.getByRole('button', { name: 'Set password', exact: true })).toBeVisible();
+    await expect(row.getByRole('button', { name: 'Deactivate', exact: true })).toBeVisible();
+
+    // And the dialog tells the truth about what cannot be looked up.
+    await row.getByRole('button', { name: 'Set password', exact: true }).click();
+    await expect(page.locator('.modal')).toContainText('cannot be looked up');
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  });
+
+  test('and still cannot reach the platform-wide account screen', async ({ page }) => {
+    await login(page, seeded().schoolAdminEmail);
+    await page.goto('/users');
+    // Bounced to their own first page — the authority is over their own staff,
+    // not over every account on the platform.
+    await expect.poll(async () => new URL(page.url()).pathname).not.toBe('/users');
+  });
+});
