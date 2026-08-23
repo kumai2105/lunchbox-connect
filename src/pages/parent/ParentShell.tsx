@@ -10,6 +10,7 @@ import {
 import type { ServingNote, ServingRecord, Student } from '../../lib/types';
 import type { DayMeal } from '../../lib/api';
 import { Banner, EmptyState, Spinner } from '../../components/ui';
+import ParentAccountCards from './ParentAccountCards';
 import { Icon, type IconName } from '../../components/icons';
 import { operationalDaysAgoISO, todayISO, weekEndISO } from '../../lib/format';
 import { ParentContext, type ParentCtx } from './context';
@@ -121,12 +122,23 @@ export default function ParentShell() {
 
   if (loading) return <Spinner />;
 
+  // NO CHILD LINKED — a real state, and not a dead end.
+  //
+  // This used to render the empty state and nothing else: no navigation, no
+  // Outlet, no route. Which meant a Parent whose account existed before their
+  // child was linked, or whose link had just been revoked, could not reach
+  // their own profile — so they could not change their password and **could
+  // not even sign out**, because the sign-out control lives on that screen.
+  //
+  // The child-dependent screens genuinely have nothing to show. Their own
+  // account does not depend on a child, so it is shown here directly.
   if (!children || children.length === 0) {
     return (
       <div className="parent-shell">
         <div className="parent-body">
           {error && <Banner kind="err">{error}</Banner>}
           <EmptyState text="No children are linked to this account yet. Your child's nursery or school links them to your account — there is no way to add a child yourself." />
+          <ParentAccountCards />
         </div>
       </div>
     );

@@ -222,6 +222,13 @@ test.describe('account lifecycle through the interface', () => {
   test('a Parent changes their own password from their own profile', async ({ browser }) => {
     // The thing that did not exist at all: every account was stuck on whatever
     // an administrator first typed for them.
+    //
+    // THIS PARENT HAS NO CHILD LINKED, deliberately. The Parent shell used to
+    // render the "no children are linked" empty state and nothing else — no
+    // navigation, no route — so an account in exactly this state could not
+    // reach its own profile, could not change its password, and could not even
+    // sign out, because the sign-out control lives there. Run 32641054574
+    // failed here and the defect was the product's, not the test's.
     const ctx = await browser.newContext();
     const theirPage = await ctx.newPage();
     await theirPage.goto('/login');
@@ -229,6 +236,14 @@ test.describe('account lifecycle through the interface', () => {
     await theirPage.locator(SEL.password).fill(REISSUED_PASS);
     await theirPage.getByRole('button', { name: /enter the platform/i }).click();
     await theirPage.waitForURL((u) => u.pathname.startsWith('/parent'), { timeout: 20_000 });
+
+    // The empty state is still shown — it is true — but it is not the whole
+    // screen any more.
+    await expect(theirPage.getByText(/No children are linked/)).toBeVisible();
+    await expect(
+      theirPage.getByRole('button', { name: 'Sign out', exact: true }),
+      'a Parent with no linked child had no way to sign out',
+    ).toBeVisible();
 
     await theirPage.goto('/parent/profile');
     await theirPage.getByLabel('New password (min 8)', { exact: true }).fill(SELF_CHOSEN_PASS);
