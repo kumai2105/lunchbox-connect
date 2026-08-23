@@ -1,5 +1,73 @@
 # LunchBox Connect — Package Manifest
 
+## SNAPSHOT — INDEPENDENT REVIEW, 23 August 2026
+
+**Verified SHA:** `6f94b017db9f3388e0386c9f4318cc133625804b`
+**Branch:** `claude/new-session-k5dd5u`
+**Archive:** `LunchBox-Connect-CURRENT-INDEPENDENT-REVIEW.zip`
+
+Every gate below was run against that exact tree immediately before packaging.
+Totals are read from the suites themselves, not carried forward from an earlier
+manifest.
+
+| Gate | Command | Result |
+| ---- | ------- | ------ |
+| Browser suite | `e2e-local-supabase.yml` run `32636221047` | **PASS — 85 / 85** in 13 spec files · 0 failed · 0 skipped · 0 retries |
+| Database suites | `./tests/sql/run_verification.sh` | **PASS — 22 suites**, 237 named assertions |
+| Authorization matrix | `verify_authorization_matrix` | **PASS — 520 checks** |
+| Unit tests | `pnpm test:unit` | **PASS — 122** across 13 files |
+| TypeScript | `pnpm typecheck` | **PASS** — app + node + `tests/e2e`, three projects |
+| Lint | `pnpm lint` | **PASS** |
+| Production build | `pnpm build` | **PASS** |
+| Worker / config | `wrangler deploy --dry-run` | **PASS** — `env.ASSETS  Assets`, no upload |
+
+**Migration ceiling:** `0043_meal_period_tags.sql` (43 migrations).
+
+### The browser gate is self-counting
+
+The workflow takes its expected total from `playwright test --list` rather than
+a number written down by hand, then asserts `expected == total`,
+`unexpected == 0` and `skipped == 0`. A stale hand-counted number could pass
+while whole specs silently stopped being collected; this cannot. The step named
+"Assert every test executed, 0 failed, 0 skipped" is what makes the 85 above a
+measurement rather than a claim.
+
+### One failure was found and fixed during this verification
+
+Run `32635246818` failed on two tests, and the defect was in the test coverage,
+not the product. Requiring a Meal to state its sittings before it can be saved
+had been applied to the Meal editor and to `acceptance.spec.ts`, but
+`operability.spec.ts` and `provisioning.spec.ts` also create Meals through the
+UI and were not updated — both waited on a Save button that correctly never
+enabled. Fixed in `6f94b017`, and the suite is green on that SHA. Recorded here
+because a gate that never caught anything would not be evidence of much.
+
+### Re-proved in this run
+
+Super Admin scope · Institution Admin sees only its own Institution (asserted in
+`verify_read_grants` s3: exactly one row for the Institution Admin, more than
+one for the Super Admin) · no cross-Institution exposure · Parent isolation ·
+Classroom scope · Kitchen scope · all nine roles sign in and out · Menu Builder
+authoring and the period-filtered slot picker with its override · Meal Library
+authoring · Institution configuration · and the complete
+Meal → Menu → Institution → Publish → Classroom → Parent → Kitchen chain, which
+is one test that walks the whole thing rather than several that each assume the
+step before it.
+
+The nine simulation personas are unchanged: none was deleted, renamed,
+reassigned or stripped of a role, and each still signs in as the role it exists
+to simulate.
+
+### Packaging note
+
+This manifest is a documentation-only layer written on top of the verified SHA,
+which is the established convention for this project — the code being described
+is `6f94b017`, and this file records what was measured against it.
+
+---
+
+## Historical manifest (previous packaging)
+
 **Packaged:** 2026-08-20
 **Branch:** `claude/new-session-k5dd5u`
 **Release commit:** `222d32b`
