@@ -117,6 +117,12 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     await page.goto('/meals');
     await page.getByRole('button', { name: /add meal/i }).first().click();
     await page.getByLabel('Name', { exact: true }).fill(MEAL);
+    // Step 5 below fills BOTH the Breakfast and the Lunch row with this one
+    // meal, and Menu Builder offers a meal only for the sittings it is tagged
+    // for. Tagging both is the multi-select model doing its job: one Meal, two
+    // sittings, no duplicate row — so its revisions and analytics stay together.
+    await page.getByRole('checkbox', { name: 'Breakfast', exact: true }).check();
+    await page.getByRole('checkbox', { name: 'Lunch', exact: true }).check();
     await page.getByPlaceholder('chicken, pasta, tomato').fill('rice, peas');
     await page.getByPlaceholder('gluten, dairy').fill('none');
     await page.getByRole('button', { name: /save meal/i }).click();
@@ -680,6 +686,9 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
       await page.goto('/meals');
       await page.getByRole('button', { name: /add meal/i }).first().click();
       await page.getByLabel('Name', { exact: true }).fill(name);
+      // This test fills the Lunch row only, so Lunch is the sitting that has
+      // to be tagged for the picker to offer it.
+      await page.getByRole('checkbox', { name: 'Lunch', exact: true }).check();
       await page.getByPlaceholder('chicken, pasta, tomato').fill('rice');
       await page.getByPlaceholder('gluten, dairy').fill('none');
       await page.getByRole('button', { name: /save meal/i }).click();

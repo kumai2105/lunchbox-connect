@@ -119,6 +119,9 @@ test.describe('meal images — upload, persist, render, and stay historical', ()
     await page.goto('/meals');
     await page.getByRole('button', { name: /add meal/i }).first().click();
     await page.getByLabel('Name', { exact: true }).fill(MEAL);
+    // A meal cannot be saved without at least one sitting. This test is about
+    // the image, so one is enough.
+    await page.getByRole('checkbox', { name: 'Lunch', exact: true }).check();
     await page.getByPlaceholder('chicken, pasta, tomato').fill('rice, peas');
     await page.getByPlaceholder('gluten, dairy').fill('none');
 
