@@ -304,3 +304,27 @@ things:
   menu.
 
 Neither is a delete; both restore.
+
+## Meal sittings, and what the existing ones were set from
+
+A Meal states which sittings it suits — Breakfast, Morning snack, Lunch,
+Afternoon snack — and may suit several. One Meal stays one Meal: it is never
+duplicated to appear at more than one sitting, so its revision history, its
+image and its analytics stay together.
+
+In the Menu Builder, filling a Breakfast slot shows the meals tagged for
+breakfast first. It is **guidance, not a rule** — a "show all meals" control
+sits under the list, because the tag is there to make authoring quicker, not to
+tell you what you may serve.
+
+**The tags on meals that already existed were derived, not confirmed by
+anyone.** When this was introduced, every existing Meal was given tags from
+where it was actually used on your menus; a Meal that had never been placed
+anywhere was tagged for all four sittings, so it stays visible everywhere until
+somebody narrows it deliberately.
+
+That is a reasonable starting point and it is not a decision you made. Review
+them as you next edit each Meal. Nothing will clean them up behind you —
+changing them is your call, and **changing only the sittings does not create a
+new recipe revision**, so correcting a tag costs nothing and leaves no false
+entry in the meal's history.

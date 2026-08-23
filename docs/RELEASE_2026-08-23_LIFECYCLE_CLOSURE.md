@@ -151,6 +151,21 @@ Until step 1 is done, `0042` remains the truth in production and the currently
 deployed frontend (`2793a90c`) remains correct for it. Nothing in this release
 has changed the live site.
 
+## Meal Period tags: derived, and left alone
+
+Migration `0043` (already in the repository at the start of this closure) tags
+every existing Meal from **where it was actually used on menus** — evidence,
+not a guess — and tags a never-used Meal for all four sittings so it stays
+visible everywhere until somebody narrows it deliberately.
+
+Those tags are **derived, not operator-confirmed**, and this closure does not
+pretend otherwise and does not "clean" them. There is no way to tell, after the
+fact, which tag an operator meant and which the bootstrap supplied, so nothing
+rewrites them. The operating guide now says this to the person who will read
+it, and points out that changing a tag costs nothing: `0045` makes a
+sittings-only edit append no revision, so correcting one leaves no false entry
+in the Meal's history.
+
 ## Decisions recorded
 
 `docs/spec-pack/docs/13_DECISION_LOG.md` gains 037–042: records are
