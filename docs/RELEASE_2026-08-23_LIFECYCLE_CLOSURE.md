@@ -148,6 +148,34 @@ fail.
 5. Deploy the frontend at the **exact SHA this gate ran against**.
 6. Run `prod-smoke` and `prod-browser-auth` against that same SHA.
 
+### The commands, in order
+
+```bash
+# 1 · schema — from a checkout of the verified SHA
+supabase link --project-ref llnofriwvnerntrbpehc
+supabase db push                      # applies 0043, 0044, 0045, 0046
+
+# 2 · confirm the ledger actually moved
+#     (four new rows; the newest name should be 0046_an_archived_institution…)
+
+# 3 · the three privileged functions — all of them, or deactivation 404s
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...   # if not already set
+pnpm functions:deploy
+
+# 4 · attest the backend, then deploy the frontend at the SAME SHA
+#     BACKEND_READY_MIGRATION=0046  (repository variable, or the
+#     workflow_dispatch input on Deploy to Cloudflare)
+
+# 5 · prove it against the live origin
+#     dispatch prod-smoke and prod-browser-auth on that SHA
+```
+
+A recovery point for `0044` would record, at minimum: the current
+`institutions`, `classes` and `app_users` column lists, and the definitions of
+the eleven authorization helpers it replaces (`pg_get_functiondef`). `0044`
+reissues those helpers with one added condition each; keeping the previous
+definitions is what makes the change reversible without a dump.
+
 Until step 1 is done, `0042` remains the truth in production and the currently
 deployed frontend (`2793a90c`) remains correct for it. Nothing in this release
 has changed the live site.
