@@ -634,10 +634,9 @@ up. The workflow fails closed on any other outcome — including a request that
 does not complete, because a probe that never reaches the env check tests
 nothing.
 
-**What this does not prove.** That the whole reset flow completes against the
-production origin — new password accepted, old one rejected, role preserved,
-audit row carrying no value. That needs an authenticated account-managing
-session, and the only `super_admin` is the Founder's own account; the CI
-credential is the Viewer persona, which has no such authority by design. The
-flow itself is proven by `lifecycle.spec.ts` against a disposable stack; what
-is unproven is only the production repetition of it.
+**The rest is now proven too.** The whole flow was driven against the
+production origin by run `32658948747`: new password accepted at the auth API
+and in a fresh browser context, old password rejected in both, role and scope
+unchanged, and the audit row carrying `{"password_reset": true}` and no value.
+A disposable `classroom_staff` fixture was created by the run and deactivated
+by it; no persona was touched. See the release record for the full table.

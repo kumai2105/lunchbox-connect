@@ -262,23 +262,55 @@ them otherwise.
 `SUPABASE_ANON_KEY` are all present for both Edge Functions, and both functions
 are operational in production.
 
-### End-to-end password-reset proof — still outstanding
+### End-to-end password reset — VERIFIED against production 23 August 2026
 
-Proving the *full* flow through the live product — a reset performed on a
-disposable account, the new password accepted in a fresh session, the old one
-rejected, the role and scope unchanged, and no password value in the audit row
-— requires an authenticated **account-managing** session in production, and no
-such credential is available to the automated path:
+**Status: VERIFIED.** Run `32658948747`, driven by a real Chromium against
+`https://www.lunchboxconnect.com`. Ten assertions, all passing.
 
-- the only `super_admin` is the Founder's own account, and its password is not
-  known to this process and must not be reset to obtain one;
-- both `school_admin` personas' passwords are likewise unknown;
-- the credential held in CI (`PROD_VERIFY_EMAIL`) is the **Viewer** persona,
-  which by design has no account-management authority.
+| Assertion | Evidence |
+| --- | --- |
+| Admin signs in to production | landed on `/dashboard` |
+| Disposable account created through the product | `zz.verify.<ts>@lunchboxconnect.com`, `classroom_staff` at Al Noor Nursery |
+| **Baseline** — the original password is accepted *before* the reset | auth API `HTTP 200` |
+| Set password completes in the live product | dialog closed on success |
+| **New password accepted** (auth API, no session at all) | `HTTP 200` |
+| **New password accepted** (genuinely fresh browser context) | landed on `/today` |
+| **Old password rejected** (auth API) | `HTTP 400` |
+| **Old password rejected** (fresh browser context) | stayed unauthenticated |
+| **Role and scope preserved** | `classroom_staff` · Al Noor Nursery, identical before and after |
+| Disposable account deactivated afterwards | `active = false`, reason recorded |
 
-The authorization branches themselves are already proven by
-`lifecycle.spec.ts`, which drives exactly this flow through a real browser
-against a disposable stack — including that a reissued password works while the
-old one is refused. What remains unproven is only that the same flow completes
-against the *production* origin, and the Edge Function underneath it is now
-confirmed operational above.
+The baseline is not ceremony. Without proving the first password worked,
+"the old password is rejected" is unfalsifiable — a password that never worked
+is also rejected, and the assertion would pass while proving nothing.
+
+**No password value reaches the audit log.** The four audit rows for that
+account read, in order:
+
+```
+create               new_value has no password key at all
+user.password_reset  new_value = {"password_reset": true}   previous_value = null
+update               active true -> false
+user.deactivate      previous {"active": true} -> {"active": false,
+                     "class_assignments_removed": 0}
+```
+
+The reset row records THAT it happened, by whom, for whom and why — never what
+to. There is no column on `audit_log` that could carry a password value even by
+accident.
+
+**No password value reaches the logs either**, and this is structural rather
+than observed: neither `admin-set-password` nor `admin-set-active` contains a
+single logging statement — no `console.*`, nothing. There is no code path that
+could emit one. (The platform log-query backend was returning errors at the
+time of writing, so the live log stream was not additionally scanned; the
+source-level proof does not depend on it.)
+
+**Nothing pre-existing was touched.** The fixture was created by the run through
+the product's own Create account dialog and deactivated by it at the end. None
+of the ten simulation personas was renamed, reassigned, deactivated or given a
+new password. Both passwords were random per run and were never printed.
+
+The account remains in production as a deactivated row, which is the correct
+terminal state under Decision 037 — core records are deactivated or archived,
+never destroyed.
