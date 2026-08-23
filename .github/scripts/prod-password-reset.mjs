@@ -64,7 +64,7 @@ async function apiSignIn(email, password) {
 }
 
 const browser = await chromium.launch();
-let disposableUserId = null;
+let created = false;
 let cleanedUp = false;
 
 try {
@@ -82,27 +82,42 @@ try {
     await page.getByLabel('Full name', { exact: true }).fill(DISPOSABLE_NAME);
     await page.getByLabel('Email', { exact: true }).fill(DISPOSABLE_EMAIL);
     await page.getByLabel('Password (min 8)', { exact: true }).fill(PASS_OLD);
-    // ROLE: viewer, and the choice is evidence-driven rather than arbitrary.
+    // ROLE: classroom_staff.
     //
-    // This fixture exists only to have its password reset and to sign in. It
-    // needs a role that requires no institution, no kitchen and no linked
-    // child. `viewer` is the one role whose production landing path is ALREADY
-    // PROVEN: prod-browser-auth signs in as the viewer persona against this
-    // exact origin and asserts it settles on a path that is neither / nor
-    // /login (run 32655454452). So `waitForLanded` below cannot produce a false
-    // failure for it.
+    // Only five roles are offered for provisioning at all. provisionableRoles()
+    // keeps a role only if some nav entry is NOT `shell: true` — Decision 040,
+    // "a role is offered for provisioning only when it has a screen" — which
+    // excludes viewer, operations_manager, finance_owner and driver, whose one
+    // nav entry each is still a placeholder.
     //
-    // It was `parent` first. That was wrong on its own terms — a guardian
-    // account exists so someone can see what their child is served, so a
-    // guardian with nothing linked is a transient provisioning state, not a
-    // fixture to manufacture on purpose. Creating one here would also have
-    // leaned on the finding-13 fix to make the account usable at all, which is
-    // an unnecessary dependency for a test about passwords.
-    await page.getByLabel('Role', { exact: true }).selectOption('viewer');
+    // This was `viewer` for exactly one run, and the reasoning was wrong. I
+    // argued viewer was safe because prod-browser-auth proves the viewer
+    // persona signs in and lands correctly. True, and irrelevant: that is
+    // evidence about an account that ALREADY EXISTS, not about whether one can
+    // be CREATED. The dialog never offered the option and selectOption timed
+    // out looking for it.
+    //
+    // Of the five, `parent` is the only one needing no second field — but a
+    // guardian account exists so someone can see what their child is served,
+    // so manufacturing one with nothing linked is not a fixture to create on
+    // purpose. classroom_staff needs an institution and nothing else, and a
+    // staff account that exists before it is assigned to any class is an
+    // entirely ordinary thing rather than a contradiction.
+    await page.getByLabel('Role', { exact: true }).selectOption('classroom_staff');
+
+    // Institution: the first real option after the "Select…" placeholder. Read
+    // from the live list rather than hard-coded, so this cannot go stale if the
+    // institutions change.
+    const inst = page.getByLabel(/^Institution/);
+    await inst.selectOption({ index: 1 });
+    const instName = await inst.locator('option:checked').innerText();
+    console.log(`disposable staff account will be attached to: ${instName.trim()}`);
+
     await page.getByRole('button', { name: 'Create account', exact: true }).click();
 
     const row = page.locator('tr', { hasText: DISPOSABLE_EMAIL });
     await row.waitFor({ state: 'visible', timeout: 30000 });
+    created = true;
     record('disposable account created through the product', true, DISPOSABLE_EMAIL);
     await ctx.close();
   }
@@ -217,8 +232,14 @@ try {
 }
 
 console.log('\n────────────────────────────────────────────────');
-console.log(`disposable account: ${DISPOSABLE_EMAIL}`);
-console.log(`cleaned up: ${cleanedUp ? 'yes (deactivated)' : 'NO — deactivate it by hand'}`);
+// Only report debris that actually exists. Saying "deactivate it by hand"
+// about an account that was never created sends someone hunting for nothing.
+if (!created) {
+  console.log('no disposable account was created — nothing to clean up');
+} else {
+  console.log(`disposable account: ${DISPOSABLE_EMAIL}`);
+  console.log(`cleaned up: ${cleanedUp ? 'yes (deactivated)' : 'NO — deactivate it by hand'}`);
+}
 console.log('the two passwords used were random per run and are not printed anywhere.');
 console.log('────────────────────────────────────────────────');
 
