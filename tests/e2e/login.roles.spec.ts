@@ -5,6 +5,21 @@ import { e2eReady, login, seeded } from './fixtures';
  * Nine approved role domains (docs/02). Every role signs in and lands on its
  * first nav page with the correct role chip.
  */
+// What the sidebar shows for each stored role. Held literally rather than
+// imported from src/lib/roleLabel so this stays an assertion about what a
+// person reads, not a restatement of the implementation.
+const ROLE_LABEL: Record<string, string> = {
+  super_admin: 'Super Admin',
+  school_admin: 'Institution Admin',
+  operations_manager: 'Operations Manager',
+  finance_owner: 'Finance / Owner',
+  viewer: 'Viewer',
+  parent: 'Parent',
+  classroom_staff: 'Classroom staff',
+  kitchen: 'Kitchen',
+  driver: 'Driver',
+};
+
 test.describe('login matrix — nine roles', () => {
   test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
 
@@ -50,13 +65,16 @@ test.describe('login matrix — nine roles', () => {
         await expect(page.locator('.parent-nav')).toBeVisible();
         await expect(page.locator('.parent-nav-item.active')).toHaveText(c.nav);
       } else {
-        await expect(page.locator('.side-foot .u-role')).toHaveText(new RegExp(c.role, 'i'));
+        // The sidebar shows the READABLE role now, not the stored enum — a
+        // nursery manager was being shown the literal text "school_admin".
+        // The stored value is unchanged; this asserts what a person sees.
+        await expect(page.locator('.side-foot .u-role')).toHaveText(ROLE_LABEL[c.role]);
         await expect(page.locator('.nav a.active')).toHaveText(c.nav);
       }
     });
   }
 
-  test('role selector in account creation offers exactly the nine domains', async ({ page }) => {
+  test('the role selector offers only roles with a product behind them', async ({ page }) => {
     const s = seeded();
     await login(page, s.superAdminEmail);
     await page.goto('/users');
@@ -74,16 +92,22 @@ test.describe('login matrix — nine roles', () => {
 
     // Readable labels, not the database's enum values — this list is read by a
     // person choosing a role, and the stored value is unchanged behind it.
+    //
+    // FOUR OF THE NINE ARE DELIBERATELY ABSENT. Operations Manager, Finance /
+    // Owner, Viewer and Driver have no built screen between them: every page
+    // in their navigation is a shell that says the module is not available.
+    // Creating one of those accounts hands somebody a working sign-in that
+    // leads nowhere, so the offer is withdrawn until the screens exist. The
+    // roles themselves are untouched — still in the database enum, still in
+    // the RBAC matrix, still in the spec — and the picker is derived from
+    // which navigations contain a real page, so each one reappears here by
+    // itself on the day its module is built.
     expect(roleOptions).toEqual([
       'Super Admin',
       'Institution Admin',
-      'Operations Manager',
-      'Finance / Owner',
-      'Viewer',
       'Parent',
       'Classroom staff',
       'Kitchen',
-      'Driver',
     ]);
   });
 });

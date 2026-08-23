@@ -227,6 +227,75 @@ begin
     raise notice 'PASS a9: an Institution Admin cannot reach another institution''s staff';
   end;
 
+  -- ---- a10: a person may correct their OWN name and phone, and nothing else
+  --
+  -- update_user_profile() lets an ACTIVE person write their own row. The three
+  -- things it must not become are checked here as well as the one thing it is:
+  -- it must not reach another person's row, it must not become a way for a
+  -- DEACTIVATED account to keep writing, and it must not touch email or role,
+  -- which it cannot because it takes neither as an argument.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_par, 'role','authenticated')::text, true);
+  set local role authenticated;
+  perform update_user_profile(v_par, 'Renamed Parent', '+971500000001');
+  reset role;
+  if (select full_name from app_users where user_id = v_par) <> 'Renamed Parent' then
+    raise exception 'FAIL a10: a Parent could not correct their own name';
+  end if;
+  raise notice 'PASS a10: a person may correct their own name and phone';
+
+  set local role authenticated;
+  begin
+    perform update_user_profile(v_staff, 'Hijacked', null);
+    reset role;
+    raise exception 'FAIL a10: a Parent rewrote somebody else''s profile';
+  exception when others then
+    reset role;
+    raise notice 'PASS a10: and nobody else''s';
+  end;
+
+  -- Now deactivate someone and try again as them. Every account reactivated by
+  -- an earlier assertion is active by this point, so the state is established
+  -- here rather than assumed from further up.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_sa, 'role','authenticated')::text, true);
+  set local role authenticated;
+  perform set_user_active(v_sa2, false, 'to prove a deactivated account writes nothing');
+  reset role;
+  if (select active from app_users where user_id = v_sa2) then
+    raise exception 'FAIL a10: the fixture account was not actually deactivated';
+  end if;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_sa2, 'role','authenticated')::text, true);
+  set local role authenticated;
+  begin
+    perform update_user_profile(v_sa2, 'Still Here', null);
+    reset role;
+    raise exception 'FAIL a10: a deactivated account edited its own profile';
+  exception when others then
+    reset role;
+    raise notice 'PASS a10: a deactivated account cannot even edit its own name';
+  end;
+
+  -- Put it back, so the assertions after this one see the fixture they expect.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_sa, 'role','authenticated')::text, true);
+  set local role authenticated;
+  perform set_user_active(v_sa2, true, null);
+  reset role;
+
+  -- Email is not a parameter of the function at all, so there is no path
+  -- through it that could desynchronise the profile copy from Supabase Auth.
+  if exists (
+    select 1 from pg_proc p
+    where p.proname = 'update_user_profile'
+      and pg_get_function_identity_arguments(p.oid) like '%email%'
+  ) then
+    raise exception 'FAIL a10: update_user_profile grew an email argument';
+  end if;
+  raise notice 'PASS a10: email is not reachable through the profile edit at all';
+
   -- =============================================================== CLASSES
   -- ---- c1: archiving is refused while anyone is still assigned -----------
   perform set_config('request.jwt.claims',

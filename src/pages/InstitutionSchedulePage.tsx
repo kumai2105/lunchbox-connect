@@ -99,10 +99,10 @@ export default function InstitutionSchedulePage() {
       {error && <Banner kind="err">{error}</Banner>}
 
       <Banner kind="info">
-        This is the <b>published</b> schedule for your institution — the same one the kitchen
-        cooks to and families see, not a separate copy. It updates on its own when the menu is
-        republished, and a closed day simply disappears. Changes are made by LunchBox Connect;
-        there is nothing to edit here.
+        This is the <b>published</b> schedule for your institution — the same one the kitchen cooks
+        to and families see, not a separate copy. It updates on its own when the menu is
+        republished, and a closed day simply disappears. Changes are made by LunchBox Connect; there
+        is nothing to edit here.
       </Banner>
 
       {!institutionId && (
