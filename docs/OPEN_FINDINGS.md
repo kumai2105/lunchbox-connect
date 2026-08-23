@@ -402,8 +402,8 @@ No policy changed. No visibility widened. Finding 5 is closed by this.
 
 ## 11. The platform could create everything and end nothing — CLOSED
 
-**Status:** closed 2026-08-23 · migrations `0044`/`0045` · **PENDING IN
-PRODUCTION** (repo ceiling `0045`, production ceiling `0042`)
+**Status:** closed 2026-08-23 · migrations `0044`/`0045` · **APPLIED IN
+PRODUCTION** 2026-08-23 (production ceiling now `0047`)
 **Classification:** DATABASE and PRODUCT. Not a defect in what the product did
 — an absence of what it could do at all.
 
@@ -435,50 +435,50 @@ browser and proves a deactivated account cannot get in from a fresh context.
 
 ---
 
-## 12. Deployment is blocked on an authorisation this session cannot perform — OPEN
+## 12. Deployment was blocked on an authorisation this session could not perform — CLOSED
 
-**Status:** open 2026-08-23 · **Not a defect.** An honest statement of where
-this stops.
+**Status:** opened and closed 2026-08-23. **Never a defect.** An honest record
+of where the work stopped, and of what unblocked it.
 
-Migrations `0043` through `0046` are in the repository, replay cleanly from
-nothing, and pass 280 assertions. They have **not** been applied to
-`llnofriwvnerntrbpehc`.
+Migrations `0043` through `0046` sat in the repository, replaying cleanly from
+nothing and passing 280 assertions, with production still at `0042`.
 
-**Measured, not assumed.** Three separate things were checked rather than
-inferred:
+**The block was measured, not assumed.** Three separate things were checked
+rather than inferred:
 
 1. This environment cannot reach Supabase at all. `curl` to both
    `llnofriwvnerntrbpehc.supabase.co` and `api.supabase.com` returns
    `CONNECT tunnel failed, response 403` — the network policy refuses it. There
    is no Supabase CLI installed and no credentials in the environment.
-2. The Supabase connector requires an interactive authorisation a background
-   session cannot perform.
-3. GitHub Actions **can** reach Supabase, so
-   `.github/workflows/prod-apply-migrations.yml` now exists to do the apply
-   there. It was run once (run `32644533164`) and failed closed at its first
-   gate with `SUPABASE_ACCESS_TOKEN is not set` and `SUPABASE_DB_PASSWORD is
-not set`. Both secrets are therefore **absent**, which is a fact rather than
-   a belief — the same fail-closed pattern that settled the same question for
-   `prod-browser-auth`.
+2. GitHub Actions **can** reach Supabase, so
+   `.github/workflows/prod-apply-migrations.yml` was written to do the apply
+   there. It ran once (run `32644533164`) and failed closed at its first gate
+   with `SUPABASE_ACCESS_TOKEN is not set` and `SUPABASE_DB_PASSWORD is not
+   set`. Both secrets were therefore **absent** — a fact rather than a belief,
+   established by the same fail-closed pattern that settled the same question
+   for `prod-browser-auth`.
+3. The Supabase connector. I told the owner this "needs an interactive
+   authorisation a background session cannot perform". **That was wrong**, and
+   it is recorded here rather than quietly deleted: the connector was already
+   authorised on the account and merely toggled off for the chat. Once it was
+   toggled on, the apply ran from this session. The lesson is the one this
+   project keeps relearning — check the thing, do not reason about it.
 
-The apply is one human action away: add those two repository secrets and
-dispatch the workflow. `docs/GO_LIVE_0046.md` is the two-minute version.
+**How it was resolved.** A recovery point was captured from the live database
+first (`docs/recovery/2026-08-23-pre-0043.md` — the pre-change definition of
+every function `0044` reissues), then `0043`, `0044`, `0045`, `0046` were
+applied in order, then the two new Edge Functions were deployed, then the
+security advisor was run, which found finding 14 and produced `0047`, then the
+frontend followed at the gated SHA.
 
-**The frontend must not be deployed first**, and the reason is that the failure
-would be silent rather than loud. `app_users.active` and `institutions.active`
-do not exist at `0042`; `select *` returns rows without them; `undefined` is
-falsy; so **every account would render as "Deactivated" and every institution
-as "Archived"** on the live site, and Meal saves would fail against a missing
-`meal_periods`.
+`.github/workflows/prod-apply-migrations.yml` is kept. The connector worked
+today; the workflow is the path that does not depend on a chat setting, and it
+still fails closed without both secrets.
 
-The go-live sequence is in `docs/GO_LIVE_0046.md` and, in more detail, in
-`docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md`: migrations → all three Edge
-Functions → `BACKEND_READY_MIGRATION=0046` → frontend at the tested SHA →
-`prod-smoke` and `prod-browser-auth` against that same SHA.
-
-Until then `0042` remains the truth in production, and the deployed frontend
-`2793a90c` remains correct for it. **Nothing in this closure has changed the
-live site.**
+**Verified in production after the apply:** ledger reaches
+`20260823173201 / 0047`; 11 lifecycle columns present; 10 of 10 authorization
+helpers gated on `active` with 0 ungated; 12 triggers; exactly one `save_meal`
+overload; 20 `meal_periods` rows backfilled; security advisors report 0 ERROR.
 
 ---
 
@@ -511,3 +511,68 @@ Worth recording for what it says about the gate: the new lifecycle spec creates
 a Parent account and then uses it, which is the first time anything had driven
 a Parent with no children. The assertion now also requires the way out to be
 present.
+
+---
+
+## 14. Eight new functions were executable by `anon` — CLOSED
+
+**Status:** found and closed 2026-08-23 · migration `0047`
+**Classification:** DATABASE. **A regression introduced by this closure itself**,
+found by the Supabase security advisor run immediately after the apply, and
+fixed before the frontend was deployed.
+
+`0044` was careful to `revoke all ... from public, anon` on the five action
+RPCs it created — `set_user_active`, `update_user_profile`,
+`set_institution_active`, `set_class_active`, `revoke_guardian_access` — and
+said nothing at all about the helper and trigger functions created beside them.
+A PostgreSQL function created with no explicit grant carries the default
+`EXECUTE` to `PUBLIC`, and `anon` is in `PUBLIC`. **The omission was the
+grant.**
+
+Eight functions were affected: `app_institution_is_active`,
+`app_class_is_active`, `app_may_manage_account`,
+`app_is_last_active_super_admin`, and the four `app_guard_*` trigger functions.
+
+**What was actually exposed** — small, but real and unauthenticated. The first
+two are `SECURITY DEFINER` and return a boolean, so an anonymous caller holding
+a UUID could learn whether that institution or class exists and is operating; a
+UUID is not a secret, it appears in URLs. `app_is_last_active_super_admin` does
+not check its caller at all by design — it answers a question about the user
+passed to it — and anonymous access to that question is exactly the probe this
+project refuses everywhere else. The four trigger functions return `trigger`,
+so PostgreSQL refuses to call them outside a trigger context and there was no
+exposure in practice; they are revoked anyway, because a `SECURITY DEFINER`
+function nothing may call should say so rather than lean on a second rule.
+
+**Why revoking is safe was checked, not assumed.** No RLS policy and no CHECK
+constraint references any of the eight (queried against `pg_policies` and
+`pg_constraint` on the live database before writing the migration); they are
+called only from inside other `SECURITY DEFINER` functions, which execute as the
+function owner and never consult the caller's `EXECUTE` privilege; and trigger
+firing does not check `EXECUTE` either — `CREATE TRIGGER` needs privileges, the
+trigger going off does not.
+
+This is the same class of finding as `0042`, from the opposite direction: that
+one was a policy made **unreachable** by a missing grant, this is a function
+made **reachable** by an unstated one. Both follow from the same fact —
+PostgreSQL decides `EXECUTE` and `SELECT` privileges before any policy is
+consulted — and the lesson is identical: **state the grant, never inherit it.**
+
+**Verified:** after `0047`, `anon` holds `EXECUTE` on none of the fourteen
+functions in this batch, and the advisors report 0 ERROR.
+
+**Still open, and not mine** — reported rather than silently fixed, because
+touching them is outside what this closure was asked to do. After `0047` the
+advisors return **98 WARN, 0 ERROR**, and the arithmetic closes exactly: 47
+`SECURITY DEFINER` functions were anon-executable before `0047`, 8 were this
+batch's, and revoking those 8 leaves the **39** still reported. Three functions
+(`app_is_api_client`, `set_updated_at`, `touch_updated_at`) also carry
+`function_search_path_mutable`. All of these predate this work and should be
+swept in a dedicated pass with its own evidence, not folded into a release.
+
+The other 56 warnings are `authenticated_security_definer_function_executable`,
+10 of which **are** this batch's, deliberately: an authenticated caller has to
+be able to invoke `set_user_active` — the function then decides whether that
+caller may proceed. Revoking it would delete the feature, not secure it. None of
+the four trigger functions appears in that list, which is how `0047`'s
+`revoke ... from authenticated` is confirmed to have taken.

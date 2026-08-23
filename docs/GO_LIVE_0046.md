@@ -1,5 +1,27 @@
 # Taking 0043–0046 live
 
+> **EXECUTED — 23 August 2026. This is now a record, not a to-do.**
+>
+> Migrations `0043`–`0046` were applied to `llnofriwvnerntrbpehc`, followed by
+> `0047` (which the security advisor produced immediately afterwards — see
+> `docs/OPEN_FINDINGS.md` finding 14), then the two Edge Functions, then the
+> frontend. Production is at **`0047`**.
+>
+> The apply did **not** need the two secrets this document asks for. It ran
+> through the Supabase connector from the authoring session, once the owner
+> enabled it for the chat. The claim below that the connector "needs an
+> interactive authorisation a background session cannot perform" **was wrong**:
+> it was already authorised and merely toggled off. That correction is kept
+> visible rather than edited away, because the mistake was reasoning about a
+> capability instead of checking it.
+>
+> `.github/workflows/prod-apply-migrations.yml` is still the right path for the
+> next one — it does not depend on a chat setting, and it fails closed without
+> both secrets. Everything below remains accurate as the procedure.
+
+---
+
+
 Everything is built, verified and pushed. What remains needs two credentials
 that only you can create, and then four clicks.
 

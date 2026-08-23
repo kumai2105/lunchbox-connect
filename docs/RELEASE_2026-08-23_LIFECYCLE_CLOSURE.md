@@ -12,8 +12,8 @@ columns to hold.
 | Branch                             | `claude/new-session-k5dd5u`                                       |
 | Baseline this closure started from | `6f94b017db9f3388e0386c9f4318cc133625804b`                        |
 | Migration ceiling in repo BEFORE   | `0043_meal_period_tags.sql`                                       |
-| Migration ceiling in repo AFTER    | `0046_an_archived_institution_gains_no_people.sql`                |
-| Migration ceiling in production    | **`0042`** — unchanged. `0043`–`0046` are **PENDING**, see below. |
+| Migration ceiling in repo AFTER    | `0047_new_helpers_are_not_anon_reachable.sql`                     |
+| Migration ceiling in production    | **`0047`** — applied 2026-08-23, see below.                       |
 | Production Supabase                | `llnofriwvnerntrbpehc`                                            |
 
 ## What was actually wrong
@@ -127,114 +127,117 @@ Suite growth this closure: 85 → 100 browser tests, 22 → 23 SQL suites,
   password works while the old one is refused, and that a Parent can change
   their own password.
 
-## PENDING — this release is NOT deployed, and deliberately so
+## DEPLOYED — 23 August 2026
 
-**Migrations `0043` through `0046` have NOT been applied to production.**
+**Migrations `0043` through `0047` are applied to `llnofriwvnerntrbpehc`.** The
+two new Edge Functions are ACTIVE. The frontend was deployed last, from the
+exact SHA this gate ran against.
 
-This environment cannot reach Supabase at all — `curl` to both the project and
-`api.supabase.com` returns `CONNECT tunnel failed, response 403`, there is no
-CLI installed, and the Supabase connector needs an interactive authorisation a
-background session cannot perform. Checked, not assumed.
+### How the block was cleared
 
-GitHub Actions **can** reach Supabase, so
-`.github/workflows/prod-apply-migrations.yml` now does the apply there, with a
-recovery point captured before anything changes. It was run once and failed
-closed: both `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD` are absent.
-Adding those two repository secrets and dispatching the workflow is the whole
-remaining action — see `docs/GO_LIVE_0046.md`.
+This environment cannot reach Supabase directly — `curl` to both the project
+and `api.supabase.com` returns `CONNECT tunnel failed, response 403`, and there
+is no CLI installed. `.github/workflows/prod-apply-migrations.yml` was written
+to do the apply from GitHub Actions instead; it ran once and failed closed,
+proving `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD` were both absent.
 
-**The frontend must NOT be deployed ahead of them.** The failure would be
-silent rather than loud: `app_users.active` and `institutions.active` do not
-exist at `0042`, so `select *` returns rows without them, `undefined` is falsy,
-and **every account would render as "Deactivated" and every institution as
-"Archived"** on the live site. `meal_periods` would 404 and Meal saves would
-fail.
+The apply finally ran through the **Supabase connector**, from this session,
+once the owner enabled it for the chat. I had said the connector needed an
+interactive authorisation no background session could perform; that was wrong —
+it was already authorised and merely toggled off. The correction is recorded in
+`docs/OPEN_FINDINGS.md` finding 12 rather than quietly dropped.
 
-### The go-live sequence, in this order
+The workflow is kept regardless: it is the path that does not depend on a chat
+setting, and it still fails closed without both secrets.
 
-1. Apply `0043`, `0044`, `0045`, `0046` to `llnofriwvnerntrbpehc`.
-2. Capture a recovery point first, as was done for `0042` in
-   `docs/recovery/2026-08-22-pre-0042.md`. `0044` is additive (new nullable
-   columns, new functions, new triggers), `0045` replaces `save_meal` and
-   `0046` adds one trigger — all reversible, but the point is to have checked
-   rather than to assume.
-3. `pnpm functions:deploy` — **all three** Edge Functions
-   (`admin-create-user`, `admin-set-password`, `admin-set-active`). Each needs
-   `SUPABASE_SERVICE_ROLE_KEY` set as a function secret. Without
-   `admin-set-active`, deactivation fails in the browser with a 404 that looks
-   like a product bug.
-4. Set `BACKEND_READY_MIGRATION` to `0046`.
-5. Deploy the frontend at the **exact SHA this gate ran against**.
-6. Run `prod-smoke` and `prod-browser-auth` against that same SHA.
+### The order it was done in, and why that order
 
-### The commands, in order
+**The frontend could not go first.** The failure would have been silent rather
+than loud: `app_users.active` and `institutions.active` do not exist at `0042`,
+so `select *` returns rows without them, `undefined` is falsy, and **every
+account would have rendered as "Deactivated" and every institution as
+"Archived"** on the live site, while `meal_periods` 404s would have failed every
+Meal save.
 
-```bash
-# 1 · schema — from a checkout of the verified SHA
-supabase link --project-ref llnofriwvnerntrbpehc
-supabase db push                      # applies 0043, 0044, 0045, 0046
+1. **Recovery point captured first** — `docs/recovery/2026-08-23-pre-0043.md`
+   records the pre-change definition of all eleven authorization helpers `0044`
+   reissues and of the 8-argument `save_meal` that `0043` drops. That is what
+   makes the batch reversible without a data dump. Nothing in it drops a
+   column, a table or a row.
+2. **`0043`, `0044`, `0045`, `0046` applied**, in order.
+3. **Edge Functions deployed** — `admin-set-password` and `admin-set-active`,
+   both now `ACTIVE` at version 1 with `verify_jwt: false` (they authenticate
+   themselves and must answer the CORS preflight, which carries no
+   Authorization header). `admin-create-user` was deliberately **not**
+   redeployed: it was already working in production and a release is not the
+   time to reissue something that is not being changed.
+4. **The security advisor was run** — and found a regression this closure had
+   introduced: eight helper and trigger functions created by `0043`–`0046` had
+   inherited PostgreSQL's default `EXECUTE` to `PUBLIC`, so `anon` could call
+   them. That is `0047`, and it is written up in full as finding 14.
+5. **`0047` applied**, and the advisors re-run: **0 ERROR**.
+6. **Frontend deployed** with `BACKEND_READY_MIGRATION=0047`, from a tree
+   proven byte-identical to the gated SHA — no `src`, `index.html`,
+   `package.json`, Vite, Wrangler or Worker file differs.
+7. **`prod-smoke` and `prod-browser-auth`** run against that same SHA, both
+   green — run `32655450892` and run `32655454452`, each on `1626bba3`.
+   `prod-smoke` is strictly read-only (every request a GET) and re-downloads
+   the deployed bundle to check it targets the right Supabase project, ships no
+   `service_role` material and carries none of the project's internal
+   vocabulary. `prod-browser-auth` drives a real Chromium through sign-in and
+   sign-out against `https://www.lunchboxconnect.com` and asserts a protected
+   route is refused afterwards.
 
-# 2 · confirm the ledger actually moved
-#     (four new rows; the newest name should be 0046_an_archived_institution…)
+### Verified in production after the apply
 
-# 3 · the three privileged functions — all of them, or deactivation 404s
-supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...   # if not already set
-pnpm functions:deploy
+| Check | Result |
+| --- | --- |
+| Migration ledger | `20260823173201 / 0047_new_helpers_are_not_anon_reachable` |
+| Lifecycle columns | **11 added** by `0044` — 4 on `app_users` (`active`, `deactivated_*`), 4 on `institutions` and 3 on `classes` (`archived_*`). `classes.active` already existed and is untouched. |
+| Authorization helpers gated on `active` | **10 of 10**, 0 ungated |
+| New functions · triggers | 10 · 12 |
+| `save_meal` overloads | exactly **1** (the 8-arg form is gone, so no ambiguity) |
+| `meal_periods` backfill | 20 rows |
+| Security advisors | **0 ERROR** |
+| `anon` EXECUTE on this batch's 14 functions | **none** |
+| `admin-set-password` · `admin-set-active` | both `ACTIVE`, version 1, `verify_jwt: false` |
+| `admin-create-user` | `ACTIVE`, version 2 — **not** redeployed, unchanged by this release |
+| Frontend deploy | run `32655321609`, all 13 steps green, backend gate `0047` |
+| Live smoke · live browser auth | run `32655450892` · run `32655454452`, both green on `1626bba3` |
 
-# 4 · attest the backend, then deploy the frontend at the SAME SHA
-#     BACKEND_READY_MIGRATION=0046  (repository variable, or the
-#     workflow_dispatch input on Deploy to Cloudflare)
+### Reported, not fixed
 
-# 5 · prove it against the live origin
-#     dispatch prod-smoke and prod-browser-auth on that SHA
-```
+The advisors return **98 WARN and 0 ERROR**. The arithmetic closes exactly:
+**47** `SECURITY DEFINER` functions were anon-executable before `0047`, **8** of
+them were created by this batch, and `0047` revoked those 8 — leaving the **39**
+`anon_security_definer_function_executable` warnings the advisor still reports.
+**Not one of them is from this work.** Three functions (`app_is_api_client`,
+`set_updated_at`, `touch_updated_at`) also carry `function_search_path_mutable`;
+those predate this work too.
 
-A recovery point for `0044` would record, at minimum: the current
-`institutions`, `classes` and `app_users` column lists, and the definitions of
-the eleven authorization helpers it replaces (`pg_get_functiondef`). `0044`
-reissues those helpers with one added condition each; keeping the previous
-definitions is what makes the change reversible without a dump.
+The remaining 56 warnings are `authenticated_security_definer_function_executable`,
+and 10 of those **are** this batch's — every action RPC plus the four predicate
+helpers. That is the intended design, not an oversight: an authenticated caller
+must be able to invoke `set_user_active`, and the function decides for itself
+whether that particular caller may proceed. Revoking it would remove the
+feature. The four trigger functions are absent from this list, which is the
+check that `0047`'s `revoke ... from authenticated` took effect.
 
-Until step 1 is done, `0042` remains the truth in production and the currently
-deployed frontend (`2793a90c`) remains correct for it. Nothing in this release
-has changed the live site.
+The pre-existing items belong in a dedicated pass with its own evidence, not
+folded into a release — see finding 14.
 
-## Meal Period tags: derived, and left alone
+### The one thing not directly confirmed
 
-Migration `0043` (already in the repository at the start of this closure) tags
-every existing Meal from **where it was actually used on menus** — evidence,
-not a guess — and tags a never-used Meal for all four sittings so it stays
-visible everywhere until somebody narrows it deliberately.
+`SUPABASE_SERVICE_ROLE_KEY` was not read back as a function secret — the
+tooling available here lists Edge Functions but not their secrets, and this
+environment cannot reach the project over the network to exercise them.
 
-Those tags are **derived, not operator-confirmed**, and this closure does not
-pretend otherwise and does not "clean" them. There is no way to tell, after the
-fact, which tag an operator meant and which the bootstrap supplied, so nothing
-rewrites them. The operating guide now says this to the person who will read
-it, and points out that changing a tag costs nothing: `0045` makes a
-sittings-only edit append no revision, so correcting one leaves no false entry
-in the Meal's history.
+It is very probably present: Supabase injects it into Edge Functions as a
+platform default, and `admin-create-user` reads the same variable and has been
+working in production since before this release. But "very probably" is not
+"verified", so it is written down here rather than counted as evidence.
 
-## Decisions recorded
-
-`docs/spec-pack/docs/13_DECISION_LOG.md` gains 037–042: records are
-deactivated or archived and never destroyed; email is an authentication
-identity; an existing password is never retrievable and a signed-in person may
-change their own; a role is offered for provisioning only when it has a screen;
-guardian access is ended by a Super Admin with a reason; a tag-only Meal edit
-is not a new revision. Each is propagated into the requirement, rule,
-permission, data-model, workflow, screen, API, security and acceptance
-documents, and sixteen acceptance tests (AT-150–AT-165) each name the
-assertion that proves them.
-
-## Explicitly not done, and why
-
-- **Packing, Dispatch, Delivery, structured Allergy/Dietary, Parent chat, AI
-  and procurement** — out of scope for this task by instruction, and still out
-  of scope for the MVP.
-- **Permanent deletion of any core record** — refused by design, not deferred.
-- **Changing an email address** — needs a synchronised Auth + profile change
-  with confirmation. Not built; the field is immutable and says why.
-- **Changing a role in place** — would give a live session a reach it was not
-  issued for. The supported path is a new account plus a deactivation.
-- **Nursery-side guardian revocation** — `NOT_YET_DEFINED`.
-- **Retention and purge policy** — `NOT_YET_DEFINED`. Archive is not retention.
+**How to settle it in ten seconds:** sign in as a Super Admin, open Users, and
+use Set password on a disposable account. If the key were missing the function
+would answer `missing server env` with a 500. Any other outcome — success, or a
+refusal naming an authorization rule — proves the key is there.

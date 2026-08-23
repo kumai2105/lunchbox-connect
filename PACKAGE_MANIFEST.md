@@ -25,10 +25,10 @@ require a fresh run.**
 | Lint                 | `pnpm lint`                                | **PASS**, 0 warnings                                                   |
 | Production build     | `pnpm build`                               | **PASS**                                                               |
 
-**Migration ceiling in this tree:** `0046_an_archived_institution_gains_no_people.sql`
-(46 migrations).
-**Migration ceiling in production:** `0042` — `0043` through `0046` are
-**PENDING**. See "Not deployed" below.
+**Migration ceiling in this tree:** `0047_new_helpers_are_not_anon_reachable.sql`
+(47 migrations).
+**Migration ceiling in production:** **`0047`** — `0043` through `0047` were
+applied 2026-08-23. See "Deployed" below.
 
 Growth since the previous snapshot (`6f94b017`): 85 → 100 browser tests,
 22 → 23 SQL suites, 237 → 280 assertions, 122 → 125 unit tests.
@@ -98,19 +98,28 @@ reassigned or stripped of a role, and each still signs in as the role it exists
 to simulate. The one account this closure deactivated in a test was created by
 that test and removed afterwards.
 
-### NOT DEPLOYED — and this is the important line in this manifest
+### DEPLOYED — and this is the important line in this manifest
 
-**Migrations `0043` through `0046` have not been applied to production**,
-because applying them requires an interactive authorisation a non-interactive
-session cannot perform. The frontend in this tree **must not be deployed ahead
-of them**: `app_users.active` and `institutions.active` do not exist at `0042`,
-their absence reads back as `undefined`, which is falsy, and **every account
-would render as "Deactivated" and every institution as "Archived"** on the live
-site.
+**Migrations `0043` through `0047` are applied to production**
+(`llnofriwvnerntrbpehc`), the two new Edge Functions are ACTIVE, and the
+frontend followed from the gated SHA.
 
-Production is untouched by this closure. Frontend `2793a90c` on database `0042`
-remains live and remains correct for itself. The go-live sequence is in
-`docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md`.
+The order was migrations → Edge Functions → frontend, and it could not be any
+other order: `app_users.active` and `institutions.active` do not exist at
+`0042`, their absence reads back as `undefined`, which is falsy, so a frontend
+deployed first would have rendered **every account as "Deactivated" and every
+institution as "Archived"** on the live site.
+
+`0047` was not planned. The Supabase security advisor, run immediately after
+the apply, found that eight helper and trigger functions from `0043`–`0046` had
+inherited PostgreSQL's default `EXECUTE` to `PUBLIC` and were reachable by
+`anon`. It revokes them. Advisors afterwards: **0 ERROR**.
+
+A recovery point was captured from the live database before anything changed —
+`docs/recovery/2026-08-23-pre-0043.md`. The full sequence, the verification
+table and the two findings are in
+`docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md` and `docs/OPEN_FINDINGS.md`
+(findings 12 and 14).
 
 ---
 

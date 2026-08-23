@@ -6,16 +6,25 @@ of each approved area and every honest shell.
 
 Legend: ✅ built · ⬜ honest shell (BLOCKED_BY_SPEC) · ⬣ claimed-with-caution
 
-**Live in production:** frontend `2793a90c`, database at migration `0042`.
+**Live in production (2026-08-23):** database at migration **`0047`**; Edge
+Functions `admin-set-password` and `admin-set-active` **ACTIVE**; frontend
+deployed from the gated SHA of this branch.
 
-**PENDING, not deployed:** migrations `0043`–`0046` and the frontend that
-depends on them (the lifecycle closure of 2026-08-23). The order is
-**migrations → Edge Functions → frontend**, and the frontend must not go first:
+Migrations `0043`–`0047` were applied to `llnofriwvnerntrbpehc` in that order,
+followed by the two Edge Functions, and only then the frontend — because
 `app_users.active` and `institutions.active` do not exist at `0042`, and their
-absence reads back as `undefined`, which is falsy — every account would render
-as "Deactivated" and every institution as "Archived" on a live site. See
-`docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md` for the executed gate and the
-go-live sequence.
+absence reads back as `undefined`, which is falsy, so a frontend that went
+first would render every account as "Deactivated" and every institution as
+"Archived". `0047` was written after the fact: the Supabase security advisor,
+run immediately after the apply, found that eight helper and trigger functions
+created by `0043`–`0046` had inherited PostgreSQL's default `EXECUTE` to
+`PUBLIC` and were therefore callable by `anon`. It revokes them. Post-apply
+advisors report **0 ERROR**, and `anon` holds `EXECUTE` on none of the fourteen
+functions in this batch. The 39 anon-executable definer functions the advisor
+still warns about all predate this work; see `docs/OPEN_FINDINGS.md` finding 14.
+
+See `docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md` for the executed gate and
+`docs/recovery/2026-08-23-pre-0043.md` for the pre-change recovery point.
 
 ## Reconciliation notes (why things changed)
 
@@ -85,7 +94,7 @@ README only. The full spec pack introduced corrections:
 The stack is **approved** (A1–A3) and recorded in `docs/13` **Decision 034**:
 TypeScript · React 18 + Vite (SPA) · Supabase (PostgreSQL, Auth, Storage, Edge
 Functions) · Row Level Security as the boundary · Supabase CLI migrations
-(`0001`–`0046`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
+(`0001`–`0047`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
 Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
 `TECHNICAL_STACK = NOT_YET_DEFINED` statements are SUPERSEDED.
 

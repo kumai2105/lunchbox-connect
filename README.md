@@ -2,11 +2,15 @@
 
 [![CI](https://github.com/Kumai2105/lunchbox-connect/actions/workflows/ci.yml/badge.svg)](https://github.com/Kumai2105/lunchbox-connect/actions)
 
-**Live:** https://www.lunchboxconnect.com — frontend `2793a90c` against
-production schema `0042`. Migrations `0043`–`0045` and the frontend that
-depends on them are **verified but not yet deployed**; see
-`docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md` for the gate and the go-live
-sequence, which is always **migrations → Edge Functions → frontend**. The Worker also answers on its origin
+**Live:** https://www.lunchboxconnect.com — frontend `1626bba3` against
+production schema `0047`. The core operability closure of 2026-08-23
+(migrations `0043`–`0047`, the `admin-set-password` and `admin-set-active` Edge
+Functions, and the interface for all of it) is **deployed**; see
+`docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md` for the executed gate and the
+verification. The release order is always **migrations → Edge Functions →
+frontend**, and it is not optional: a frontend that arrives before its columns
+reads their absence as `undefined`, which is falsy, and shows every account as
+deactivated. The Worker also answers on its origin
 `https://lunchbox-connect.koumai-2105.workers.dev`, kept as a rollback path. **Before real meals can flow, each
 Institution has to be configured in the app — its service plan, its menu
 assignment and its calendar, all as Super Admin, all by clicking. See
@@ -37,7 +41,7 @@ pnpm · Vitest · Playwright · ESLint · Prettier
 pnpm install
 cp .env.example .env          # fill VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
 supabase link --project-ref <your-ref>
-supabase db push              # migrations 0001–0046
+supabase db push              # migrations 0001–0047
 pnpm functions:deploy         # admin-create-user, admin-set-password, admin-set-active
 pnpm dev                      # http://localhost:5173
 ```
@@ -133,7 +137,7 @@ src/
             analytics, reports, review, status, users, audit, parent/*
   components/  layout + shared UI (design ported from the approved mockup)
 supabase/
-  migrations/ 0001–0046 (schema, RLS, resolution/publish engine, meal library,
+  migrations/ 0001–0047 (schema, RLS, resolution/publish engine, meal library,
               class_staff, per-meal demand, analytics, DB-boundary integrity,
               historical immutability of referenced meal images, Meal Period
               tags, and the account/institution/class lifecycle)

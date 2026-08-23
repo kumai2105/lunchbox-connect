@@ -25,7 +25,7 @@ this repository alone.
 2. **Schema / RLS / RPC / trigger suite (no network required)**
    - `./tests/sql/run_verification.sh` — all **23** `verify_*.sql` suites pass
      with **280 named assertions**, on a throwaway PostgreSQL 16 built from
-     `supabase/migrations/0001`–`0046`, including the **520-check
+     `supabase/migrations/0001`–`0047`, including the **520-check
      authorization matrix**, the **DB-boundary** suite and the **lifecycle
      security** suite.
    - The DB-boundary suite: raw `serving_records` writes are denied (RPC is the
