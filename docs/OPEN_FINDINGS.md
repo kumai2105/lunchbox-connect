@@ -440,11 +440,29 @@ browser and proves a deactivated account cannot get in from a fresh context.
 **Status:** open 2026-08-23 · **Not a defect.** An honest statement of where
 this stops.
 
-Migrations `0043`, `0044` and `0045` are in the repository, replay cleanly from
+Migrations `0043` through `0046` are in the repository, replay cleanly from
 nothing, and pass 280 assertions. They have **not** been applied to
-`llnofriwvnerntrbpehc`, because the Supabase connector needed to apply them
-requires an interactive authorisation that a non-interactive session cannot
-perform.
+`llnofriwvnerntrbpehc`.
+
+**Measured, not assumed.** Three separate things were checked rather than
+inferred:
+
+1. This environment cannot reach Supabase at all. `curl` to both
+   `llnofriwvnerntrbpehc.supabase.co` and `api.supabase.com` returns
+   `CONNECT tunnel failed, response 403` — the network policy refuses it. There
+   is no Supabase CLI installed and no credentials in the environment.
+2. The Supabase connector requires an interactive authorisation a background
+   session cannot perform.
+3. GitHub Actions **can** reach Supabase, so
+   `.github/workflows/prod-apply-migrations.yml` now exists to do the apply
+   there. It was run once (run `32644533164`) and failed closed at its first
+   gate with `SUPABASE_ACCESS_TOKEN is not set` and `SUPABASE_DB_PASSWORD is
+not set`. Both secrets are therefore **absent**, which is a fact rather than
+   a belief — the same fail-closed pattern that settled the same question for
+   `prod-browser-auth`.
+
+The apply is one human action away: add those two repository secrets and
+dispatch the workflow. `docs/GO_LIVE_0046.md` is the two-minute version.
 
 **The frontend must not be deployed first**, and the reason is that the failure
 would be silent rather than loud. `app_users.active` and `institutions.active`
@@ -453,10 +471,10 @@ falsy; so **every account would render as "Deactivated" and every institution
 as "Archived"** on the live site, and Meal saves would fail against a missing
 `meal_periods`.
 
-The go-live sequence is in `docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md`:
-migrations → `pnpm functions:deploy` (all three functions) →
-`BACKEND_READY_MIGRATION=0045` → frontend at the tested SHA → `prod-smoke` and
-`prod-browser-auth` against that same SHA.
+The go-live sequence is in `docs/GO_LIVE_0046.md` and, in more detail, in
+`docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md`: migrations → all three Edge
+Functions → `BACKEND_READY_MIGRATION=0046` → frontend at the tested SHA →
+`prod-smoke` and `prod-browser-auth` against that same SHA.
 
 Until then `0042` remains the truth in production, and the deployed frontend
 `2793a90c` remains correct for it. **Nothing in this closure has changed the

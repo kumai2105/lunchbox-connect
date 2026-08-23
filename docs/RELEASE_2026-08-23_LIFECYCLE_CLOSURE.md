@@ -130,9 +130,18 @@ Suite growth this closure: 85 → 100 browser tests, 22 → 23 SQL suites,
 ## PENDING — this release is NOT deployed, and deliberately so
 
 **Migrations `0043` through `0046` have NOT been applied to production.**
-The Supabase connector this session would need in order to apply them requires
-an interactive authorisation that a non-interactive session cannot perform.
-This is stated rather than worked around.
+
+This environment cannot reach Supabase at all — `curl` to both the project and
+`api.supabase.com` returns `CONNECT tunnel failed, response 403`, there is no
+CLI installed, and the Supabase connector needs an interactive authorisation a
+background session cannot perform. Checked, not assumed.
+
+GitHub Actions **can** reach Supabase, so
+`.github/workflows/prod-apply-migrations.yml` now does the apply there, with a
+recovery point captured before anything changes. It was run once and failed
+closed: both `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD` are absent.
+Adding those two repository secrets and dispatching the workflow is the whole
+remaining action — see `docs/GO_LIVE_0046.md`.
 
 **The frontend must NOT be deployed ahead of them.** The failure would be
 silent rather than loud: `app_users.active` and `institutions.active` do not
