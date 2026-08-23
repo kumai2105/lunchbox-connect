@@ -72,31 +72,41 @@ a second, weaker copy that could drift from the real one.
 
 ## What the gate caught, which is the point of having one
 
-Three failures were found by running this, and the split matters:
+Four failures were found by running this, and the split matters.
 
-- **Two were mine** (run `32640684885`): assertions written against copy this
-  same closure had changed. Corrected in the test.
-- **One was the product** (run `32641054574`, 97/98): a Parent with no linked
-  child could not reach their own profile, so they could not change their
-  password and could not sign out. No previous test had ever created that
-  state; the new lifecycle spec makes a Parent account and then uses it, which
-  is how it surfaced. Corrected in the product, and the assertion now requires
-  the way out to be present.
+**Three were mine** — assertions and locators written against copy this same
+closure had changed:
+
+- run `32640684885`: "how you sign in" versus "what this person signs in with";
+  and an eligibility control located by an option this closure had renamed.
+- run `32642338782`: the end-to-end chain located the institution invite
+  modal's password field by a label the reveal-control conversion had renamed.
+  That one exposed a real drift — three provisioning screens had three
+  different labels for the same field — so they now share one.
+
+**One was the product** (run `32641054574`, 97/98): a Parent with no linked
+child could not reach their own profile, so they could not change their
+password and **could not sign out**. Two ordinary people are in that state: one
+whose account was created before their child was linked, which is the normal
+provisioning order, and one whose guardian link has just been revoked. No
+previous test had ever created it; this closure's lifecycle spec makes a Parent
+account and then uses it, which is how it surfaced. Corrected in the product,
+and the assertion now requires the way out to be present.
 
 ## Gate, dynamically derived
 
 Every number below was produced by executing the thing, not by reading a
 previous document.
 
-| Gate                 | Result                                                                                              |
-| -------------------- | --------------------------------------------------------------------------------------------------- |
-| Browser E2E          | **100 / 100** — 0 failed, 0 skipped, 0 flaky (run `RUN_PLACEHOLDER`, on `SHA_PLACEHOLDER`)          |
-| SQL suites           | **23 suites, 280 named assertions**, 0 failures, replayed from nothing on a throwaway PostgreSQL 16 |
-| Authorization matrix | **520 checks**, all pass                                                                            |
-| Unit tests           | **125**, 13 files                                                                                   |
-| TypeScript           | app + node + e2e, all pass                                                                          |
-| ESLint               | pass, 0 warnings                                                                                    |
-| Production build     | pass                                                                                                |
+| Gate                 | Result                                                                                                          |
+| -------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Browser E2E          | **100 / 100** — 0 failed, 0 skipped, 0 flaky (run `32643257414`, on `c0a77d44b720f5b0cb85d051de041ab9784a8377`) |
+| SQL suites           | **23 suites, 280 named assertions**, 0 failures, replayed from nothing on a throwaway PostgreSQL 16             |
+| Authorization matrix | **520 checks**, all pass                                                                                        |
+| Unit tests           | **125**, 13 files                                                                                               |
+| TypeScript           | app + node + e2e, all pass                                                                                      |
+| ESLint               | pass, 0 warnings                                                                                                |
+| Production build     | pass                                                                                                            |
 
 Suite growth this closure: 85 → 100 browser tests, 22 → 23 SQL suites,
 237 → 280 assertions, 122 → 125 unit tests.

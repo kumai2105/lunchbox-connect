@@ -2,7 +2,7 @@
 
 ## SNAPSHOT — CORE OPERABILITY CLOSURE, 23 August 2026
 
-**Verified SHA:** `SHA_PLACEHOLDER` — the last commit that changed code
+**Verified SHA:** `c0a77d44b720f5b0cb85d051de041ab9784a8377` — the last commit that changed code
 **Branch:** `claude/new-session-k5dd5u`
 
 Every gate below was run against that exact tree. Totals are read from the
@@ -15,15 +15,15 @@ cannot change what a browser does, and the SHA named above is the one the
 suites actually executed against. **A code change would move this SHA and
 require a fresh run.**
 
-| Gate                 | Command                                        | Result                                                                 |
-| -------------------- | ---------------------------------------------- | ---------------------------------------------------------------------- |
-| Browser suite        | `e2e-local-supabase.yml` run `RUN_PLACEHOLDER` | **PASS — 100 / 100** in 14 spec files · 0 failed · 0 skipped · 0 flaky |
-| Database suites      | `./tests/sql/run_verification.sh`              | **PASS — 23 suites**, 280 named assertions                             |
-| Authorization matrix | `verify_authorization_matrix`                  | **PASS — 520 checks**                                                  |
-| Unit tests           | `pnpm test:unit`                               | **PASS — 125** across 13 files                                         |
-| TypeScript           | `pnpm typecheck`                               | **PASS** — app + node + `tests/e2e`, three projects                    |
-| Lint                 | `pnpm lint`                                    | **PASS**, 0 warnings                                                   |
-| Production build     | `pnpm build`                                   | **PASS**                                                               |
+| Gate                 | Command                                    | Result                                                                 |
+| -------------------- | ------------------------------------------ | ---------------------------------------------------------------------- |
+| Browser suite        | `e2e-local-supabase.yml` run `32643257414` | **PASS — 100 / 100** in 14 spec files · 0 failed · 0 skipped · 0 flaky |
+| Database suites      | `./tests/sql/run_verification.sh`          | **PASS — 23 suites**, 280 named assertions                             |
+| Authorization matrix | `verify_authorization_matrix`              | **PASS — 520 checks**                                                  |
+| Unit tests           | `pnpm test:unit`                           | **PASS — 125** across 13 files                                         |
+| TypeScript           | `pnpm typecheck`                           | **PASS** — app + node + `tests/e2e`, three projects                    |
+| Lint                 | `pnpm lint`                                | **PASS**, 0 warnings                                                   |
+| Production build     | `pnpm build`                               | **PASS**                                                               |
 
 **Migration ceiling in this tree:** `0046_an_archived_institution_gains_no_people.sql`
 (46 migrations).
@@ -42,10 +42,10 @@ while whole specs silently stopped being collected; this cannot. The step named
 "Assert every test executed, 0 failed, 0 skipped" is what makes the 100 above a
 measurement rather than a claim.
 
-### Three failures were found during this verification, and the split matters
+### Four failures were found during this verification, and the split matters
 
-**Two were mine.** Run `32640684885` failed on two tests, and both were defects
-in my assertions, not in the product:
+**Three were mine.** Run `32640684885` failed on two tests, and both were
+defects in my assertions, not in the product:
 
 - `lifecycle.spec.ts` looked for the phrase "how you sign in" in the account
   edit dialog; the dialog says "what this person signs in with". Corrected to
@@ -58,6 +58,13 @@ in my assertions, not in the product:
 
 The six tests reported as "did not run" were the remainder of the serial block
 that aborted on the first failure, not silent skips.
+
+Run `32642338782` added a third of the same kind: the end-to-end chain located
+the institution invite modal's password field by a label that this closure's
+reveal-control conversion had renamed. That one was worth having — it exposed
+three provisioning screens carrying three different labels for the same field
+("min 8", "min 8 chars", "min 8 — share securely"), which is precisely how a
+locator breaks on a change made two screens away. They now share one label.
 
 **One was the product.** Run `32641054574` came back 97/98, and the single
 failure was real: a Parent with **no child linked** could not reach their own
