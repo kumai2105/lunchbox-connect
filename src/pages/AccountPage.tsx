@@ -143,7 +143,18 @@ export default function AccountPage() {
             </tr>
             <tr>
               <td className="cell-sub">Scope</td>
-              <td>{scopeName ?? 'Whole platform'}</td>
+              {/* "Whole platform" is only true of the roles that actually have
+                  it. A Parent reading that about their own account would be
+                  told something alarming and false; their scope is their own
+                  children, which is not an institution. */}
+              <td>
+                {scopeName ??
+                  (profile.role === 'super_admin'
+                    ? 'The whole platform'
+                    : profile.role === 'parent'
+                      ? 'Your own children'
+                      : '—')}
+              </td>
             </tr>
           </tbody>
         </table>
