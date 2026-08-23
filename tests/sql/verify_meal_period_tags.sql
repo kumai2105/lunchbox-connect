@@ -75,15 +75,43 @@ begin
   raise notice 'PASS t2: saving replaces the tag set rather than adding to it';
 
   -- ---------------------------------------------------------------- t3
-  -- The meal itself is untouched by tagging: editing tags still appends a
-  -- revision (one save = one revision, Decision 033) and the meal keeps its
-  -- identity, so analytics and images stay together. This is the reason the
-  -- model tags one meal instead of duplicating it per sitting.
+  -- A TAG-ONLY EDIT IS NOT A NEW MEAL REVISION (0045).
+  --
+  -- 0043 states that meal_periods is present-tense metadata, not revision
+  -- content, but save_meal appended a revision on every call — so ticking a
+  -- sitting minted an immutable revision identical to the one before it.
+  -- Revisions exist to keep January's truth after March's recipe change; one
+  -- that differs in nothing records nothing, and splits a dish's per-revision
+  -- analytics across revisions that never differed.
+  --
+  -- t2 above changed ONLY the tags. The revision count must still be 1.
+  select count(*) into v_n from meal_revisions where meal_id = v_meal;
+  if v_n <> 1 then
+    raise exception 'FAIL t3: a tag-only edit created % revision(s); expected the original 1', v_n;
+  end if;
+  raise notice 'PASS t3: changing only the sittings does not mint a Meal revision';
+
+  -- ...and the other half, or the rule above would be indistinguishable from
+  -- "revisions stopped working". A real content change still appends one.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_sa, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  perform save_meal(v_meal, 'MPT Fruit bowl', '["fruit","yoghurt"]'::jsonb, '[]'::jsonb,
+                    '{}'::jsonb, '1 bowl', null, 'NOT_APPROVED',
+                    array['lunch']::app_period[]);
+  reset role;
+
   select count(*) into v_n from meal_revisions where meal_id = v_meal;
   if v_n <> 2 then
-    raise exception 'FAIL t3: expected 2 revisions after two saves, got %', v_n;
+    raise exception 'FAIL t3: a real content change produced % revision(s), expected 2', v_n;
   end if;
-  raise notice 'PASS t3: the meal keeps one identity across a tag change';
+  raise notice 'PASS t3: changing the recipe still appends an immutable revision';
+
+  -- The meal keeps ONE identity through both, which is why one Meal is never
+  -- duplicated per sitting: its revisions, image and analytics stay together.
+  select count(*) into v_n from meals where id = v_meal;
+  if v_n <> 1 then raise exception 'FAIL t3: the meal did not stay one meal'; end if;
+  raise notice 'PASS t3: the meal keeps one identity across both kinds of edit';
 
   -- ---------------------------------------------------------------- t4
   -- NULL means "leave the tags alone" — an older client that does not know
