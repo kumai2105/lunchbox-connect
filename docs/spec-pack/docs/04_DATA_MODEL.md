@@ -1853,23 +1853,23 @@ the record is **never deleted**, because operational history references it.
 
 ### `app_users`
 
-| column | type | meaning |
-|---|---|---|
-| `active` | `boolean not null default true` | False = the person cannot act. Every identity helper resolves to NULL for them, so RLS refuses an already-issued token. |
-| `deactivated_at` | `timestamptz` | When. |
-| `deactivated_by` | `uuid → app_users(user_id)` | Who did it. `on delete set null`. |
-| `deactivated_reason` | `text` | Why, as typed by the administrator. |
+| column               | type                            | meaning                                                                                                                 |
+| -------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `active`             | `boolean not null default true` | False = the person cannot act. Every identity helper resolves to NULL for them, so RLS refuses an already-issued token. |
+| `deactivated_at`     | `timestamptz`                   | When.                                                                                                                   |
+| `deactivated_by`     | `uuid → app_users(user_id)`     | Who did it. `on delete set null`.                                                                                       |
+| `deactivated_reason` | `text`                          | Why, as typed by the administrator.                                                                                     |
 
 Indexed as `app_users_active_idx`.
 
 ### `institutions`
 
-| column | type | meaning |
-|---|---|---|
-| `active` | `boolean not null default true` | False = the customer relationship is not operating. No new configuration, publication or classroom activity. Everything already recorded is preserved and readable. |
-| `archived_at` | `timestamptz` | When. |
-| `archived_by` | `uuid → app_users(user_id)` | Who. |
-| `archived_reason` | `text` | Why. |
+| column            | type                            | meaning                                                                                                                                                             |
+| ----------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `active`          | `boolean not null default true` | False = the customer relationship is not operating. No new configuration, publication or classroom activity. Everything already recorded is preserved and readable. |
+| `archived_at`     | `timestamptz`                   | When.                                                                                                                                                               |
+| `archived_by`     | `uuid → app_users(user_id)`     | Who.                                                                                                                                                                |
+| `archived_reason` | `text`                          | Why.                                                                                                                                                                |
 
 ### `classes`
 
@@ -1887,10 +1887,10 @@ the functions that normally write it.
 
 ### `meal_periods` (migration 0043)
 
-| column | type | meaning |
-|---|---|---|
-| `meal_id` | `uuid → meals(id) on delete cascade` | |
-| `period` | `app_period` | breakfast · snack (morning) · lunch · afternoon_snack |
+| column    | type                                 | meaning                                               |
+| --------- | ------------------------------------ | ----------------------------------------------------- |
+| `meal_id` | `uuid → meals(id) on delete cascade` |                                                       |
+| `period`  | `app_period`                         | breakfast · snack (morning) · lunch · afternoon_snack |
 
 Primary key `(meal_id, period)`, with an index on `(period, meal_id)` for the
 Menu Builder's "meals suitable for this sitting" read. A Meal may carry several

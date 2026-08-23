@@ -601,11 +601,11 @@ bypass of every RLS policy in the project and must exist **only** in the Deno
 environment — never in the frontend build, never in a repository variable that
 reaches a bundle.
 
-| Function | Breaks if not deployed |
-|---|---|
-| `admin-create-user` | no account can be created from any screen |
+| Function             | Breaks if not deployed                               |
+| -------------------- | ---------------------------------------------------- |
+| `admin-create-user`  | no account can be created from any screen            |
 | `admin-set-password` | an administrator cannot issue a replacement password |
-| `admin-set-active` | no account can be deactivated or reactivated |
+| `admin-set-active`   | no account can be deactivated or reactivated         |
 
 Changing your own password needs none of them — it goes through Supabase Auth
 on the caller's own session.

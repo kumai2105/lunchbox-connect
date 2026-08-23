@@ -6,10 +6,16 @@ of each approved area and every honest shell.
 
 Legend: ✅ built · ⬜ honest shell (BLOCKED_BY_SPEC) · ⬣ claimed-with-caution
 
-**Released to production 2026-08-21** — frontend live at
-https://lunchbox-connect.koumai-2105.workers.dev, database at migration `0039`.
-See `docs/RELEASE_2026-08-21.md` for the executed evidence, the defect found
-during the release, and the open items.
+**Live in production:** frontend `2793a90c`, database at migration `0042`.
+
+**PENDING, not deployed:** migrations `0043`–`0045` and the frontend that
+depends on them (the lifecycle closure of 2026-08-23). The order is
+**migrations → Edge Functions → frontend**, and the frontend must not go first:
+`app_users.active` and `institutions.active` do not exist at `0042`, and their
+absence reads back as `undefined`, which is falsy — every account would render
+as "Deactivated" and every institution as "Archived" on a live site. See
+`docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md` for the executed gate and the
+go-live sequence.
 
 ## Reconciliation notes (why things changed)
 
@@ -33,7 +39,12 @@ README only. The full spec pack introduced corrections:
 | ------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Super Admin command center                  | ✅               | Real dashboard; summary from authoritative views                                                                                                 |
 | Institutions CRUD                           | ✅               | Super Admin only                                                                                                                                 |
-| Users & nine roles                          | ✅               | account creation gates all nine domains                                                                                                          |
+| Users & nine roles                          | ✅               | all nine roles exist and are scoped; the creation picker offers the five with a built screen (Decision 040)                                      |
+| Account lifecycle (deactivate / reactivate) | ✅               | 0044 + `admin-set-active`; enforced at the identity helpers, not by hiding rows. No delete — by design                                           |
+| Institution & Class archival                | ✅               | 0044; refused over a live commitment or a non-empty class, and it says why                                                                       |
+| Passwords (issue + self-change)             | ✅               | `admin-set-password`; every role changes its own. No value is retrievable by anyone; none reaches Audit                                          |
+| Guardian revocation                         | ✅               | 0044; Super Admin, reason required, immediate and narrow                                                                                         |
+| Meal Period tags                            | ✅               | 0043; multi-select, guides the Menu Builder without blocking it, one Meal stays one Meal                                                         |
 | Students + operational status               | ✅               | status column, one approved value (0009)                                                                                                         |
 | Parents / guardians                         | ✅               | guardian list via student_parents                                                                                                                |
 | Classes + classroom staff assignment        | ✅               | assignment drives the scope gate (AT-032)                                                                                                        |

@@ -670,10 +670,10 @@ correct anything was a database edit.
 accounts, Institutions, Classes — the platform offers exactly two lifecycle
 actions, and the Super Admin chooses between them explicitly:
 
-* **Deactivate / Archive** — the record stops operating. It is refused all NEW
+- **Deactivate / Archive** — the record stops operating. It is refused all NEW
   activity. Everything already recorded about it is preserved and stays
   readable.
-* **Reactivate** — it operates again, with the scope its role or type gives it
+- **Reactivate** — it operates again, with the scope its role or type gives it
   and nothing more.
 
 **There is no permanent delete, and the absence is not an omission.** An

@@ -397,3 +397,67 @@ failure would show as a silently blank name rather than an error.
 No policy changed. No visibility widened. Finding 5 is closed by this.
 
 ---
+
+---
+
+## 11. The platform could create everything and end nothing — CLOSED
+
+**Status:** closed 2026-08-23 · migrations `0044`/`0045` · **PENDING IN
+PRODUCTION** (repo ceiling `0045`, production ceiling `0042`)
+**Classification:** DATABASE and PRODUCT. Not a defect in what the product did
+— an absence of what it could do at all.
+
+Every one of these was found by using the product as its owner, not by reading
+the code:
+
+- no account could be deactivated;
+- no Institution could be archived, though the specification said in three
+  places that Institutions are "archived, never destroyed";
+- no Class could be archived;
+- no guardian relationship could be ended, though the RBAC matrix advertised
+  the authority and nothing served it;
+- **no password could ever be changed by anybody after creation**, and the
+  operating guide told administrators to keep a written record of every one
+  they typed;
+- a child's name, ID or grade could not be corrected in the product.
+
+The shape of the cause was the same each time: a rule written down in the spec
+pack, with no column in the database to hold it. `institutions` had four
+columns — id, name, kind, created_at — and no state to archive into.
+
+**Closed by `0044`** (lifecycle state, guard triggers, five functions), `0045`
+(a tag-only Meal edit no longer mints a revision), three Edge Functions, and
+the interface for all of it. **Proven by** `verify_lifecycle_security.sql` (35
+assertions) and `lifecycle.spec.ts`, which drives the same actions through a
+browser and proves a deactivated account cannot get in from a fresh context.
+
+**Recorded as Decisions 037–042.**
+
+---
+
+## 12. Deployment is blocked on an authorisation this session cannot perform — OPEN
+
+**Status:** open 2026-08-23 · **Not a defect.** An honest statement of where
+this stops.
+
+Migrations `0043`, `0044` and `0045` are in the repository, replay cleanly from
+nothing, and pass 278 assertions. They have **not** been applied to
+`llnofriwvnerntrbpehc`, because the Supabase connector needed to apply them
+requires an interactive authorisation that a non-interactive session cannot
+perform.
+
+**The frontend must not be deployed first**, and the reason is that the failure
+would be silent rather than loud. `app_users.active` and `institutions.active`
+do not exist at `0042`; `select *` returns rows without them; `undefined` is
+falsy; so **every account would render as "Deactivated" and every institution
+as "Archived"** on the live site, and Meal saves would fail against a missing
+`meal_periods`.
+
+The go-live sequence is in `docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md`:
+migrations → `pnpm functions:deploy` (all three functions) →
+`BACKEND_READY_MIGRATION=0045` → frontend at the tested SHA → `prod-smoke` and
+`prod-browser-auth` against that same SHA.
+
+Until then `0042` remains the truth in production, and the deployed frontend
+`2793a90c` remains correct for it. **Nothing in this closure has changed the
+live site.**
