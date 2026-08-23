@@ -84,7 +84,10 @@ test.describe('account lifecycle through the interface', () => {
 
     const emailField = page.getByLabel('Email (sign-in identity)', { exact: true });
     await expect(emailField).toBeDisabled();
-    await expect(page.locator('.modal')).toContainText('how you sign in');
+    // The dialog must EXPLAIN the immutability rather than leaving a greyed
+    // box with no reason. Match the sentence the screen actually carries.
+    await expect(page.locator('.modal')).toContainText('what this person signs in with');
+    await expect(page.locator('.modal')).toContainText('Role and scope are not editable');
     // The name IS editable — that is the point of having the dialog at all.
     await page.getByLabel('Full name', { exact: true }).fill(`${DISPOSABLE_NAME} (corrected)`);
     await page.getByRole('button', { name: 'Save', exact: true }).click();

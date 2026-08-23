@@ -358,7 +358,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     // Student's own profile.
     step('roster.b2 make the student eligible');
     await page.goto(`/students/${studentId}`);
-    const eligibility = page.locator('select').filter({ hasText: 'Not eligible' }).first();
+    const eligibility = page.locator('select').filter({ hasText: 'Not in the meal service' }).first();
     await expect(
       eligibility,
       'no Operational status control — a Super Admin cannot make a Student billable',
