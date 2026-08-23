@@ -90,7 +90,7 @@ previous document.
 
 | Gate                 | Result                                                                                              |
 | -------------------- | --------------------------------------------------------------------------------------------------- |
-| Browser E2E          | **98 / 98** — 0 failed, 0 skipped, 0 flaky (run `RUN_ID_PLACEHOLDER`, on the tested SHA)            |
+| Browser E2E          | **100 / 100** — 0 failed, 0 skipped, 0 flaky (run `RUN_PLACEHOLDER`, on `SHA_PLACEHOLDER`)          |
 | SQL suites           | **23 suites, 278 named assertions**, 0 failures, replayed from nothing on a throwaway PostgreSQL 16 |
 | Authorization matrix | **520 checks**, all pass                                                                            |
 | Unit tests           | **125**, 13 files                                                                                   |
@@ -98,7 +98,7 @@ previous document.
 | ESLint               | pass, 0 warnings                                                                                    |
 | Production build     | pass                                                                                                |
 
-Suite growth this closure: 85 → 98 browser tests, 22 → 23 SQL suites,
+Suite growth this closure: 85 → 100 browser tests, 22 → 23 SQL suites,
 237 → 278 assertions, 122 → 125 unit tests.
 
 ### New this closure

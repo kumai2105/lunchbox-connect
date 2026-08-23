@@ -1585,6 +1585,16 @@ The role picker offers only roles with a built screen (Decision 040). Every
 password field carries a Show / Hide control — an administrator types a
 password here and then has to read it back to somebody.
 
+### Staff (`/staff`)
+
+The Institution Admin's account screen, and the reason they need one: Users &
+roles is Super-Admin-only, so this is where the authority
+`app_may_manage_account()` gives them is actually exercised. Each row carries
+**Edit**, **Set password** and **Deactivate / Reactivate** over their own
+classroom staff, with the same dialogs and the same honest wording as the
+Super Admin's screen, plus a "Show deactivated staff (n)" toggle. A deactivated
+row keeps its state and reason and loses its "Assign class" action.
+
 ### Your account (`/account`, and the Parent portal's Profile)
 
 One screen per person, reachable by clicking your own name in the sidebar
@@ -1592,6 +1602,14 @@ footer. Shows email, role and scope as facts; lets you change your name, phone
 and **password**. States that a signed-in change needs no old password, and
 that a forgotten password means asking an administrator, because there is no
 email reset.
+
+### The Parent portal with no child linked
+
+A Parent whose child has not been linked yet, or whose link has been revoked,
+still sees their own account: name, phone, password and **Sign out**. The
+"no children are linked" message is shown, because it is true, but it is not
+the whole screen — it used to be, and an account in that state could not change
+its password or sign out at all.
 
 ### This account is not active
 

@@ -2,28 +2,35 @@
 
 ## SNAPSHOT — CORE OPERABILITY CLOSURE, 23 August 2026
 
-**Verified SHA:** `SHA_PLACEHOLDER`
+**Verified SHA:** `SHA_PLACEHOLDER` — the last commit that changed code
 **Branch:** `claude/new-session-k5dd5u`
 
 Every gate below was run against that exact tree. Totals are read from the
 suites themselves, not carried forward from an earlier manifest.
 
-| Gate                 | Command                                        | Result                                                               |
-| -------------------- | ---------------------------------------------- | -------------------------------------------------------------------- |
-| Browser suite        | `e2e-local-supabase.yml` run `RUN_PLACEHOLDER` | **PASS — 98 / 98** in 14 spec files · 0 failed · 0 skipped · 0 flaky |
-| Database suites      | `./tests/sql/run_verification.sh`              | **PASS — 23 suites**, 278 named assertions                           |
-| Authorization matrix | `verify_authorization_matrix`                  | **PASS — 520 checks**                                                |
-| Unit tests           | `pnpm test:unit`                               | **PASS — 125** across 13 files                                       |
-| TypeScript           | `pnpm typecheck`                               | **PASS** — app + node + `tests/e2e`, three projects                  |
-| Lint                 | `pnpm lint`                                    | **PASS**, 0 warnings                                                 |
-| Production build     | `pnpm build`                                   | **PASS**                                                             |
+Commits after that SHA on this branch are Markdown only — this manifest and the
+release record, which describe it. That is not a loophole: the browser workflow
+declares `paths-ignore: ['**/*.md']` precisely because a documentation commit
+cannot change what a browser does, and the SHA named above is the one the
+suites actually executed against. **A code change would move this SHA and
+require a fresh run.**
+
+| Gate                 | Command                                        | Result                                                                 |
+| -------------------- | ---------------------------------------------- | ---------------------------------------------------------------------- |
+| Browser suite        | `e2e-local-supabase.yml` run `RUN_PLACEHOLDER` | **PASS — 100 / 100** in 14 spec files · 0 failed · 0 skipped · 0 flaky |
+| Database suites      | `./tests/sql/run_verification.sh`              | **PASS — 23 suites**, 278 named assertions                             |
+| Authorization matrix | `verify_authorization_matrix`                  | **PASS — 520 checks**                                                  |
+| Unit tests           | `pnpm test:unit`                               | **PASS — 125** across 13 files                                         |
+| TypeScript           | `pnpm typecheck`                               | **PASS** — app + node + `tests/e2e`, three projects                    |
+| Lint                 | `pnpm lint`                                    | **PASS**, 0 warnings                                                   |
+| Production build     | `pnpm build`                                   | **PASS**                                                               |
 
 **Migration ceiling in this tree:** `0045_tag_only_edit_is_not_a_new_revision.sql`
 (45 migrations).
 **Migration ceiling in production:** `0042` — `0043`, `0044` and `0045` are
 **PENDING**. See "Not deployed" below.
 
-Growth since the previous snapshot (`6f94b017`): 85 → 98 browser tests,
+Growth since the previous snapshot (`6f94b017`): 85 → 100 browser tests,
 22 → 23 SQL suites, 237 → 278 assertions, 122 → 125 unit tests.
 
 ### The browser gate is self-counting
@@ -32,7 +39,7 @@ The workflow takes its expected total from `playwright test --list` rather than
 a number written down by hand, then asserts `expected == total`,
 `unexpected == 0` and `skipped == 0`. A stale hand-counted number could pass
 while whole specs silently stopped being collected; this cannot. The step named
-"Assert every test executed, 0 failed, 0 skipped" is what makes the 98 above a
+"Assert every test executed, 0 failed, 0 skipped" is what makes the 100 above a
 measurement rather than a claim.
 
 ### Three failures were found during this verification, and the split matters

@@ -102,7 +102,7 @@ pnpm test:e2e
 The global setup seeds its own namespaced users/data idempotently (never your
 real data) on the current architecture — Meal → Menu → published Meal Service →
 class_staff → Classroom record → Parent result — and writes
-`tests/e2e/.seeded.json` (gitignored). 14 specs, **98 tests** — `login.roles`
+`tests/e2e/.seeded.json` (gitignored). 14 specs, **100 tests** — `login.roles`
 is parameterised over the nine role domains, so it contributes 10 of them. Take
 the number from `pnpm exec playwright test --list` rather than from any
 document; the CI gate does exactly that and fails on a silent skip as well as

@@ -931,6 +931,13 @@ Two refusals sit above it and apply to everyone, Super Admin included:
 The interface only shows the actions this rule permits, and the database
 re-checks every one of them regardless of what the interface did.
 
+**Where each role exercises it.** A Super Admin acts from **Users & roles**,
+which no other role may open. A Nursery / School Admin acts from **Staff**,
+which is scoped to their own institution — the same three actions (edit
+details, set password, deactivate / reactivate) over exactly the people
+`app_may_manage_account()` allows. Having the authority and no screen to use it
+on is the same as not having it.
+
 ---
 
 ## 58. Guardian Revocation (added 2026-08-23, Decision 041)

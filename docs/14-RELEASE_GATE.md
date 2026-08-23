@@ -54,7 +54,7 @@ this repository alone.
      narrow; and that **no audit row anywhere carries password material**.
 
 3. **Live browser tests (a real Chromium against a real Supabase stack)**
-   - `pnpm test:e2e` — **98 tests across 14 spec files**, all of which must
+   - `pnpm test:e2e` — **100 tests across 14 spec files**, all of which must
      pass: **0 failed, 0 skipped, 0 flaky**. Take the number from
      `pnpm exec playwright test --list`, never from prose — the CI gate does
      exactly that rather than asserting a hand-written constant, and it fails

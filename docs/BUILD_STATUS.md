@@ -107,7 +107,7 @@ Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
   historical immutability, and audit-log tamper resistance) and the lifecycle
   security suite (deactivation proven against a live token, archival refusals,
   guardian revocation, and no password material anywhere in Audit)
-- `pnpm test:e2e` — 14 specs / **98** tests, 0 failed, 0 skipped, 0 flaky
+- `pnpm test:e2e` — 14 specs / **100** tests, 0 failed, 0 skipped, 0 flaky
   (`login.roles` runs once per role, so it contributes 10). Executed by
   `.github/workflows/e2e-local-supabase.yml` against an ephemeral Supabase
   stack started on the GitHub runner, because this sandbox blocks
