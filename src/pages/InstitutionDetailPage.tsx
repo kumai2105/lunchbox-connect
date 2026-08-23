@@ -22,6 +22,7 @@ import {
   Field,
   Modal,
   PageHead,
+  PasswordInput,
   Pill,
   Spinner,
   StatCard,
@@ -606,9 +607,10 @@ export default function InstitutionDetailPage() {
           <Banner kind="info">
             Creates a working Classroom Staff account scoped to this institution with the password
             below — <b>no invitation email is sent from here</b>. Share it securely; the person can
-            sign in immediately. Passwords are issued by an administrator: there is
-            <b> no self-service reset</b>, so keep a record of what you set. Assign them to classes
-            from the Classes or Staff screen.
+            sign in immediately, and can change it themselves afterwards from their own account
+            screen. If they forget it, issue a new one from the Staff screen —{' '}
+            <b>nobody can look up an existing password</b>. Assign them to classes from the Classes
+            or Staff screen.
           </Banner>
           <Field label="Full name">
             <input
@@ -623,11 +625,11 @@ export default function InstitutionDetailPage() {
               onChange={(e) => setInvite({ ...invite, email: e.target.value })}
             />
           </Field>
-          <Field label="Password (min 8 chars)">
-            <input
-              type="text"
+          <Field label="Password (min 8 — share securely)">
+            <PasswordInput
               value={invite.password}
-              onChange={(e) => setInvite({ ...invite, password: e.target.value })}
+              onChange={(v) => setInvite({ ...invite, password: v })}
+              autoComplete="new-password"
             />
           </Field>
         </Modal>

@@ -145,6 +145,17 @@ here because the distinction matters:
 
 ## Follow-up release `2e03b842` — the account model, stated
 
+> **PARTLY SUPERSEDED, 2026-08-23.** What follows is an accurate record of what
+> was true on 22 August and is left as written. Two of its statements are no
+> longer true of the product: there is now an in-application way for an
+> administrator to **issue a replacement password**, and every signed-in person
+> can **change their own**. The instruction to "keep a record of what you set"
+> has been removed from the software and from the operating guide — an existing
+> password cannot be looked up by anybody, so there is nothing to keep a record
+> of. Accounts remain administrator-issued and there is still no
+> forgot-password email. See Decision 039 and
+> `docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md`.
+
 The Founder confirmed the account model: **accounts are administrator-issued**.
 The administrator sets the password when creating the account and tells the
 person. No invitation email, no self-registration, no self-service reset.
