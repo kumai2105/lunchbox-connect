@@ -104,9 +104,7 @@ function rate(part: number, whole: number): number | null {
 export function measuredObservations<T extends { consumption_pct: number | null }>(
   rows: T[],
 ): Array<T & { consumption_pct: number }> {
-  return rows.filter(
-    (r): r is T & { consumption_pct: number } => r.consumption_pct !== null,
-  );
+  return rows.filter((r): r is T & { consumption_pct: number } => r.consumption_pct !== null);
 }
 
 /** Mean of the recorded percentages, or null when nothing has been scored. */

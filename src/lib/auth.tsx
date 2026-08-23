@@ -59,7 +59,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch((e: unknown) => {
         if (!active) return;
         setSession(null);
-        setAuthError(e instanceof Error ? e.message : 'Could not reach the authentication service.');
+        setAuthError(
+          e instanceof Error ? e.message : 'Could not reach the authentication service.',
+        );
       })
       .finally(() => {
         if (active) setLoading(false);

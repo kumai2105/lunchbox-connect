@@ -594,16 +594,20 @@ export default function TodayPage() {
                 {(Object.keys(LOW_INTAKE_REASON_LABEL) as LowIntakeReason[])
                   .filter((r) => !NON_PREFERENCE_LOW_INTAKE_REASONS.includes(r))
                   .map((r) => (
-                  <button
-                    key={r}
-                    className={draft.reason === r ? 'selected' : ''}
-                    onClick={() => void selectReason(r)}
-                  >
-                    {LOW_INTAKE_REASON_LABEL[r]}
-                  </button>
-                ))}
+                    <button
+                      key={r}
+                      className={draft.reason === r ? 'selected' : ''}
+                      onClick={() => void selectReason(r)}
+                    >
+                      {LOW_INTAKE_REASON_LABEL[r]}
+                    </button>
+                  ))}
                 {/* The reason is OPTIONAL: this is the way through without one. */}
-                <button className="brand" onClick={() => void saveWithoutReason()} disabled={saving}>
+                <button
+                  className="brand"
+                  onClick={() => void saveWithoutReason()}
+                  disabled={saving}
+                >
                   {saving ? 'Saving…' : 'Save · no reason'}
                 </button>
               </div>

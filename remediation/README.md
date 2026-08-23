@@ -10,14 +10,14 @@ row counts and a rollback proof.
 
 ## Current production reality (what the withdrawn script left behind)
 
-| Thing | State | Verdict |
-| ----- | ----- | ------- |
-| Resolver RPC leak | closed | ✅ keep — this was the one required, approved change |
-| `Test %` fixtures | deleted | ⚠️ already gone; `00_diagnose` §5/§6 confirm nothing real was orphaned |
-| Meal library + rotation template (from the 20 real menu rows) | created | ✅ legitimate legacy-menu data — keep |
-| Institution **service plans** | rebuilt from the menu's periods | ❌ unapproved — a service plan is a contract, not menu-derived |
-| **Rotation assignments** | one rotation auto-assigned to every institution | ❌ unapproved |
-| ~2056 **published** meal services (−60d … +300d) | published | ❌ unapproved mass publication with no calendar context |
+| Thing                                                         | State                                           | Verdict                                                                |
+| ------------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------- |
+| Resolver RPC leak                                             | closed                                          | ✅ keep — this was the one required, approved change                   |
+| `Test %` fixtures                                             | deleted                                         | ⚠️ already gone; `00_diagnose` §5/§6 confirm nothing real was orphaned |
+| Meal library + rotation template (from the 20 real menu rows) | created                                         | ✅ legitimate legacy-menu data — keep                                  |
+| Institution **service plans**                                 | rebuilt from the menu's periods                 | ❌ unapproved — a service plan is a contract, not menu-derived         |
+| **Rotation assignments**                                      | one rotation auto-assigned to every institution | ❌ unapproved                                                          |
+| ~2056 **published** meal services (−60d … +300d)              | published                                       | ❌ unapproved mass publication with no calendar context                |
 
 ## The domain rule this restores (your point 7)
 
@@ -45,14 +45,14 @@ an open transaction so you can review the notices and then type `commit;` or
 
 ## Files, in order
 
-| File | Type | What it does | Commits? |
-| ---- | ---- | ------------ | -------- |
-| `00_diagnose.sql` | READ-ONLY | Reports authoritative current state; safe anywhere | n/a |
-| `01_security_remediation.sql` | change | Revokes the resolver RPCs (already applied; re-run is a no-op) | no |
-| `05_revert_unapproved_changes.sql` | change, **destructive** | Removes the unapproved plans, assignments, and speculative services; **preserves** library, template, and all history | no |
-| `02_menu_library_migration.sql` | change | Rebuilds only the meal library + rotation template from `menus` (no assignment, no plan, no publish) — for a clean rebuild scenario | no |
-| `03_institution_config.TEMPLATE.sql` | change, **template** | You fill in each institution's **real** rotation assignment + service plan; refuses to run until filled | no |
-| `04_publish_explicit.TEMPLATE.sql` | change, **template** | Publishes ONE named institution over an explicit ≤90-day window, gated on config; drafts by default | no |
+| File                                 | Type                    | What it does                                                                                                                        | Commits? |
+| ------------------------------------ | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| `00_diagnose.sql`                    | READ-ONLY               | Reports authoritative current state; safe anywhere                                                                                  | n/a      |
+| `01_security_remediation.sql`        | change                  | Revokes the resolver RPCs (already applied; re-run is a no-op)                                                                      | no       |
+| `05_revert_unapproved_changes.sql`   | change, **destructive** | Removes the unapproved plans, assignments, and speculative services; **preserves** library, template, and all history               | no       |
+| `02_menu_library_migration.sql`      | change                  | Rebuilds only the meal library + rotation template from `menus` (no assignment, no plan, no publish) — for a clean rebuild scenario | no       |
+| `03_institution_config.TEMPLATE.sql` | change, **template**    | You fill in each institution's **real** rotation assignment + service plan; refuses to run until filled                             | no       |
+| `04_publish_explicit.TEMPLATE.sql`   | change, **template**    | Publishes ONE named institution over an explicit ≤90-day window, gated on config; drafts by default                                 | no       |
 
 ## Recommended path on production
 
@@ -62,7 +62,7 @@ an open transaction so you can review the notices and then type `commit;` or
    **This has already been applied to production with your approval:**
    plans=0, assignments=0, published=0, while meals=20, rotations=1, slots=20,
    serving_records=4, menus=20 were preserved and the leak stayed closed.
-   Institutions are now *unconfigured* — correct until their real agreements
+   Institutions are now _unconfigured_ — correct until their real agreements
    are entered. Re-running the diagnose confirms this; re-running `05` is a
    no-op. The security fix, meal library, rotation template, legacy menu, and
    all serving records are untouched.

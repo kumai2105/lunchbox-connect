@@ -34,12 +34,12 @@ on:
         required: false
         default: ''
         type: string
-#
-# paths-ignore: a Markdown-only commit cannot change what the browser does, so
-# it does not run the browser suite. This is not a gate being weakened — every
-# path that builds, ships or is tested still triggers it. It is here because a
-# release-day sequence of documentation commits produced a run per commit, and
-# a gate that cries wolf on a README edit stops being read.
+  #
+  # paths-ignore: a Markdown-only commit cannot change what the browser does, so
+  # it does not run the browser suite. This is not a gate being weakened — every
+  # path that builds, ships or is tested still triggers it. It is here because a
+  # release-day sequence of documentation commits produced a run per commit, and
+  # a gate that cries wolf on a README edit stops being read.
   push:
     branches: [claude/new-session-k5dd5u]
     paths-ignore: ['**/*.md']

@@ -63,7 +63,8 @@ export default function InstitutionCalendarTab({ institutionId }: { institutionI
   async function onAdd() {
     if (dateTo < dateFrom) return setError('End date is before start date.');
     if (kind === 'override' && !mealId) return setError('Choose the replacement meal.');
-    if (kind === 'special_period' && !rotationId) return setError('Choose the special-period menu.');
+    if (kind === 'special_period' && !rotationId)
+      return setError('Choose the special-period menu.');
     setBusy(true);
     setError(null);
     const res = await addCalendarException({
@@ -98,7 +99,10 @@ export default function InstitutionCalendarTab({ institutionId }: { institutionI
 
       <Card title="Add a calendar rule" hint="closure, a one-off meal change, or a special period">
         <Field label="Type">
-          <select value={kind} onChange={(e) => setKind(e.target.value as CalendarException['kind'])}>
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as CalendarException['kind'])}
+          >
             {(Object.keys(KIND_LABEL) as CalendarException['kind'][]).map((k) => (
               <option key={k} value={k}>
                 {KIND_LABEL[k]}
@@ -155,7 +159,11 @@ export default function InstitutionCalendarTab({ institutionId }: { institutionI
         )}
 
         <Field label="Reason (optional)">
-          <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. public holiday" />
+          <input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. public holiday"
+          />
         </Field>
         <Btn variant="brand" onClick={() => void onAdd()} disabled={busy}>
           {busy ? 'Saving…' : 'Add rule'}

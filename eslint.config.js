@@ -44,8 +44,7 @@ export default tseslint.config(
         'error',
         {
           name: '__dirname',
-          message:
-            'Not defined in ESM. Use path.dirname(fileURLToPath(import.meta.url)).',
+          message: 'Not defined in ESM. Use path.dirname(fileURLToPath(import.meta.url)).',
         },
         {
           name: '__filename',

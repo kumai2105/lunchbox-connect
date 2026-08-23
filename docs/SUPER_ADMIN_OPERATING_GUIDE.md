@@ -15,13 +15,13 @@ time as the business needs. The count is not a property of the product.
 
 ## The configuration model, as the database actually defines it
 
-| What | Table (migration 0016) | What one row says | How many |
-|---|---|---|---|
-| **Identity** | `institutions` | the name, and whether it is a nursery or a school | exactly one, editable |
-| **Service plan** | `institution_service_plans` | *these meal periods, from this date* | one per change, forever |
-| **Menu assignment** | `institution_rotation_assignments` | *this menu, from this date, starting on this week of it* | one per change, forever |
-| **Calendar rules** | `calendar_exceptions` | *this closure / one-off meal change / special period, over these dates* | as many as the year needs |
-| **Publication** | `publish_meal_services()` | not stored configuration — the action that turns the above into dated meals | run whenever something changes |
+| What                | Table (migration 0016)             | What one row says                                                           | How many                       |
+| ------------------- | ---------------------------------- | --------------------------------------------------------------------------- | ------------------------------ |
+| **Identity**        | `institutions`                     | the name, and whether it is a nursery or a school                           | exactly one, editable          |
+| **Service plan**    | `institution_service_plans`        | _these meal periods, from this date_                                        | one per change, forever        |
+| **Menu assignment** | `institution_rotation_assignments` | _this menu, from this date, starting on this week of it_                    | one per change, forever        |
+| **Calendar rules**  | `calendar_exceptions`              | _this closure / one-off meal change / special period, over these dates_     | as many as the year needs      |
+| **Publication**     | `publish_meal_services()`          | not stored configuration — the action that turns the above into dated meals | run whenever something changes |
 
 The three record sets are **effective-dated**. Changing a nursery's package or
 its menu means adding a row with a later date — it never edits the old row. The
@@ -55,6 +55,7 @@ planned. Until you publish, the register correctly shows nothing to record.
 ## Doing it
 
 ### 1 · The Institution record
+
 **Institutions → + Add institution**, or open one and press **Edit institution**
 on the Overview tab. Name and type (nursery or school). Both stay editable —
 a nursery gets renamed, or was first recorded under the wrong type. Institutions
@@ -62,6 +63,7 @@ are never deleted; that is refused at the database, on purpose, because history
 references them.
 
 ### 2 · The service plan — which periods they bought
+
 **Institutions → open one → Service tab → Contracted meal periods**
 
 Tick the periods this Institution actually pays for, set **Effective from**, and
@@ -70,12 +72,13 @@ so check it against the agreement rather than against what the menu happens to
 contain.
 
 To change the package later, tick the new set and give a **later** effective
-date. The card shows what is in effect *today*, and a timeline underneath shows
+date. The card shows what is in effect _today_, and a timeline underneath shows
 every dated row, marked **In effect**, **Scheduled** or **Superseded**. A row
 dated in the future can be withdrawn; one that already governs real days cannot,
 because withdrawing it would silently restate what those days were.
 
 ### 3 · The menu assignment — and the anchor you set only once
+
 **Institutions → open one → Service tab → Assigned menu**
 
 Choose the menu, the effective date, and **Starting rotation week** — which week
@@ -90,9 +93,10 @@ week. (Proved in `tests/sql/verify_rotation_autoadvance.sql` and by the
 
 Switching menus later works the same way as the package: assign the new menu
 from a later date. Earlier days keep the menu they were served under, and the
-new menu starts on whichever of *its* weeks you name.
+new menu starts on whichever of _its_ weeks you name.
 
 ### 4 · Calendar rules — the exceptions
+
 **Institutions → open one → Calendar tab**
 
 Three kinds, resolved in this order: **closure** beats **date-specific meal
@@ -101,6 +105,7 @@ can cover one period or all of them, over any date range. A public holiday never
 requires rebuilding a menu.
 
 ### 5 · Publish a window
+
 **Institutions → open one → Service tab → Publish schedule**
 
 Choose a date range and publish. This creates the dated Meal Services the
@@ -109,17 +114,17 @@ changing anything above — the configuration change alone does not reach those
 screens.
 
 Publishing is safe to repeat. Future services re-resolve; a day whose meal has
-already been *served* is historical and is protected from being rewritten.
+already been _served_ is historical and is protected from being rewritten.
 
 ---
 
 ## What switches on the moment you publish
 
-| Surface | What appears |
-|---|---|
-| **Classroom (Today)** | Period tabs for the published periods; the roster becomes recordable; Absent/Unwell/Sleeping in one tap |
-| **Parent portal** | Today's meal for their child, the published weekly menu with ingredients and allergens, and results once staff record them |
-| **Kitchen (Production Demand)** | Quantities per exact Meal Revision, per date and period, for eligible children only |
+| Surface                         | What appears                                                                                                               |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **Classroom (Today)**           | Period tabs for the published periods; the roster becomes recordable; Absent/Unwell/Sleeping in one tap                    |
+| **Parent portal**               | Today's meal for their child, the published weekly menu with ingredients and allergens, and results once staff record them |
+| **Kitchen (Production Demand)** | Quantities per exact Meal Revision, per date and period, for eligible children only                                        |
 
 ---
 
@@ -155,11 +160,11 @@ there is no self-service password reset.
 server-side path (`admin-create-user`), and all three ask you to type the
 password yourself:
 
-| Screen | Who it creates | Where |
-|---|---|---|
-| Users | any role, any institution | Super Admin only |
-| Institution → Invite | Classroom Staff scoped to that institution | Super Admin |
-| Staff | Classroom Staff in your own institution | Nursery Admin |
+| Screen               | Who it creates                             | Where            |
+| -------------------- | ------------------------------------------ | ---------------- |
+| Users                | any role, any institution                  | Super Admin only |
+| Institution → Invite | Classroom Staff scoped to that institution | Super Admin      |
+| Staff                | Classroom Staff in your own institution    | Nursery Admin    |
 
 The password must be at least 8 characters; Create stays disabled until it is.
 The account works the moment it is created — the person signs in with their

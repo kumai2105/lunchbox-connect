@@ -55,9 +55,7 @@ function assertNotProduction(url: string): void {
 // between 20:00–24:00 UTC when a naive UTC date is already a day behind Dubai.
 const UAE_UTC_OFFSET_HOURS = 4;
 function operationalDateFor(instant: Date): string {
-  return new Date(instant.getTime() + UAE_UTC_OFFSET_HOURS * 3_600_000)
-    .toISOString()
-    .slice(0, 10);
+  return new Date(instant.getTime() + UAE_UTC_OFFSET_HOURS * 3_600_000).toISOString().slice(0, 10);
 }
 
 /**
@@ -190,8 +188,7 @@ export default async function globalSetup(): Promise<void> {
   if (!ISO_DATE.test(today) || !ISO_DATE.test(tomorrow)) {
     throw new Error(`[e2e] non-canonical operational date: today=${today} tomorrow=${tomorrow}`);
   }
-  const dayGapMs =
-    Date.parse(`${tomorrow}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`);
+  const dayGapMs = Date.parse(`${tomorrow}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`);
   if (dayGapMs !== 86400000) {
     throw new Error(
       `[e2e] operational today/tomorrow are not exactly one day apart ` +
@@ -359,15 +356,45 @@ export default async function globalSetup(): Promise<void> {
 
   // ---- students (operational_status is the eligibility gate) ----------------
   const students = [
-    { student_no: 'E2E-001', given_name: 'Status', family_name: 'Case', class_id: null, status: null },
-    { student_no: 'E2E-101', given_name: 'Serving', family_name: 'One', class_id: classId, status: ELIGIBLE },
-    { student_no: 'E2E-102', given_name: 'Serving', family_name: 'Two', class_id: classId, status: ELIGIBLE },
-    { student_no: 'E2E-201', given_name: 'Portal', family_name: 'Kid', class_id: classId, status: ELIGIBLE },
+    {
+      student_no: 'E2E-001',
+      given_name: 'Status',
+      family_name: 'Case',
+      class_id: null,
+      status: null,
+    },
+    {
+      student_no: 'E2E-101',
+      given_name: 'Serving',
+      family_name: 'One',
+      class_id: classId,
+      status: ELIGIBLE,
+    },
+    {
+      student_no: 'E2E-102',
+      given_name: 'Serving',
+      family_name: 'Two',
+      class_id: classId,
+      status: ELIGIBLE,
+    },
+    {
+      student_no: 'E2E-201',
+      given_name: 'Portal',
+      family_name: 'Kid',
+      class_id: classId,
+      status: ELIGIBLE,
+    },
     // A SECOND authorized child for the same Parent, deliberately different in
     // every way the portal renders: name, meal outcomes, and the meal served.
     // The child-switch regression cannot be honest with only one child — it
     // would skip, which is how that browser test came to prove nothing.
-    { student_no: 'E2E-202', given_name: 'Second', family_name: 'Child', class_id: classId, status: ELIGIBLE },
+    {
+      student_no: 'E2E-202',
+      given_name: 'Second',
+      family_name: 'Child',
+      class_id: classId,
+      status: ELIGIBLE,
+    },
   ];
   /**
    * Returns the student's ID — the ROW's id, not the response envelope.
@@ -515,7 +542,9 @@ export default async function globalSetup(): Promise<void> {
   for (const row of results) {
     mustOk(
       `seed classroom meal record (${String(row.period)})`,
-      await db.from('serving_records').upsert(row, { onConflict: 'student_id,serving_date,period' }),
+      await db
+        .from('serving_records')
+        .upsert(row, { onConflict: 'student_id,serving_date,period' }),
     );
   }
 
@@ -560,7 +589,11 @@ export default async function globalSetup(): Promise<void> {
     await asStaff
       .from('serving_notes')
       .upsert(
-        { serving_record_id: lunchRecId, body: 'E2E draft — must stay invisible', published_at: null },
+        {
+          serving_record_id: lunchRecId,
+          body: 'E2E draft — must stay invisible',
+          published_at: null,
+        },
         { onConflict: 'serving_record_id' },
       ),
   );
@@ -568,16 +601,14 @@ export default async function globalSetup(): Promise<void> {
   const asAdmin = await asUser('e2e.super-admin@lunchbox.app');
   mustOk(
     'seed the PUBLISHED serving note as an admin (only they may publish)',
-    await asAdmin
-      .from('serving_notes')
-      .upsert(
-        {
-          serving_record_id: breakfastRecId,
-          body: 'E2E published note',
-          published_at: new Date().toISOString(),
-        },
-        { onConflict: 'serving_record_id' },
-      ),
+    await asAdmin.from('serving_notes').upsert(
+      {
+        serving_record_id: breakfastRecId,
+        body: 'E2E published note',
+        published_at: new Date().toISOString(),
+      },
+      { onConflict: 'serving_record_id' },
+    ),
   );
 
   // ---- deterministic references for the specs ------------------------------

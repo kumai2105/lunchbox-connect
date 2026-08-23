@@ -312,7 +312,20 @@ create or replace function update_user_profile(
 language plpgsql security definer set search_path = public as $$
 declare v_prev jsonb;
 begin
-  if not app_may_manage_account(p_user) then
+  -- An ACTIVE person may correct their own name and phone number; an
+  -- administrator may correct it for the accounts they manage. The self case
+  -- is checked through app_current_role(), which is NULL for a deactivated
+  -- account, so 'it is my own row' never becomes a way for a deactivated
+  -- person to keep writing.
+  --
+  -- Only these two fields. Not email — that is the authentication identity
+  -- held by Supabase Auth, and writing this copy alone would leave the person
+  -- signing in with one address and displayed under another. Not role, and not
+  -- institution_id: those decide what RLS lets an existing token reach.
+  if not (
+    (p_user = auth.uid() and app_current_role() is not null)
+    or app_may_manage_account(p_user)
+  ) then
     raise exception 'You may not change this account';
   end if;
   if coalesce(btrim(p_full_name), '') = '' then

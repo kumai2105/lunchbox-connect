@@ -39,6 +39,16 @@ export interface Institution {
   name: string;
   kind: 'nursery' | 'school';
   created_at: string;
+  /**
+   * Lifecycle (migration 0044). An archived Institution keeps every record it
+   * ever owned — students, classes, published service, observations — and is
+   * refused all NEW operational activity at the database boundary, not merely
+   * in the interface. It is never deleted, because its history is referenced.
+   */
+  active: boolean;
+  archived_at: string | null;
+  archived_by: string | null;
+  archived_reason: string | null;
 }
 
 // LunchBox Connect operational entity (docs/13 Decision 031) — not owned by
@@ -60,6 +70,17 @@ export interface AppUser {
   email: string;
   phone: string | null;
   created_at: string;
+  /**
+   * Lifecycle (migration 0044). `false` means the person cannot act: every
+   * identity helper the RLS policies are built on resolves to NULL for a
+   * deactivated account, so an already-issued token reads and writes nothing.
+   * The row survives because audit_log.actor_user_id and every operational
+   * record that names them must keep resolving.
+   */
+  active: boolean;
+  deactivated_at: string | null;
+  deactivated_by: string | null;
+  deactivated_reason: string | null;
 }
 
 export interface ClassRow {
@@ -70,7 +91,14 @@ export interface ClassRow {
   // NB: classes.teacher_id still exists in the database as a legacy
   // primary-contact hint (migration 0025), but the application no longer
   // reads it — classroom staffing is the class_staff membership set (§16).
+  /**
+   * Lifecycle (migration 0044). An archived Class takes no student, no staff
+   * assignment and no new observation; its past records are untouched.
+   */
   active: boolean;
+  archived_at: string | null;
+  archived_by: string | null;
+  archived_reason: string | null;
 }
 
 export interface Student {
@@ -145,8 +173,17 @@ export interface AuditLogRow {
   id: string;
   occurred_at: string;
   actor_user_id: string | null;
-  action: 'create' | 'update' | 'delete';
-  entity_type: 'students' | 'menus' | 'app_users';
+  /**
+   * Free text in the database, and deliberately so: alongside the original
+   * create/update/delete this now carries the lifecycle verbs written by
+   * migration 0044 and the password-reset function — user.deactivate,
+   * user.reactivate, user.password_reset, institution.archive,
+   * institution.reactivate, class.archive, class.reactivate,
+   * guardian.revoke. Narrowing it to a union would make the type lie about
+   * rows that already exist.
+   */
+  action: string;
+  entity_type: string;
   entity_id: string;
   previous_value: unknown;
   new_value: unknown;
@@ -255,7 +292,6 @@ export interface MealPerformanceRow {
   trend_delta_pct: number | null;
   trend_window_days: number;
 }
-
 
 // ---- Meal Library (§4) --------------------------------------------------
 export interface MealLibraryItem {

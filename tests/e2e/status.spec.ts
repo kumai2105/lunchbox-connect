@@ -50,9 +50,7 @@ test.describe('operational status workflow', () => {
     const s = seeded();
     await login(page, s.kitchenEmail);
     await page.goto('/kitchen');
-    await expect(
-      page.getByRole('heading', { level: 1, name: /Kitchen production/ }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: /Kitchen production/ })).toBeVisible();
 
     // Demand is per published MEAL (not a single per-institution number). Today
     // the nursery serves E2E overnight oats (breakfast) and E2E wrap (lunch);

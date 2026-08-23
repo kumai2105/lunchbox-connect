@@ -5,6 +5,8 @@ import { Btn, Spinner } from './ui';
 import logoUrl from '../assets/lunchbox-connect-logo.png';
 import { Icon } from './icons';
 import { formatOperationalDate, initials } from '../lib/format';
+import { roleLabel } from '../lib/roleLabel';
+import NoAccessPage from '../pages/NoAccessPage';
 
 // Every route in App.tsx needs an entry here, or its topbar silently falls
 // back to showing "Dashboard" regardless of which page is actually open —
@@ -31,6 +33,7 @@ const PAGE_TITLES: Record<string, [string, string]> = {
   ops: ['Ops log & issues', 'LunchBox Connect /'],
   absences: ['Absences', 'LunchBox Connect /'],
   users: ['Users & roles', 'LunchBox Connect /'],
+  account: ['Your account', 'LunchBox Connect /'],
   parent: ['Parent view', 'LunchBox Connect /'],
 };
 
@@ -83,25 +86,10 @@ export default function Layout() {
     );
   }
   if (!session) return <Navigate to="/login" replace />;
-  if (!profile) {
-    return (
-      <div className="auth-wrap">
-        <div className="auth-card">
-          <div className="auth-brand">
-            <img className="brand-logo" src={logoUrl} alt="LunchBox Connect" />
-          </div>
-          <h1>Account not provisioned</h1>
-          <p className="tagline">
-            Your sign-in works, but this account has no profile yet. Ask your administrator to create
-            your account.
-          </p>
-          <Btn variant="ghost" onClick={() => void signOut()} style={{ width: '100%' }}>
-            Sign out
-          </Btn>
-        </div>
-      </div>
-    );
-  }
+  // A settled session with no profile: deactivated, or never provisioned. One
+  // screen says so for the whole product rather than this shell carrying its
+  // own slightly different wording (§9).
+  if (!profile) return <NoAccessPage />;
 
   const role = profile.role;
   const nav = navFor(role);
@@ -146,15 +134,20 @@ export default function Layout() {
             ))}
         </nav>
         <div className="side-card">
-          <b>Spec-driven</b>
-          Undefined rules stay isolated in shells — never invented.
+          <b>{todayChip()}</b>
+          Meals are recorded against the Gulf Standard Time day, wherever you are signed in from.
         </div>
         <div className="side-foot">
-          <div className="avatar">{initials(profile.full_name)}</div>
-          <div style={{ minWidth: 0 }}>
-            <div className="u-name">{profile.full_name}</div>
-            <div className="u-role">{role}</div>
-          </div>
+          {/* Your own name is where people look for their own settings, so it
+              is the link to them. The role is shown through roleLabel() — the
+              raw stored value said "school_admin" to a nursery manager. */}
+          <Link className="side-foot-me" to="/account">
+            <div className="avatar">{initials(profile.full_name)}</div>
+            <div style={{ minWidth: 0 }}>
+              <div className="u-name">{profile.full_name}</div>
+              <div className="u-role">{roleLabel(role)}</div>
+            </div>
+          </Link>
           <button onClick={() => void signOut()}>Log out</button>
         </div>
       </aside>

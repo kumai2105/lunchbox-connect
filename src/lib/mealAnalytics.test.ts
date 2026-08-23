@@ -233,13 +233,13 @@ describe('groupPreferencesByMeal (§9/§30/§31)', () => {
   });
 
   it('skips records with no meal-service link (pre-cutover)', () => {
-    const out = groupPreferencesByMeal(
-      [{ meal_service_id: null, consumption_pct: 100 }],
-      () => ({ id: 'x', label: 'X' }),
-    );
+    const out = groupPreferencesByMeal([{ meal_service_id: null, consumption_pct: 100 }], () => ({
+      id: 'x',
+      label: 'X',
+    }));
     expect(out).toHaveLength(0);
   });
-})
+});
 
 describe('unscored observations are never silently 0% (state validity)', () => {
   const served = (pct: number | null, reason: LowIntakeReason | null = null) => ({

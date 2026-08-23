@@ -37,9 +37,11 @@ describe('messageOf — API errors must always be readable', () => {
     // The exact shape @supabase/postgrest-js assigns from JSON.parse(body).
     const postgrestError = {
       code: '23503',
-      details: 'Key (institution_id)=(00000000-0000-0000-0000-000000000000) is not present in table "institutions".',
+      details:
+        'Key (institution_id)=(00000000-0000-0000-0000-000000000000) is not present in table "institutions".',
       hint: null,
-      message: 'insert or update on table "classes" violates foreign key constraint "classes_institution_id_fkey"',
+      message:
+        'insert or update on table "classes" violates foreign key constraint "classes_institution_id_fkey"',
     };
     const text = messageOf(postgrestError);
     expect(text).toContain('violates foreign key constraint');

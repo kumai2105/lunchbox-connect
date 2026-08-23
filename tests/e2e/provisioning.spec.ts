@@ -65,11 +65,7 @@ test.describe('meal images — upload, persist, render, and stay historical', ()
     if (rows.length > 1) throw new Error(`${rows.length} Meals share the name ${MEAL}`);
     const revId = rows[0]!.current_revision_id as string | null;
     if (!revId) return null;
-    const r = await db
-      .from('meal_revisions')
-      .select('id,image_path')
-      .eq('id', revId)
-      .maybeSingle();
+    const r = await db.from('meal_revisions').select('id,image_path').eq('id', revId).maybeSingle();
     if (r.error) throw new Error(`revision query failed: ${r.error.message}`);
     return { id: revId, image: (r.data?.image_path as string) ?? '' };
   }
@@ -84,11 +80,9 @@ test.describe('meal images — upload, persist, render, and stay historical', ()
   test('object storage accepts a Super Admin upload (isolates storage from the UI)', async () => {
     const s = seeded();
     const { createClient } = await import('@supabase/supabase-js');
-    const client = createClient(
-      process.env.E2E_SUPABASE_URL!,
-      process.env.E2E_SUPABASE_ANON_KEY!,
-      { auth: { persistSession: false } },
-    );
+    const client = createClient(process.env.E2E_SUPABASE_URL!, process.env.E2E_SUPABASE_ANON_KEY!, {
+      auth: { persistSession: false },
+    });
     const signedIn = await client.auth.signInWithPassword({
       email: s.superAdminEmail!,
       password: process.env.E2E_PASSWORD ?? 'E2e-pass!12345',
@@ -117,7 +111,10 @@ test.describe('meal images — upload, persist, render, and stay historical', ()
 
     await login(page, s.superAdminEmail!);
     await page.goto('/meals');
-    await page.getByRole('button', { name: /add meal/i }).first().click();
+    await page
+      .getByRole('button', { name: /add meal/i })
+      .first()
+      .click();
     await page.getByLabel('Name', { exact: true }).fill(MEAL);
     // A meal cannot be saved without at least one sitting. This test is about
     // the image, so one is enough.
@@ -269,11 +266,14 @@ test.describe('parent access — provisioned by a Super Admin, and scoped to one
     await page.getByLabel('Type', { exact: true }).selectOption('nursery');
     await page.getByRole('button', { name: 'Add institution', exact: true }).click();
     await expect
-      .poll(async () => {
-        const r = await db.from('institutions').select('id').eq('name', INST).maybeSingle();
-        instId = (r.data?.id as string) ?? '';
-        return instId !== '';
-      }, { message: 'the Institution was never created' })
+      .poll(
+        async () => {
+          const r = await db.from('institutions').select('id').eq('name', INST).maybeSingle();
+          instId = (r.data?.id as string) ?? '';
+          return instId !== '';
+        },
+        { message: 'the Institution was never created' },
+      )
       .toBe(true);
 
     // Class
@@ -282,11 +282,14 @@ test.describe('parent access — provisioned by a Super Admin, and scoped to one
     await page.getByLabel('Class name', { exact: true }).fill(CLASS);
     await page.getByRole('button', { name: 'Create class', exact: true }).click();
     await expect
-      .poll(async () => {
-        const r = await db.from('classes').select('id').eq('name', CLASS).maybeSingle();
-        classId = (r.data?.id as string) ?? '';
-        return classId !== '';
-      }, { message: 'the Class was never created' })
+      .poll(
+        async () => {
+          const r = await db.from('classes').select('id').eq('name', CLASS).maybeSingle();
+          classId = (r.data?.id as string) ?? '';
+          return classId !== '';
+        },
+        { message: 'the Class was never created' },
+      )
       .toBe(true);
 
     // Two students: the one this parent will be linked to, and one they must
@@ -297,7 +300,10 @@ test.describe('parent access — provisioned by a Super Admin, and scoped to one
       ['Other', OTHER_NO],
     ] as const) {
       await page.goto('/students');
-      await page.getByRole('button', { name: /add student/i }).first().click();
+      await page
+        .getByRole('button', { name: /add student/i })
+        .first()
+        .click();
       await page.getByLabel('Given name', { exact: true }).fill(given);
       await page.getByLabel('Family name', { exact: true }).fill('Child');
       await page.getByLabel('Student no.', { exact: true }).fill(no);
@@ -305,10 +311,13 @@ test.describe('parent access — provisioned by a Super Admin, and scoped to one
       await page.getByLabel('Class', { exact: true }).selectOption(classId);
       await page.getByRole('button', { name: /^(Add|Create) student$/i }).click();
       await expect
-        .poll(async () => {
-          const r = await db.from('students').select('id').eq('student_no', no).maybeSingle();
-          return (r.data?.id as string) ?? '';
-        }, { message: `student ${no} was never created` })
+        .poll(
+          async () => {
+            const r = await db.from('students').select('id').eq('student_no', no).maybeSingle();
+            return (r.data?.id as string) ?? '';
+          },
+          { message: `student ${no} was never created` },
+        )
         .not.toBe('');
     }
     studentId = (await db.from('students').select('id').eq('student_no', STUDENT_NO).single()).data!
@@ -326,14 +335,17 @@ test.describe('parent access — provisioned by a Super Admin, and scoped to one
     await page.getByRole('button', { name: 'Create account', exact: true }).click();
 
     await expect
-      .poll(async () => {
-        const r = await db
-          .from('app_users')
-          .select('user_id,role')
-          .eq('email', PARENT_EMAIL)
-          .maybeSingle();
-        return r.data ? (r.data.role as string) : 'missing';
-      }, { message: 'the Parent account was never provisioned through the UI' })
+      .poll(
+        async () => {
+          const r = await db
+            .from('app_users')
+            .select('user_id,role')
+            .eq('email', PARENT_EMAIL)
+            .maybeSingle();
+          return r.data ? (r.data.role as string) : 'missing';
+        },
+        { message: 'the Parent account was never provisioned through the UI' },
+      )
       .toBe('parent');
 
     // The GUARDIAN LINK, made through the Guardians screen — the existing
@@ -352,23 +364,26 @@ test.describe('parent access — provisioned by a Super Admin, and scoped to one
     const parentUid = (
       await db.from('app_users').select('user_id').eq('email', PARENT_EMAIL).single()
     ).data!.user_id as string;
-    await page
-      .getByLabel('Parent / guardian account', { exact: true })
-      .selectOption(parentUid);
+    await page.getByLabel('Parent / guardian account', { exact: true }).selectOption(parentUid);
     await page.getByRole('button', { name: 'Link', exact: true }).click();
 
     await expect
-      .poll(async () => {
-        const r = await db
-          .from('student_parents')
-          .select('student_id')
-          .eq('student_id', studentId);
-        return (r.data ?? []).length;
-      }, { message: 'the guardian link was never written from the Guardians screen' })
+      .poll(
+        async () => {
+          const r = await db
+            .from('student_parents')
+            .select('student_id')
+            .eq('student_id', studentId);
+          return (r.data ?? []).length;
+        },
+        { message: 'the guardian link was never written from the Guardians screen' },
+      )
       .toBe(1);
   });
 
-  test('the provisioned Parent sees their own child, and only their own child', async ({ page }) => {
+  test('the provisioned Parent sees their own child, and only their own child', async ({
+    page,
+  }) => {
     await page.goto('/login');
     await page.locator('input[autocomplete="email"]').fill(PARENT_EMAIL);
     await page.locator('input[autocomplete="current-password"]').fill(PARENT_PASS);

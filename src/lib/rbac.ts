@@ -29,6 +29,7 @@ export type Resource =
   | 'ops'
   | 'absences'
   | 'audit'
+  | 'account'
   | 'parent';
 
 export type Action = 'view' | 'create' | 'update' | 'delete' | 'publish' | 'record' | 'set';
@@ -47,9 +48,16 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
   // mechanism exists (rotations), that is used instead.
   institutions: { super_admin: ['view', 'create', 'update'] },
   users: { super_admin: ['view', 'create', 'update'] },
-  // §5: exact Nursery guardian actions are NOT_YET_DEFINED. School Admin keeps
-  // read-only visibility of existing authorized relationships; the
-  // link/create/delete + Parent provisioning workflow is BLOCKED_BY_SPEC.
+  // Guardian links. A Super Admin may create one and may REVOKE one —
+  // `delete` here is that revocation, and it is now real: migration 0044's
+  // revoke_guardian_access() removes the single student_parents row, demands a
+  // reason, and audits it. It destroys nothing else: the Parent account, the
+  // child and every meal record survive.
+  //
+  // An Institution Admin keeps read-only visibility of the links their
+  // institution's children already have. Who at a nursery may end a guardian
+  // relationship, and on what authority, is NOT_YET_DEFINED — so that stays
+  // with the Super Admin rather than being invented here.
   guardians: {
     super_admin: ['view', 'create', 'update', 'delete'],
     school_admin: ['view'],
@@ -129,6 +137,22 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
   ops: { super_admin: ['view'], operations_manager: ['view'] },
   absences: { super_admin: ['view'], school_admin: ['view'] },
   audit: { super_admin: ['view'] },
+  // Your OWN account: name, phone, password. Every role has one, so every role
+  // may see and change it. This grants authority over nobody else — the
+  // database checks `p_user = auth.uid()` for the profile edit, and the
+  // password change goes through Supabase Auth on the caller's own session,
+  // which has no way to address another person's account.
+  account: {
+    super_admin: ['view', 'update'],
+    school_admin: ['view', 'update'],
+    operations_manager: ['view', 'update'],
+    finance_owner: ['view', 'update'],
+    viewer: ['view', 'update'],
+    parent: ['view', 'update'],
+    classroom_staff: ['view', 'update'],
+    kitchen: ['view', 'update'],
+    driver: ['view', 'update'],
+  },
   parent: { super_admin: ['view'], parent: ['view'] },
 };
 

@@ -103,8 +103,8 @@ test.describe('Parent child switching', () => {
       await route.continue();
     });
 
-    await switcher.nth(1).click();     // B, while A's slow read is outstanding
-    await page.waitForTimeout(2500);   // long enough for A's response to land
+    await switcher.nth(1).click(); // B, while A's slow read is outstanding
+    await page.waitForTimeout(2500); // long enough for A's response to land
 
     await expect(page.locator('.parent-child-name')).toContainText('Second');
     await expect(page.getByText('Ate all')).toHaveCount(0);

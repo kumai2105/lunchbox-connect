@@ -60,9 +60,7 @@ export const UAE_UTC_OFFSET_HOURS = 4;
 
 /** The Asia/Dubai calendar date for a given instant, as YYYY-MM-DD. */
 export function operationalDateFor(instant: Date): string {
-  return new Date(instant.getTime() + UAE_UTC_OFFSET_HOURS * 3_600_000)
-    .toISOString()
-    .slice(0, 10);
+  return new Date(instant.getTime() + UAE_UTC_OFFSET_HOURS * 3_600_000).toISOString().slice(0, 10);
 }
 
 /** Today's operational (Asia/Dubai) date. */

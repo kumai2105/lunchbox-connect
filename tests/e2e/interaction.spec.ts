@@ -35,7 +35,10 @@ const FORBIDDEN_IN_UI = [
 ];
 
 function assertHumanReadable(text: string, where: string) {
-  expect(text.trim().length, `${where}: the error area is empty — the user is told nothing`).toBeGreaterThan(0);
+  expect(
+    text.trim().length,
+    `${where}: the error area is empty — the user is told nothing`,
+  ).toBeGreaterThan(0);
   for (const bad of FORBIDDEN_IN_UI) {
     expect(
       text.includes(bad),
@@ -86,7 +89,10 @@ test.describe('cancel and close — backing out must not write anything', () => 
 
     await login(page, s.superAdminEmail!);
     await page.goto('/meals');
-    await page.getByRole('button', { name: /add meal/i }).first().click();
+    await page
+      .getByRole('button', { name: /add meal/i })
+      .first()
+      .click();
 
     const field = page.getByLabel('Name', { exact: true });
     await expect(field, 'the Meal editor did not open').toBeVisible();
@@ -167,7 +173,10 @@ test.describe('rendered errors — what a person actually sees when something fa
     await page.getByRole('button', { name: 'Add institution', exact: true }).click();
 
     const banner = page.locator('.banner.err');
-    await expect(banner, 'a duplicate name was accepted, or the refusal was shown nowhere').toBeVisible({
+    await expect(
+      banner,
+      'a duplicate name was accepted, or the refusal was shown nowhere',
+    ).toBeVisible({
       timeout: 15_000,
     });
     const text = (await banner.first().textContent()) ?? '';

@@ -103,8 +103,7 @@ export default function StudentProfilePage() {
 
   const stats = useMemo(() => {
     const valid = history.filter((r) => isValidPreferenceObservation(r));
-    const avg =
-      valid.length > 0 ? meanConsumption(valid) : null;
+    const avg = valid.length > 0 ? meanConsumption(valid) : null;
     return {
       recorded: history.length,
       valid: valid.length,
@@ -213,9 +212,8 @@ export default function StudentProfilePage() {
 
       {notes.length > 0 && (
         <Banner kind="warn">
-          <Icon name="alertTriangle" size={14} /> Safety notes (interim — not the
-          authoritative allergy record):{' '}
-          {notes.map((n) => n.text).join(' · ')}
+          <Icon name="alertTriangle" size={14} /> Safety notes (interim — not the authoritative
+          allergy record): {notes.map((n) => n.text).join(' · ')}
         </Banner>
       )}
 

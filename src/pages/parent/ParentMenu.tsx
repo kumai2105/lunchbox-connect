@@ -37,7 +37,9 @@ export default function ParentMenu() {
   // The shell fetches a wider range for Insights; this screen shows the
   // current week only.
   const from = weekStartISO();
-  const dates = [...new Set(meals.filter((m) => m.service_date >= from).map((m) => m.service_date))].sort();
+  const dates = [
+    ...new Set(meals.filter((m) => m.service_date >= from).map((m) => m.service_date)),
+  ].sort();
 
   return (
     <div>
@@ -65,7 +67,11 @@ export default function ParentMenu() {
                     ? item.ingredients.map(String)
                     : [];
                   return (
-                    <button className="menu-line menu-line-btn" key={period} onClick={() => setDetail(item)}>
+                    <button
+                      className="menu-line menu-line-btn"
+                      key={period}
+                      onClick={() => setDetail(item)}
+                    >
                       <span className="tmc-icon">
                         <Icon name={PERIOD_ICON[period]} size={16} />
                       </span>

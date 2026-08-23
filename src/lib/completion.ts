@@ -45,9 +45,9 @@ export const COMPLETION_DOT: Record<CompletionState, 'gray' | 'amber' | 'green'>
  * A no-service institution is NOT one of them, however many eligible students
  * it has on the roster.
  */
-export function institutionsNeedingAttention<T extends { expected_today: number; meals_today: number }>(
-  rows: T[],
-): T[] {
+export function institutionsNeedingAttention<
+  T extends { expected_today: number; meals_today: number },
+>(rows: T[]): T[] {
   return rows.filter((r) => completionState(r) === 'not_started');
 }
 

@@ -85,7 +85,6 @@ test.describe('acceptance — the parent-privacy boundary is an ACTION, not just
       )
       .toBe(redacted);
   });
-
 });
 
 test.describe('acceptance — Meal Library authoring', () => {
@@ -103,7 +102,10 @@ test.describe('acceptance — Meal Library authoring', () => {
     // "Add meal", not "New meal" — read from the page, not guessed. A test that
     // names a control that does not exist fails for its own reasons and proves
     // nothing about the product.
-    await page.getByRole('button', { name: /add meal/i }).first().click();
+    await page
+      .getByRole('button', { name: /add meal/i })
+      .first()
+      .click();
     await page.getByPlaceholder('e.g. Chicken Pasta').fill(name);
 
     // A meal must say which sittings it is for before it can be saved: an
@@ -209,8 +211,14 @@ test.describe('acceptance — Menu Builder authoring', () => {
     // then I clicked `.menu-list-item` (there was never one to click). Creating
     // the rotation is the better test anyway — it exercises the authoring path
     // instead of depending on fixture data that does not exist.
-    await page.getByPlaceholder('e.g. Spring 2026').waitFor({ state: 'hidden' }).catch(() => {});
-    await page.getByRole('button', { name: /create menu|new menu|create/i }).first().click();
+    await page
+      .getByPlaceholder('e.g. Spring 2026')
+      .waitFor({ state: 'hidden' })
+      .catch(() => {});
+    await page
+      .getByRole('button', { name: /create menu|new menu|create/i })
+      .first()
+      .click();
     await page.getByPlaceholder('e.g. Spring 2026').fill(name);
     await page
       .locator('.modal, [role="dialog"]')
@@ -257,7 +265,10 @@ test.describe('acceptance — Menu Builder authoring', () => {
       [lunchOnly, 'Lunch'],
     ] as const) {
       await page.goto('/meals');
-      await page.getByRole('button', { name: /add meal/i }).first().click();
+      await page
+        .getByRole('button', { name: /add meal/i })
+        .first()
+        .click();
       await page.getByPlaceholder('e.g. Chicken Pasta').fill(name);
       await page.getByRole('checkbox', { name: sitting, exact: true }).check();
       await page.getByRole('button', { name: /save meal/i }).click();
@@ -265,7 +276,10 @@ test.describe('acceptance — Menu Builder authoring', () => {
     }
 
     await page.goto('/menu-builder');
-    await page.getByRole('button', { name: /create menu|new menu|create/i }).first().click();
+    await page
+      .getByRole('button', { name: /create menu|new menu|create/i })
+      .first()
+      .click();
     await page.getByPlaceholder('e.g. Spring 2026').fill(rotation);
     await page
       .locator('.modal, [role="dialog"]')
@@ -372,7 +386,10 @@ test.describe('acceptance — form fields are labelled, not just visually captio
     const s = seeded();
     await login(page, s.superAdminEmail);
     await page.goto('/meals');
-    await page.getByRole('button', { name: /add meal/i }).first().click();
+    await page
+      .getByRole('button', { name: /add meal/i })
+      .first()
+      .click();
 
     // 'Name' read from MealLibraryPage, not guessed — and exact, because label
     // matching is SUBSTRING by default and this dialog also carries
@@ -453,7 +470,11 @@ test.describe('acceptance — creating the things an Institution runs on', () =>
     await page.getByRole('button', { name: '+ Create class', exact: true }).click();
     await page.getByPlaceholder('e.g. 1-A').fill(name);
     // FACT 1: what the Institution select actually holds immediately before Save.
-    const selBefore = await page.locator('select').first().inputValue().catch(() => '(no select)');
+    const selBefore = await page
+      .locator('select')
+      .first()
+      .inputValue()
+      .catch(() => '(no select)');
 
     await page.getByRole('button', { name: 'Create class', exact: true }).click();
 

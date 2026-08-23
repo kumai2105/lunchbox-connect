@@ -78,10 +78,7 @@ export default function InstitutionSchedulePage() {
     return [...map.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
   }, [meals]);
 
-  const todayMeals = useMemo(
-    () => byDate.find(([d]) => d === today)?.[1] ?? {},
-    [byDate, today],
-  );
+  const todayMeals = useMemo(() => byDate.find(([d]) => d === today)?.[1] ?? {}, [byDate, today]);
   const todayPeriods = PERIOD_ORDER.filter((p) => todayMeals[p]);
 
   // The WEEK's columns are the periods this institution actually publishes in
@@ -97,18 +94,15 @@ export default function InstitutionSchedulePage() {
 
   return (
     <div>
-      <PageHead
-        title="Published menu"
-        hint="what is published for your institution — read only"
-      />
+      <PageHead title="Published menu" hint="what is published for your institution — read only" />
 
       {error && <Banner kind="err">{error}</Banner>}
 
       <Banner kind="info">
-        This is the <b>published</b> schedule for your institution, read from the same
-        authoritative record the kitchen and families see. It updates on its own when the menu is
-        republished, and a closed day simply disappears. Changes are made by LunchBox Connect — this
-        screen has no editing controls.
+        This is the <b>published</b> schedule for your institution, read from the same authoritative
+        record the kitchen and families see. It updates on its own when the menu is republished, and
+        a closed day simply disappears. Changes are made by LunchBox Connect — this screen has no
+        editing controls.
       </Banner>
 
       {!institutionId && (
@@ -190,7 +184,11 @@ export default function InstitutionSchedulePage() {
               {byDate.map(([date, periods]) => (
                 <tr key={date} className={date === today ? 'row-active' : undefined}>
                   <td className="cell-name">
-                    {formatOperationalDate(date, { weekday: 'short', day: 'numeric', month: 'short' })}
+                    {formatOperationalDate(date, {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                    })}
                   </td>
                   {weekPeriods.map((p) => {
                     const m = periods[p];

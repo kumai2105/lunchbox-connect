@@ -47,8 +47,11 @@ describe('factual completion state', () => {
 
 describe('combined average weighting', () => {
   const meal = (avg: number | null, scored: number, valid: number) =>
-    ({ avg_consumption_pct: avg, scored_observations: scored, valid_observations: valid }) as
-      MealPerformanceRow;
+    ({
+      avg_consumption_pct: avg,
+      scored_observations: scored,
+      valid_observations: valid,
+    }) as MealPerformanceRow;
 
   it('weights by the SCORED population, not the valid one', () => {
     // Meal A: 100% from 1 scored observation, but 99 further valid rows that

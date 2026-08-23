@@ -40,9 +40,7 @@ describe('configInEffectOn — which configuration governs a date', () => {
 
   it('honours a scheduled change once its date arrives, with no further action', () => {
     expect(configInEffectOn(rows, '2026-09-01')?.label).toBe('breakfast + lunch + afternoon snack');
-    expect(configInEffectOn(rows, '2027-03-30')?.label).toBe(
-      'breakfast + lunch + afternoon snack',
-    );
+    expect(configInEffectOn(rows, '2027-03-30')?.label).toBe('breakfast + lunch + afternoon snack');
   });
 
   it('returns null before any configuration exists — never a guessed default', () => {

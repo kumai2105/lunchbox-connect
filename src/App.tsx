@@ -5,6 +5,8 @@ import { canAccessPage, navFor, navPath } from './lib/roles';
 import type { AppRole } from './lib/types';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
+import NoAccessPage from './pages/NoAccessPage';
+import AccountPage from './pages/AccountPage';
 import DashboardPage from './pages/DashboardPage';
 import InstitutionsPage from './pages/InstitutionsPage';
 import InstitutionDetailPage from './pages/InstitutionDetailPage';
@@ -55,7 +57,11 @@ function Guard({ page, children }: { page: string; children: ReactNode }) {
   // signing in; RLS meant they held no data, but they were on screen.
   if (loading || profileLoading) return null;
   if (!session) return <Navigate to="/login" replace />;
-  if (role && !canAccessPage(role, page)) {
+  // A settled session with NO profile is a deactivated or unprovisioned
+  // account (§9). The database already refuses it everything; this is the
+  // application boundary saying so instead of rendering an empty product.
+  if (!role) return <NoAccessPage />;
+  if (!canAccessPage(role, page)) {
     return <Navigate to={`/${firstPageFor(role)}`} replace />;
   }
   return <>{children}</>;
@@ -80,13 +86,13 @@ function Home() {
   if (loading || profileLoading) return null;
   if (!session) return <Navigate to="/login" replace />;
 
-  // A session with no app_users row is a real state (an auth account that was
-  // never provisioned) and no spec says what it should see. Keep the historic
-  // destination rather than invent one; the difference now is that we only get
-  // here once the profile fetch has actually SETTLED, so this means "no role"
-  // and no longer "role not yet known".
-  const first = role ? firstPageFor(role) : 'parent';
-  return <Navigate to={`/${first}`} replace />;
+  // A session with no app_users row means the account cannot act: either it
+  // was deactivated (migration 0044 hides an inactive account's own row from
+  // itself, because every identity helper requires `active`) or it was never
+  // provisioned. Sending it to /parent showed an empty Parent portal to people
+  // who are not parents. Say what is actually true instead.
+  if (!role) return <NoAccessPage />;
+  return <Navigate to={`/${firstPageFor(role)}`} replace />;
 }
 
 function Page({ page, children }: { page: string; children: ReactNode }) {
@@ -194,6 +200,14 @@ export default function App() {
               element={
                 <Page page="audit">
                   <AuditPage />
+                </Page>
+              }
+            />
+            <Route
+              path="/account"
+              element={
+                <Page page="account">
+                  <AccountPage />
                 </Page>
               }
             />

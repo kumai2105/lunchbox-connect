@@ -48,7 +48,9 @@ async function expectUsable(page: Page, locator: ReturnType<Page['locator']>, wh
   // Horizontally within the viewport. Vertical position is fine anywhere —
   // scrolling down is normal; being cut off sideways is not.
   expect(box.x, `${what} starts off the left edge`).toBeGreaterThanOrEqual(-1);
-  expect(box.x + box.width, `${what} extends past the right edge`).toBeLessThanOrEqual(vp.width + 1);
+  expect(box.x + box.width, `${what} extends past the right edge`).toBeLessThanOrEqual(
+    vp.width + 1,
+  );
   // Comfortably tappable. 24px is well under the 44px guideline and is set
   // deliberately low: this is a floor that catches genuinely unusable targets,
   // not a design review.
@@ -165,7 +167,9 @@ test.describe('mobile — login and the Parent portal', () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test('a parent can reach their child, the menu and a meal detail on a phone', async ({ page }) => {
+  test('a parent can reach their child, the menu and a meal detail on a phone', async ({
+    page,
+  }) => {
     const s = seeded();
     await page.setViewportSize(MOBILE);
 

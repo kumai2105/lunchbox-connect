@@ -42,7 +42,7 @@ show:
 
 - Resolver-RPC leak **closed** (the one required, approved security change).
 - **0** institution service plans, **0** rotation assignments, **0** published
-  meal services — institutions are intentionally *unconfigured* until their
+  meal services — institutions are intentionally _unconfigured_ until their
   real agreements are entered.
 - **Preserved:** meal library, rotation template, the legacy `menus` rows, and
   all serving-record history.
@@ -155,9 +155,10 @@ show:
 
    > ⚠️ **0033 stops rather than guesses.** It refuses to apply if production
    > already holds two service-plan or rotation-assignment rows for the same
-   > institution *and* effective date, and names them. That ambiguity must be
+   > institution _and_ effective date, and names them. That ambiguity must be
    > resolved by a human decision about which row is correct — the migration
    > will not pick one for you.
+
 3. **Deploy and verify the `admin-create-user` Edge Function** — the only
    server-side account-provisioning path. A new frontend/DB release must **not**
    run against a stale copy of this function, so deploy it in the same release,

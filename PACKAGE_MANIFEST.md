@@ -10,16 +10,16 @@ Every gate below was run against that exact tree immediately before packaging.
 Totals are read from the suites themselves, not carried forward from an earlier
 manifest.
 
-| Gate | Command | Result |
-| ---- | ------- | ------ |
-| Browser suite | `e2e-local-supabase.yml` run `32636221047` | **PASS — 85 / 85** in 13 spec files · 0 failed · 0 skipped · 0 retries |
-| Database suites | `./tests/sql/run_verification.sh` | **PASS — 22 suites**, 237 named assertions |
-| Authorization matrix | `verify_authorization_matrix` | **PASS — 520 checks** |
-| Unit tests | `pnpm test:unit` | **PASS — 122** across 13 files |
-| TypeScript | `pnpm typecheck` | **PASS** — app + node + `tests/e2e`, three projects |
-| Lint | `pnpm lint` | **PASS** |
-| Production build | `pnpm build` | **PASS** |
-| Worker / config | `wrangler deploy --dry-run` | **PASS** — `env.ASSETS  Assets`, no upload |
+| Gate                 | Command                                    | Result                                                                 |
+| -------------------- | ------------------------------------------ | ---------------------------------------------------------------------- |
+| Browser suite        | `e2e-local-supabase.yml` run `32636221047` | **PASS — 85 / 85** in 13 spec files · 0 failed · 0 skipped · 0 retries |
+| Database suites      | `./tests/sql/run_verification.sh`          | **PASS — 22 suites**, 237 named assertions                             |
+| Authorization matrix | `verify_authorization_matrix`              | **PASS — 520 checks**                                                  |
+| Unit tests           | `pnpm test:unit`                           | **PASS — 122** across 13 files                                         |
+| TypeScript           | `pnpm typecheck`                           | **PASS** — app + node + `tests/e2e`, three projects                    |
+| Lint                 | `pnpm lint`                                | **PASS**                                                               |
+| Production build     | `pnpm build`                               | **PASS**                                                               |
+| Worker / config      | `wrangler deploy --dry-run`                | **PASS** — `env.ASSETS  Assets`, no upload                             |
 
 **Migration ceiling:** `0043_meal_period_tags.sql` (43 migrations).
 
@@ -88,14 +88,14 @@ at all is a code change, so it gets its own hash.
 
 All gates were run immediately before packaging.
 
-| Gate | Command | Result |
-| ---- | ------- | ------ |
-| Types | `pnpm typecheck` | **PASS** — app + node + `tests/e2e`, no errors |
-| Lint | `pnpm lint` | **PASS** — no errors, no warnings |
-| Unit tests | `pnpm test:unit` | **PASS — 116** across 12 files |
-| Production build | `pnpm build` | **PASS** |
-| Worker config | `wrangler deploy --dry-run` | **PASS** — prints `env.ASSETS  Assets`; no upload, no deploy |
-| Database suites | `./tests/sql/run_verification.sh` | **PASS — 21 suites**, 223 named assertions + the 520-check authorization matrix |
+| Gate             | Command                           | Result                                                                          |
+| ---------------- | --------------------------------- | ------------------------------------------------------------------------------- |
+| Types            | `pnpm typecheck`                  | **PASS** — app + node + `tests/e2e`, no errors                                  |
+| Lint             | `pnpm lint`                       | **PASS** — no errors, no warnings                                               |
+| Unit tests       | `pnpm test:unit`                  | **PASS — 116** across 12 files                                                  |
+| Production build | `pnpm build`                      | **PASS**                                                                        |
+| Worker config    | `wrangler deploy --dry-run`       | **PASS** — prints `env.ASSETS  Assets`; no upload, no deploy                    |
+| Database suites  | `./tests/sql/run_verification.sh` | **PASS — 21 suites**, 223 named assertions + the 520-check authorization matrix |
 
 Unit files: `mealAnalytics.test.ts` (22), `api.errors.test.ts` (6, the
 PostgrestError shape and the "[object Object]" regression), `format.test.ts` (15, Asia/Dubai
@@ -198,12 +198,12 @@ uploaded at runtime into private Supabase Storage buckets, not shipped files.
 
 ## 5. Deliberately excluded
 
-| Excluded | Why |
-| -------- | --- |
-| **`.env`** | Holds `SUPABASE_SERVICE_ROLE_KEY`, which bypasses RLS. Never packaged. Copy `.env.example`. |
-| `node_modules/` | Reinstall with `pnpm install` (`pnpm-lock.yaml` pins versions). |
-| `dist/` | Build output; regenerate with `pnpm build`. |
-| `.git/` | History is on the branch above. |
+| Excluded        | Why                                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| **`.env`**      | Holds `SUPABASE_SERVICE_ROLE_KEY`, which bypasses RLS. Never packaged. Copy `.env.example`. |
+| `node_modules/` | Reinstall with `pnpm install` (`pnpm-lock.yaml` pins versions).                             |
+| `dist/`         | Build output; regenerate with `pnpm build`.                                                 |
+| `.git/`         | History is on the branch above.                                                             |
 
 The only key present anywhere in the tree is the **public anon key** (in
 `.env.example` and the deploy workflow), which is public by design — RLS, not

@@ -59,9 +59,15 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
     // §3/§4: Classroom recording and note publication by a Nursery Admin are
     // NOT_YET_DEFINED, so Today (serving) and Parent-safe updates are not in the
     // Nursery Admin nav.
-    { page: 'absences', label: 'Absences', icon: 'xCircle', shell: true },
-    { page: 'deliveries', label: 'Deliveries', icon: 'truck', shell: true },
-    { page: 'reports', label: 'Reporting', icon: 'barChart', shell: true },
+    //
+    // Absences, Deliveries and Reporting are ALSO absent, and that is a
+    // deliberate removal rather than an oversight. All three were empty shells
+    // — real menu entries leading to a screen that says the module is not
+    // built. A customer's administrator signing in to their own nursery should
+    // see the product they actually have, not three promises. The Super Admin
+    // (that is, LunchBox Connect itself) keeps its shell entries, because the
+    // operator of the platform is the one person who benefits from seeing what
+    // is planned and unbuilt.
   ],
   operations_manager: [{ page: 'ops', label: 'Ops log & issues', icon: 'wrench', shell: true }],
   finance_owner: [{ page: 'reports', label: 'Reports', icon: 'barChart', shell: true }],
@@ -71,11 +77,46 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
     { page: 'today', label: 'Today — serving', icon: 'sun' },
     { page: 'students', label: 'My students', icon: 'users' },
   ],
-  kitchen: [
-    { page: 'kitchen', label: 'Production demand', icon: 'flame' },
-  ],
+  kitchen: [{ page: 'kitchen', label: 'Production demand', icon: 'flame' }],
   driver: [{ page: 'deliveries', label: 'My deliveries', icon: 'truck', shell: true }],
 };
+
+/**
+ * Your own account screen.
+ *
+ * Hidden from the sidebar list — it is reached by clicking your own name in
+ * the sidebar footer, where people look for it — but it is a real route, so it
+ * still needs a nav entry for canAccessPage() and resourceForPath() to know
+ * about. Every role has one; the Parent portal has its own equivalent inside
+ * the Parent shell and does not use this route.
+ */
+const ACCOUNT_ITEM: NavItem = {
+  page: 'account',
+  label: 'Your account',
+  icon: 'user',
+  hidden: true,
+};
+
+/**
+ * The roles an administrator may actually issue an account for.
+ *
+ * DERIVED, not listed by hand: a role is offerable only if at least one page
+ * in its navigation is a REAL screen rather than a `shell: true` placeholder.
+ * Today that removes Operations Manager, Finance / Owner, Viewer and Driver —
+ * every one of those roles' entire product is a screen that says the module is
+ * not built, so creating such an account hands somebody a sign-in that leads
+ * nowhere. Those role values stay in the database enum, in the RBAC matrix and
+ * in the spec, because the roles are real and their screens are planned; what
+ * is withdrawn is the offer to provision a person into one today.
+ *
+ * When one of those modules is built, its nav entry loses `shell: true` and
+ * the role reappears here on its own. Nothing needs remembering.
+ */
+export function provisionableRoles(): AppRole[] {
+  return (Object.keys(NAV_BY_ROLE) as AppRole[]).filter((role) =>
+    NAV_BY_ROLE[role].some((item) => !item.shell),
+  );
+}
 
 export function navFor(role: AppRole): NavItem[] {
   return NAV_BY_ROLE[role] ?? [];
@@ -95,9 +136,7 @@ export function navPath(item: NavItem): string {
  * "Dashboard" while the sidebar highlighted nothing.
  */
 const RESOURCE_BY_PATH: Record<string, string> = Object.fromEntries(
-  Object.values(NAV_BY_ROLE)
-    .flat()
-    .map((item) => [navPath(item), item.page]),
+  [...Object.values(NAV_BY_ROLE).flat(), ACCOUNT_ITEM].map((item) => [navPath(item), item.page]),
 );
 
 export function resourceForPath(segment: string): string {

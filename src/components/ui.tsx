@@ -1,4 +1,4 @@
-import { cloneElement, isValidElement, useId } from 'react';
+import { cloneElement, isValidElement, useId, useState } from 'react';
 import type { ButtonHTMLAttributes, ReactElement, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon, type IconName } from './icons';
@@ -105,7 +105,11 @@ export function PageHead({
   );
 }
 
-type BtnVariant = 'brand' | 'ghost' | 'amber' | 'default';
+// `danger` exists for the one class of action that is a real change of state
+// and hard to undo casually — deactivating a person, archiving an institution.
+// It is deliberately NOT used for destruction, because this product destroys
+// nothing; it marks the actions that stop something operating.
+type BtnVariant = 'brand' | 'ghost' | 'amber' | 'danger' | 'default';
 interface BtnProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: BtnVariant;
   size?: 'md' | 'sm';
@@ -148,7 +152,7 @@ export function Banner({
   kind = 'info',
   children,
 }: {
-  kind?: 'info' | 'warn' | 'err';
+  kind?: 'info' | 'ok' | 'warn' | 'err';
   children: ReactNode;
 }) {
   return <div className={`banner ${kind}`}>{children}</div>;
@@ -192,6 +196,60 @@ export function Field({ label, children }: { label: string; children: ReactNode 
     <div className="field">
       <label htmlFor={controlId}>{label}</label>
       {control}
+    </div>
+  );
+}
+
+/**
+ * A password box that can be read back before it is submitted.
+ *
+ * Administrators here TYPE a password and then have to communicate it to the
+ * person it belongs to, so a permanently masked field is not a security
+ * feature — it is a transcription error waiting to happen. The toggle reveals
+ * only what the person at this keyboard just typed; nothing stored is ever
+ * revealed, because nothing stored is retrievable (Supabase keeps a bcrypt
+ * hash, and no path in this application asks for a password back).
+ *
+ * `autoComplete` is required rather than optional so no call site can leave it
+ * off: browsers offer to save the WRONG credential when a new-password box
+ * looks like a current-password box.
+ */
+export function PasswordInput({
+  value,
+  onChange,
+  autoComplete,
+  id,
+  autoFocus,
+  placeholder,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  autoComplete: 'current-password' | 'new-password';
+  id?: string;
+  autoFocus?: boolean;
+  placeholder?: string;
+}) {
+  const [shown, setShown] = useState(false);
+  return (
+    <div className="pw-input">
+      <input
+        id={id}
+        type={shown ? 'text' : 'password'}
+        value={value}
+        autoComplete={autoComplete}
+        autoFocus={autoFocus}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <button
+        type="button"
+        className="pw-toggle"
+        onClick={() => setShown((s) => !s)}
+        aria-pressed={shown}
+        aria-label={shown ? 'Hide password' : 'Show password'}
+      >
+        {shown ? 'Hide' : 'Show'}
+      </button>
     </div>
   );
 }

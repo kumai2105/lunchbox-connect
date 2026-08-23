@@ -49,10 +49,7 @@ export default function ParentInsights() {
       const valid = (byDay.get(key) ?? []).filter((r) => isValidPreferenceObservation(r));
       out.push({
         label: i % Math.max(1, Math.round(days / 5)) === 0 ? key.slice(5) : '',
-        value:
-          valid.length > 0
-            ? meanConsumption(valid)
-            : null,
+        value: valid.length > 0 ? meanConsumption(valid) : null,
       });
     }
     return out;
@@ -147,9 +144,7 @@ export default function ParentInsights() {
               label="Refused"
               value={stats.refusals}
               trend={
-                stats.refusalRate !== null
-                  ? `${stats.refusalRate}% of counted meals`
-                  : 'meals'
+                stats.refusalRate !== null ? `${stats.refusalRate}% of counted meals` : 'meals'
               }
             />
           </div>

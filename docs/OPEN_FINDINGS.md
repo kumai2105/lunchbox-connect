@@ -52,12 +52,12 @@ statement carries `RETURNING` — and `createClass()` issues
 
 **What the evidence finally showed**
 
-| | |
-|---|---|
-| Institution in the UI before Save | correct |
-| POST body | correct `institution_id` |
-| PostgREST response | `403 {"code":"42501","message":"new row violates row-level security policy for table \"classes\""}` |
-| Rows written | none |
+|                                   |                                                                                                     |
+| --------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Institution in the UI before Save | correct                                                                                             |
+| POST body                         | correct `institution_id`                                                                            |
+| PostgREST response                | `403 {"code":"42501","message":"new row violates row-level security policy for table \"classes\""}` |
+| Rows written                      | none                                                                                                |
 
 Reproduced on a from-scratch rebuild of every migration:
 
@@ -281,7 +281,7 @@ since the assignment's `effective_from`:
 that from a **single** stored anchor: nine consecutive weeks resolve correctly;
 a year later it is still right; every day of an ISO week resolves to the same
 week; an effective date set mid-week anchors that whole week; dates before the
-anchor resolve to *nothing* rather than to a guess; and a whole-week closure
+anchor resolve to _nothing_ rather than to a guess; and a whole-week closure
 does not shift the cycle. The "one anchor, and the weeks advance by themselves"
 end-to-end test proves the consequence through the UI: a two-week menu with a
 different meal in each week, assigned once, publishes three consecutive Mondays

@@ -87,8 +87,8 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
   const MENU = `E2E Onboard Menu ${stamp}`;
   const FROM = dubaiToday();
   const TO = dubaiToday(6);
-  const CLOSED = dubaiToday(3);      // a future day inside the window, unserved
-  const OPEN_AFTER = dubaiToday(4);  // the day after it, which must survive
+  const CLOSED = dubaiToday(3); // a future day inside the window, unserved
+  const OPEN_AFTER = dubaiToday(4); // the day after it, which must survive
   const UPGRADE_FROM = dubaiToday(30); // a package change the Founder schedules ahead
 
   // Fixtures for the rotation auto-advance test below. The assertion dates are
@@ -115,7 +115,10 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     // The business defines a Meal once and reuses it everywhere. This is the
     // top of the chain: nothing downstream can exist without it.
     await page.goto('/meals');
-    await page.getByRole('button', { name: /add meal/i }).first().click();
+    await page
+      .getByRole('button', { name: /add meal/i })
+      .first()
+      .click();
     await page.getByLabel('Name', { exact: true }).fill(MEAL);
     // Step 5 below fills BOTH the Breakfast and the Lunch row with this one
     // meal, and Menu Builder offers a meal only for the sittings it is tagged
@@ -132,14 +135,17 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     // revision is the thing worth asserting — it is also what makes history
     // truthful later when this Meal is edited.
     await expect
-      .poll(async () => {
-        const r = await db
-          .from('meals')
-          .select('id, current_revision_id')
-          .eq('name', MEAL)
-          .maybeSingle();
-        return r.data?.current_revision_id ? 'linked' : r.data ? 'no-revision' : 'missing';
-      }, { message: 'the Meal never persisted with a first revision' })
+      .poll(
+        async () => {
+          const r = await db
+            .from('meals')
+            .select('id, current_revision_id')
+            .eq('name', MEAL)
+            .maybeSingle();
+          return r.data?.current_revision_id ? 'linked' : r.data ? 'no-revision' : 'missing';
+        },
+        { message: 'the Meal never persisted with a first revision' },
+      )
       .toBe('linked');
 
     step('3-4 menu builder create');
@@ -231,13 +237,16 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     // row, and reports both.
     let instId = '';
     await expect
-      .poll(async () => {
-        const r = await db.from('institutions').select('id').eq('name', INST).maybeSingle();
-        instId = (r.data?.id as string) ?? '';
-        return instId !== '';
-      }, {
-        message: 'the Institution was never written',
-      })
+      .poll(
+        async () => {
+          const r = await db.from('institutions').select('id').eq('name', INST).maybeSingle();
+          instId = (r.data?.id as string) ?? '';
+          return instId !== '';
+        },
+        {
+          message: 'the Institution was never written',
+        },
+      )
       .toBe(true);
 
     const banner = page.locator('.banner.err');
@@ -265,7 +274,9 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     await page.getByLabel('Lunch', { exact: true }).check();
     await page.getByLabel('Effective from', { exact: true }).first().fill(FROM);
     await page.getByRole('button', { name: 'Save service plan' }).click();
-    await expect(page.getByTestId('plan-in-effect')).toHaveText(/In effect today: Breakfast, Lunch/);
+    await expect(page.getByTestId('plan-in-effect')).toHaveText(
+      /In effect today: Breakfast, Lunch/,
+    );
 
     step('11 assign menu + anchor');
     // ---- 5-6. assign the menu and the anchor week ----------------------
@@ -314,7 +325,10 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
 
     step('roster.b student');
     await page.goto('/students');
-    await page.getByRole('button', { name: /add student/i }).first().click();
+    await page
+      .getByRole('button', { name: /add student/i })
+      .first()
+      .click();
     await page.getByLabel('Given name', { exact: true }).fill('Onboard');
     await page.getByLabel('Family name', { exact: true }).fill('Child');
     await page.getByLabel('Student no.', { exact: true }).fill(STUDENT_NO);
@@ -351,14 +365,17 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     ).toBeVisible();
     await eligibility.selectOption('ACTIVE_BILLABLE_TO_NURSERY');
     await expect
-      .poll(async () => {
-        const r = await db
-          .from('students')
-          .select('operational_status')
-          .eq('id', studentId)
-          .maybeSingle();
-        return r.data?.operational_status ?? null;
-      }, { message: 'the eligibility change never persisted' })
+      .poll(
+        async () => {
+          const r = await db
+            .from('students')
+            .select('operational_status')
+            .eq('id', studentId)
+            .maybeSingle();
+          return r.data?.operational_status ?? null;
+        },
+        { message: 'the eligibility change never persisted' },
+      )
       .toBe('ACTIVE_BILLABLE_TO_NURSERY');
 
     step('roster.c staff account');
@@ -381,16 +398,15 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
 
     // Assign that account to the class — Classes -> Manage staff.
     step('roster.d assign staff to class');
-    const staffRow = await db
-      .from('app_users')
-      .select('user_id')
-      .eq('email', STAFF_EMAIL)
-      .single();
+    const staffRow = await db.from('app_users').select('user_id').eq('email', STAFF_EMAIL).single();
     await page.goto(`/classes?institution=${instId}`);
     await page.getByRole('button', { name: 'Manage staff' }).first().click();
     // By value, not by a label pattern: selectOption takes a string, and the
     // id is the only thing guaranteed to identify this one account.
-    await page.getByRole('combobox').last().selectOption(staffRow.data?.user_id as string);
+    await page
+      .getByRole('combobox')
+      .last()
+      .selectOption(staffRow.data?.user_id as string);
     // "Add to class", read from ClassesPage — not "Add". /^Add$/ matched
     // nothing, and a click on a locator that never resolves is a silent stall,
     // which is where this chain spent four minutes.
@@ -427,9 +443,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
       full_name: 'Onboard Parent',
       email: PARENT_EMAIL,
     });
-    await db
-      .from('student_parents')
-      .insert({ student_id: studentId, user_id: parentId as string });
+    await db.from('student_parents').insert({ student_id: studentId, user_id: parentId as string });
 
     step('15 nursery schedule');
     // ---- 8. the Nursery Admin sees its own published schedule ----------
@@ -498,14 +512,17 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     await page.getByLabel('Reason (optional)', { exact: true }).fill('E2E public holiday');
     await page.getByRole('button', { name: 'Add rule' }).click();
     await expect
-      .poll(async () => {
-        const r = await db
-          .from('calendar_exceptions')
-          .select('id')
-          .eq('institution_id', instId)
-          .eq('kind', 'closure');
-        return (r.data ?? []).length;
-      }, { message: 'the calendar closure was never saved' })
+      .poll(
+        async () => {
+          const r = await db
+            .from('calendar_exceptions')
+            .select('id')
+            .eq('institution_id', instId)
+            .eq('kind', 'closure');
+          return (r.data ?? []).length;
+        },
+        { message: 'the calendar closure was never saved' },
+      )
       .toBeGreaterThan(0);
 
     // A rule only reaches Kitchen, Classroom and Parent once the window is
@@ -519,15 +536,18 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
 
     // The closed day carries nothing...
     await expect
-      .poll(async () => {
-        const r = await db
-          .from('meal_services')
-          .select('id')
-          .eq('institution_id', instId)
-          .eq('service_date', CLOSED)
-          .eq('published', true);
-        return (r.data ?? []).length;
-      }, { message: 'the closed day still has published services' })
+      .poll(
+        async () => {
+          const r = await db
+            .from('meal_services')
+            .select('id')
+            .eq('institution_id', instId)
+            .eq('service_date', CLOSED)
+            .eq('published', true);
+          return (r.data ?? []).length;
+        },
+        { message: 'the closed day still has published services' },
+      )
       .toBe(0);
 
     // ...and the rest of the window is untouched. A closure that quietly wiped
@@ -546,10 +566,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
 
     // And today's ALREADY-SERVED record survived the re-publish untouched.
     // Republishing must never rewrite operational history.
-    const stillServed = await db
-      .from('serving_records')
-      .select('id')
-      .eq('student_id', studentId);
+    const stillServed = await db.from('serving_records').select('id').eq('student_id', studentId);
     expect(
       (stillServed.data ?? []).length,
       're-publishing destroyed a recorded observation',
@@ -571,10 +588,13 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     await page.getByLabel('Type', { exact: true }).selectOption('school');
     await page.getByRole('button', { name: 'Save institution' }).click();
     await expect
-      .poll(async () => {
-        const r = await db.from('institutions').select('name,kind').eq('id', instId).single();
-        return `${r.data?.name}|${r.data?.kind}`;
-      }, { message: 'the Institution record could not be corrected through the UI' })
+      .poll(
+        async () => {
+          const r = await db.from('institutions').select('name,kind').eq('id', instId).single();
+          return `${r.data?.name}|${r.data?.kind}`;
+        },
+        { message: 'the Institution record could not be corrected through the UI' },
+      )
       .toBe(`${INST} Renamed|school`);
 
     // Put it back — the rest of the chain named this institution a nursery.
@@ -605,14 +625,17 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
 
     // The database agrees: two dated rows, the old one still governing today.
     await expect
-      .poll(async () => {
-        const r = await db
-          .from('institution_service_plans')
-          .select('effective_from')
-          .eq('institution_id', instId)
-          .order('effective_from', { ascending: true });
-        return (r.data ?? []).map((x) => x.effective_from as string);
-      }, { message: 'changing the package overwrote the old one instead of dating a new one' })
+      .poll(
+        async () => {
+          const r = await db
+            .from('institution_service_plans')
+            .select('effective_from')
+            .eq('institution_id', instId)
+            .order('effective_from', { ascending: true });
+          return (r.data ?? []).map((x) => x.effective_from as string);
+        },
+        { message: 'changing the package overwrote the old one instead of dating a new one' },
+      )
       .toEqual([FROM, UPGRADE_FROM]);
 
     // (c) re-publishing TODAY's window still yields the contracted two
@@ -622,15 +645,18 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     await page.getByRole('button', { name: 'Publish window' }).click();
     await expect(page.getByText(/Published \d+ dated meal services/)).toBeVisible();
     await expect
-      .poll(async () => {
-        const r = await db
-          .from('meal_services')
-          .select('period')
-          .eq('institution_id', instId)
-          .eq('service_date', OPEN_AFTER)
-          .eq('published', true);
-        return (r.data ?? []).map((x) => x.period as string).sort();
-      }, { message: 'a future package upgrade changed a day it does not cover' })
+      .poll(
+        async () => {
+          const r = await db
+            .from('meal_services')
+            .select('period')
+            .eq('institution_id', instId)
+            .eq('service_date', OPEN_AFTER)
+            .eq('published', true);
+          return (r.data ?? []).map((x) => x.period as string).sort();
+        },
+        { message: 'a future package upgrade changed a day it does not cover' },
+      )
       .toEqual(['breakfast', 'lunch']);
 
     // (d) a scheduled change that has not taken effect can be withdrawn.
@@ -640,13 +666,16 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     await expect(timeline.getByRole('button', { name: 'withdraw' })).toHaveCount(1);
     await timeline.getByRole('button', { name: 'withdraw' }).click();
     await expect
-      .poll(async () => {
-        const r = await db
-          .from('institution_service_plans')
-          .select('effective_from')
-          .eq('institution_id', instId);
-        return (r.data ?? []).map((x) => x.effective_from as string);
-      }, { message: 'a scheduled package change could not be withdrawn' })
+      .poll(
+        async () => {
+          const r = await db
+            .from('institution_service_plans')
+            .select('effective_from')
+            .eq('institution_id', instId);
+          return (r.data ?? []).map((x) => x.effective_from as string);
+        },
+        { message: 'a scheduled package change could not be withdrawn' },
+      )
       .toEqual([FROM]);
 
     step('19 kitchen demand');
@@ -684,7 +713,10 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
     step('rot.1 two distinguishable meals');
     for (const name of [MEAL_W1, MEAL_W2]) {
       await page.goto('/meals');
-      await page.getByRole('button', { name: /add meal/i }).first().click();
+      await page
+        .getByRole('button', { name: /add meal/i })
+        .first()
+        .click();
       await page.getByLabel('Name', { exact: true }).fill(name);
       // This test fills the Lunch row only, so Lunch is the sitting that has
       // to be tagged for the picker to offer it.
@@ -693,14 +725,17 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
       await page.getByPlaceholder('gluten, dairy').fill('none');
       await page.getByRole('button', { name: /save meal/i }).click();
       await expect
-        .poll(async () => {
-          const r = await db
-            .from('meals')
-            .select('current_revision_id')
-            .eq('name', name)
-            .maybeSingle();
-          return r.data?.current_revision_id ? 'linked' : 'missing';
-        }, { message: `the Meal ${name} never persisted with a revision` })
+        .poll(
+          async () => {
+            const r = await db
+              .from('meals')
+              .select('current_revision_id')
+              .eq('name', name)
+              .maybeSingle();
+            return r.data?.current_revision_id ? 'linked' : 'missing';
+          },
+          { message: `the Meal ${name} never persisted with a revision` },
+        )
         .toBe('linked');
     }
 
@@ -753,11 +788,14 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
 
     let rotInstId = '';
     await expect
-      .poll(async () => {
-        const r = await db.from('institutions').select('id').eq('name', ROT_INST).maybeSingle();
-        rotInstId = (r.data?.id as string) ?? '';
-        return rotInstId !== '';
-      }, { message: 'the Institution was never written' })
+      .poll(
+        async () => {
+          const r = await db.from('institutions').select('id').eq('name', ROT_INST).maybeSingle();
+          rotInstId = (r.data?.id as string) ?? '';
+          return rotInstId !== '';
+        },
+        { message: 'the Institution was never written' },
+      )
       .toBe(true);
 
     await page.goto(`/institutions/${rotInstId}?tab=service`);
@@ -790,11 +828,7 @@ test.describe('operability — a Super Admin onboards an Institution end to end'
         .maybeSingle();
       const revId = r.data?.meal_revision_id as string | undefined;
       if (!revId) return '(no service)';
-      const rev = await db
-        .from('meal_revisions')
-        .select('meal_id')
-        .eq('id', revId)
-        .maybeSingle();
+      const rev = await db.from('meal_revisions').select('meal_id').eq('id', revId).maybeSingle();
       const mealId = rev.data?.meal_id as string | undefined;
       if (!mealId) return '(no meal)';
       const m = await db.from('meals').select('name').eq('id', mealId).maybeSingle();

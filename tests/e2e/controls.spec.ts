@@ -80,9 +80,7 @@ async function inventory(page: Page): Promise<ControlReport[]> {
     const visible = (el: HTMLElement) => {
       const r = el.getBoundingClientRect();
       const st = getComputedStyle(el);
-      return (
-        r.width > 0 && r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none'
-      );
+      return r.width > 0 && r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none';
     };
 
     const nameOf = (el: HTMLElement): string => {
@@ -265,7 +263,9 @@ test.describe('deferred shells — honest about being unfinished', () => {
   test.setTimeout(120_000);
 
   for (const r of DEFERRED_ROUTES) {
-    test(`${r.label} says it is not active and offers no fake business action`, async ({ page }) => {
+    test(`${r.label} says it is not active and offers no fake business action`, async ({
+      page,
+    }) => {
       const s = seeded();
       await login(page, s[r.roleKey]!);
       await page.goto(r.path);

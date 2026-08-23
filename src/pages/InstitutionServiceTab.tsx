@@ -171,7 +171,11 @@ export default function InstitutionServiceTab({ institutionId }: { institutionId
         <div className="period-checks">
           {PERIODS.map((p) => (
             <label key={p} className="check-inline">
-              <input type="checkbox" checked={periods.includes(p)} onChange={() => togglePeriod(p)} />
+              <input
+                type="checkbox"
+                checked={periods.includes(p)}
+                onChange={() => togglePeriod(p)}
+              />
               {PERIOD_LABEL[p]}
             </label>
           ))}
@@ -179,7 +183,11 @@ export default function InstitutionServiceTab({ institutionId }: { institutionId
         <Field label="Effective from">
           <input type="date" value={planFrom} onChange={(e) => setPlanFrom(e.target.value)} />
         </Field>
-        <Btn variant="brand" onClick={() => void savePlan()} disabled={busy || periods.length === 0}>
+        <Btn
+          variant="brand"
+          onClick={() => void savePlan()}
+          disabled={busy || periods.length === 0}
+        >
           Save service plan
         </Btn>
         <p className="tmc-meta" data-testid="plan-in-effect">
@@ -263,9 +271,10 @@ export default function InstitutionServiceTab({ institutionId }: { institutionId
 
       <Card title="Publish schedule" hint="materialize dated meals for an operational window">
         <p className="tmc-meta">
-          Publishing resolves the assigned menu + service plan into dated Meal Services that Kitchen,
-          Classroom and Parent read. Already-served days are never overwritten. Re-publish a window
-          after changing the configuration or the calendar so the change reaches those portals.
+          Publishing resolves the assigned menu + service plan into dated Meal Services that
+          Kitchen, Classroom and Parent read. Already-served days are never overwritten. Re-publish
+          a window after changing the configuration or the calendar so the change reaches those
+          portals.
         </p>
         <div className="publish-row">
           <Field label="From">

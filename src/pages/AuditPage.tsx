@@ -25,10 +25,7 @@ export default function AuditPage() {
     <div>
       <PageHeadPanel />
       {error && <Banner kind="err">{error}</Banner>}
-      <Card
-        title="Audit log"
-        hint="previous value · new value · who changed it · when"
-      >
+      <Card title="Audit log" hint="previous value · new value · who changed it · when">
         {!rows ? (
           <Spinner />
         ) : rows.length === 0 ? (

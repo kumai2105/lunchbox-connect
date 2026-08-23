@@ -29,7 +29,12 @@ describe('groupDemandByRevision (kitchen production identity)', () => {
   it('the SAME revision at several sites is one line with summed headcount', () => {
     const rows = [
       row({ institution_id: 'i1', meal_revision_id: 'rev-1', eligible_students: 4 }),
-      row({ institution_id: 'i2', meal_revision_id: 'rev-1', eligible_students: 6, safety_note_flagged: 2 }),
+      row({
+        institution_id: 'i2',
+        meal_revision_id: 'rev-1',
+        eligible_students: 6,
+        safety_note_flagged: 2,
+      }),
     ];
     const out = groupDemandByRevision(rows);
     expect(out).toHaveLength(1);

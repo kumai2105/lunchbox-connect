@@ -113,7 +113,9 @@ export default function InstitutionDetailPage() {
   const [classes, setClasses] = useState<ClassWithMeta[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [staff, setStaff] = useState<AppUser[]>([]);
-  const [memberships, setMemberships] = useState<Array<{ class_id: string; class_name: string; user_id: string }>>([]);
+  const [memberships, setMemberships] = useState<
+    Array<{ class_id: string; class_name: string; user_id: string }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -294,7 +296,9 @@ export default function InstitutionDetailPage() {
                         // several permitted staff, or none.
                         const names = memberships
                           .filter((m) => m.class_id === c.id)
-                          .map((m) => staff.find((u) => u.user_id === m.user_id)?.full_name ?? 'Staff');
+                          .map(
+                            (m) => staff.find((u) => u.user_id === m.user_id)?.full_name ?? 'Staff',
+                          );
                         return names.length > 0 ? names.join(', ') : 'Unassigned';
                       })()}
                     </td>
@@ -460,29 +464,44 @@ export default function InstitutionDetailPage() {
               <Btn
                 variant="brand"
                 onClick={() => void onInvite()}
-                disabled={inviteBusy || !invite.email || !invite.fullName || invite.password.length < 8}
+                disabled={
+                  inviteBusy || !invite.email || !invite.fullName || invite.password.length < 8
+                }
               >
                 {inviteBusy ? 'Creating…' : 'Create account'}
               </Btn>
             </>
           }
         >
-          {inviteMsg && <Banner kind={inviteMsg.startsWith('Error') ? 'err' : 'info'}>{inviteMsg}</Banner>}
+          {inviteMsg && (
+            <Banner kind={inviteMsg.startsWith('Error') ? 'err' : 'info'}>{inviteMsg}</Banner>
+          )}
           <Banner kind="info">
-            Creates a working Classroom Staff account scoped to this institution with the
-            password below — <b>no invitation email is sent from here</b>. Share it securely; the
-            person can sign in immediately. Passwords are issued by an administrator: there is
-            <b> no self-service reset</b>, so keep a record of what you set. Assign them to
-            classes from the Classes or Staff screen.
+            Creates a working Classroom Staff account scoped to this institution with the password
+            below — <b>no invitation email is sent from here</b>. Share it securely; the person can
+            sign in immediately. Passwords are issued by an administrator: there is
+            <b> no self-service reset</b>, so keep a record of what you set. Assign them to classes
+            from the Classes or Staff screen.
           </Banner>
           <Field label="Full name">
-            <input value={invite.fullName} onChange={(e) => setInvite({ ...invite, fullName: e.target.value })} />
+            <input
+              value={invite.fullName}
+              onChange={(e) => setInvite({ ...invite, fullName: e.target.value })}
+            />
           </Field>
           <Field label="Email">
-            <input type="email" value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} />
+            <input
+              type="email"
+              value={invite.email}
+              onChange={(e) => setInvite({ ...invite, email: e.target.value })}
+            />
           </Field>
           <Field label="Password (min 8 chars)">
-            <input type="text" value={invite.password} onChange={(e) => setInvite({ ...invite, password: e.target.value })} />
+            <input
+              type="text"
+              value={invite.password}
+              onChange={(e) => setInvite({ ...invite, password: e.target.value })}
+            />
           </Field>
         </Modal>
       )}

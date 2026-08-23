@@ -20,7 +20,7 @@
     "test:e2e": "playwright test",
     "db:link": "supabase link --project-ref $SUPABASE_PROJECT_REF",
     "db:push": "supabase db push",
-    "functions:deploy": "supabase functions deploy admin-create-user",
+    "functions:deploy": "supabase functions deploy admin-create-user && supabase functions deploy admin-set-password && supabase functions deploy admin-set-active",
     "deploy:cf": "wrangler deploy",
     "build:e2e": "node scripts/build-e2e.mjs"
   },

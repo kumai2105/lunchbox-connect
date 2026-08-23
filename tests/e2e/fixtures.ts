@@ -11,8 +11,8 @@ export const PASS = process.env.E2E_PASSWORD ?? 'E2e-pass!12345';
 // talking to a placeholder host and fail for the wrong reason.
 export const e2eReady = Boolean(
   process.env.E2E_SUPABASE_URL &&
-    process.env.E2E_SUPABASE_SERVICE_ROLE_KEY &&
-    process.env.E2E_SUPABASE_ANON_KEY,
+  process.env.E2E_SUPABASE_SERVICE_ROLE_KEY &&
+  process.env.E2E_SUPABASE_ANON_KEY,
 );
 
 // This package is `"type": "module"`, so `__dirname` does not exist at runtime.

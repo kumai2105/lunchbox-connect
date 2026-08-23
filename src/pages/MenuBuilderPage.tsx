@@ -225,14 +225,24 @@ export default function MenuBuilderPage() {
                   </span>
                 </div>
                 <div className="menu-canvas-actions">
-                  <Btn size="sm" onClick={() => void changeWeeks(-1)} disabled={selected.week_count <= 1}>
+                  <Btn
+                    size="sm"
+                    onClick={() => void changeWeeks(-1)}
+                    disabled={selected.week_count <= 1}
+                  >
                     − week
                   </Btn>
-                  <Btn size="sm" onClick={() => void changeWeeks(1)} disabled={selected.week_count >= 52}>
+                  <Btn
+                    size="sm"
+                    onClick={() => void changeWeeks(1)}
+                    disabled={selected.week_count >= 52}
+                  >
                     + week
                   </Btn>
                   <Btn size="sm" variant="ghost" onClick={() => setIncludeWeekend((v) => !v)}>
-                    {includeWeekend || visibleDays.length > 5 ? 'Hide weekend days' : 'Show weekend / camp days'}
+                    {includeWeekend || visibleDays.length > 5
+                      ? 'Hide weekend days'
+                      : 'Show weekend / camp days'}
                   </Btn>
                   <Btn size="sm" variant="ghost" onClick={() => void toggleActive()}>
                     {selected.active ? 'Archive' : 'Restore'}
@@ -371,8 +381,7 @@ export default function MenuBuilderPage() {
                 checked={showAllMeals}
                 onChange={(e) => setShowAllMeals(e.target.checked)}
               />{' '}
-              Show all meals, including those not tagged for{' '}
-              {PERIOD_LABEL[cell.p].toLowerCase()}
+              Show all meals, including those not tagged for {PERIOD_LABEL[cell.p].toLowerCase()}
             </label>
           )}
         </Modal>

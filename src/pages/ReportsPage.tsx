@@ -153,7 +153,11 @@ function MealPerformance() {
                     {/* Low-intake reasons, and the behaviour-free exceptions kept
                         separate because they never enter the averages. */}
                     <td className="cell-sub col-secondary">
-                      {r.reason_not_hungry + r.reason_did_not_like_it + r.reason_distracted + r.reason_other === 0
+                      {r.reason_not_hungry +
+                        r.reason_did_not_like_it +
+                        r.reason_distracted +
+                        r.reason_other ===
+                      0
                         ? '—'
                         : `not hungry ${r.reason_not_hungry} · didn't like ${r.reason_did_not_like_it} · distracted ${r.reason_distracted} · other ${r.reason_other}`}
                     </td>

@@ -201,9 +201,9 @@ export default function ClassesPage() {
                         recording permission (NOT_YET_DEFINED), so offering the
                         link promised an action the route would refuse. */}
                     {can(role, 'today', 'record') && (
-                    <a className="btn ghost sm" href={`/today?class=${c.id}`}>
-                      Open Today →
-                    </a>
+                      <a className="btn ghost sm" href={`/today?class=${c.id}`}>
+                        Open Today →
+                      </a>
                     )}
                   </td>
                 </tr>
@@ -315,7 +315,6 @@ export default function ClassesPage() {
           </Btn>
         </Modal>
       )}
-
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { NAV_BY_ROLE, canAccessPage, navFor, navPath } from './roles';
+import { NAV_BY_ROLE, canAccessPage, navFor, navPath, provisionableRoles } from './roles';
 import { can, viewableResources, type Resource } from './rbac';
 import type { AppRole } from './types';
 
@@ -150,12 +150,69 @@ describe('authorization consistency: nav vs rbac matrix', () => {
   it('read-only roles hold no write permission anywhere', () => {
     const readOnly: AppRole[] = ['viewer', 'finance_owner'];
     const writeActions = ['create', 'update', 'delete', 'publish', 'record', 'set'] as const;
+    // `account` is deliberately exempt, and the exemption is narrow: it is the
+    // person's OWN name, phone and password, not a record belonging to the
+    // business. "Read-only" describes what a Viewer may do to the platform's
+    // data — it was never meant to say that a Viewer may not change their own
+    // password, which would leave them permanently on whatever an
+    // administrator first typed for them. The authority granted reaches
+    // exactly one row, enforced server-side by `p_user = auth.uid()` and by
+    // Supabase Auth accepting a password change only on the caller's own
+    // session.
     readOnly.forEach((role) => {
-      viewableResources(role).forEach((resource) => {
-        writeActions.forEach((action) => {
-          expect(can(role, resource, action), `${role} must not ${action} ${resource}`).toBe(false);
+      viewableResources(role)
+        .filter((resource) => resource !== 'account')
+        .forEach((resource) => {
+          writeActions.forEach((action) => {
+            expect(can(role, resource, action), `${role} must not ${action} ${resource}`).toBe(
+              false,
+            );
+          });
         });
-      });
+    });
+  });
+
+  it('only roles with a real screen can be provisioned an account', () => {
+    // The role picker on Users & roles is built from this. A role whose entire
+    // navigation is `shell: true` has no product behind it, so creating such
+    // an account hands somebody a sign-in that leads to "not built yet".
+    const offerable = provisionableRoles().sort();
+    expect(offerable).toEqual(
+      ['classroom_staff', 'kitchen', 'parent', 'school_admin', 'super_admin'].sort(),
+    );
+    // And the withdrawal is derived, not hard-coded: each excluded role is
+    // excluded BECAUSE every one of its nav entries is a shell.
+    ALL_ROLES.filter((r) => !offerable.includes(r)).forEach((role) => {
+      expect(
+        NAV_BY_ROLE[role].every((item) => item.shell),
+        `${role} is withheld only because all its screens are shells`,
+      ).toBe(true);
+      expect(NAV_BY_ROLE[role].length, `${role} still has a planned surface`).toBeGreaterThan(0);
+    });
+  });
+
+  it('an Institution Admin is shown no unbuilt modules', () => {
+    // A customer's own administrator sees the product they have. Shell entries
+    // stay for the Super Admin — LunchBox Connect operating the platform is
+    // the one audience that benefits from seeing what is planned.
+    expect(NAV_BY_ROLE.school_admin.filter((i) => i.shell)).toEqual([]);
+    expect(NAV_BY_ROLE.super_admin.some((i) => i.shell)).toBe(true);
+  });
+
+  it('every role can reach its own account, and nobody gains more than that', () => {
+    // The account resource is the one cell that is true for all nine roles. If
+    // a role ever loses it, that role's people can no longer change their own
+    // password — which is how this product started, and why the resource
+    // exists.
+    ALL_ROLES.forEach((role) => {
+      expect(can(role, 'account', 'view'), `${role} must reach its own account`).toBe(true);
+      expect(can(role, 'account', 'update'), `${role} must be able to change its own account`).toBe(
+        true,
+      );
+    });
+    // And it grants nothing over other people: `users` stays administrator-only.
+    ALL_ROLES.filter((r) => r !== 'super_admin' && r !== 'school_admin').forEach((role) => {
+      expect(can(role, 'users', 'view'), `${role} must not administer other accounts`).toBe(false);
     });
   });
 });
@@ -175,9 +232,7 @@ describe('authorization consistency: nav vs rbac matrix', () => {
  */
 describe('nav links resolve to declared routes', () => {
   const appSource = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
-  const declaredPaths = new Set(
-    [...appSource.matchAll(/path="\/([^":/]+)/g)].map((m) => m[1]),
-  );
+  const declaredPaths = new Set([...appSource.matchAll(/path="\/([^":/]+)/g)].map((m) => m[1]));
 
   it('App.tsx declares routes at all (guards against the regex silently matching nothing)', () => {
     expect(declaredPaths.size).toBeGreaterThan(10);

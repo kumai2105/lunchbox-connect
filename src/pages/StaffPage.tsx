@@ -11,7 +11,17 @@ import {
 } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import type { AppUser, Institution } from '../lib/types';
-import { Banner, Btn, Card, EmptyState, Field, Modal, PageHead, Pill, Spinner } from '../components/ui';
+import {
+  Banner,
+  Btn,
+  Card,
+  EmptyState,
+  Field,
+  Modal,
+  PageHead,
+  Pill,
+  Spinner,
+} from '../components/ui';
 import { Icon } from '../components/icons';
 
 type Membership = { class_id: string; class_name: string; user_id: string };
@@ -244,7 +254,10 @@ export default function StaffPage() {
             administrator: there is <b>no self-service reset</b>, so keep a record of what you set.
           </Banner>
           <Field label="Full name">
-            <input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
+            <input
+              value={form.fullName}
+              onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+            />
           </Field>
           <Field label="Email">
             <input

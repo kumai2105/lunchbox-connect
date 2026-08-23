@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { dashboardSummary, mealPerformance } from '../lib/api';
-import type {
-  DashboardInstitutionRow,
-  MealPerformanceRow,
-} from '../lib/types';
+import type { DashboardInstitutionRow, MealPerformanceRow } from '../lib/types';
 import {
   Banner,
   Card,
@@ -158,11 +155,7 @@ export default function DashboardPage() {
 
       <Card
         title={isGlobalOperator ? 'Institutions — serving today' : 'Serving today'}
-        hint={
-          isGlobalOperator
-            ? 'every institution you operate'
-            : 'your institution only'
-        }
+        hint={isGlobalOperator ? 'every institution you operate' : 'your institution only'}
         actions={
           can(role, 'institutions', 'view') ? (
             <Link to="/institutions" className="btn ghost">
@@ -285,4 +278,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

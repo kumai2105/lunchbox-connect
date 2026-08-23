@@ -85,6 +85,40 @@ function err<T>(error: unknown): ApiResult<T> {
   return { data: null, error: messageOf(error) };
 }
 
+/**
+ * Invoke an Edge Function and surface the REFUSAL, not the wrapper.
+ *
+ * supabase-js turns any non-2xx from a function into a FunctionsHttpError
+ * whose `message` is the constant string "Edge Function returned a non-2xx
+ * status code". The actual reason — "You cannot deactivate the last active
+ * Super Admin", "a Nursery Admin may only create staff for their own
+ * institution" — is in the RESPONSE BODY, which that error carries on
+ * `.context` as an unread Response. Without reading it, every server-side
+ * refusal reaches the operator as that one useless sentence.
+ */
+async function invokeFunction<T>(
+  name: string,
+  body: Record<string, unknown>,
+): Promise<ApiResult<T>> {
+  const { data, error } = await supabase.functions.invoke(name, { body });
+  if (error) {
+    const res = (error as { context?: Response }).context;
+    if (res && typeof res.json === 'function') {
+      try {
+        const parsed = (await res.json()) as { error?: string };
+        if (parsed?.error) return { data: null, error: parsed.error };
+      } catch {
+        /* not JSON — fall through to the generic message */
+      }
+    }
+    return err(error);
+  }
+  const parsed = data as ({ error?: string } & T) | null;
+  if (parsed && typeof parsed === 'object' && 'error' in parsed && parsed.error)
+    return { data: null, error: parsed.error };
+  return { data: (parsed ?? null) as T | null, error: null };
+}
+
 // ---------------------------------------------------------------- institutions
 export async function listInstitutions(): Promise<ApiResult<Institution[]>> {
   const { data, error } = await supabase.from('institutions').select('*').order('name');
@@ -130,6 +164,32 @@ export async function updateInstitution(
     .single();
   if (error) return err(error);
   return { data: data as Institution, error: null };
+}
+
+/**
+ * Archive or reactivate an Institution (migration 0044).
+ *
+ * Super Admin only. Archiving is refused while the Institution still has
+ * PUBLISHED meal service dated today or later — a commitment the kitchen and
+ * the classrooms are already working to. The refusal names the reason; it is
+ * not converted into something else behind the operator's back.
+ *
+ * There is no permanent delete. An Institution owns students, classes,
+ * published service and observations, and destroying it would destroy the
+ * record of meals that were actually served to children.
+ */
+export async function setInstitutionActive(
+  institutionId: string,
+  active: boolean,
+  reason: string | null,
+): Promise<ApiResult<null>> {
+  const { error } = await supabase.rpc('set_institution_active', {
+    p_inst: institutionId,
+    p_active: active,
+    p_reason: reason?.trim() || null,
+  });
+  if (error) return err(error);
+  return { data: null, error: null };
 }
 
 export async function dashboardSummary(): Promise<ApiResult<DashboardInstitutionRow[]>> {
@@ -178,9 +238,36 @@ export async function listClasses(): Promise<ApiResult<ClassWithMeta[]>> {
     name: r.name,
     grade: r.grade,
     active: r.active,
+    archived_at: r.archived_at ?? null,
+    archived_by: r.archived_by ?? null,
+    archived_reason: r.archived_reason ?? null,
     student_count: r.students.length > 0 ? r.students[0].count : 0,
   }));
   return { data: mapped, error: null };
+}
+
+/**
+ * Archive or reactivate a Class (migration 0044).
+ *
+ * The Super Admin chooses the action; the database decides whether it is
+ * allowed. Archiving refuses while students or staff are still assigned,
+ * because an archived Class that still holds a roster is a lie. There is no
+ * permanent delete for a Class that has ever been recorded against, and the
+ * caller is told exactly that rather than having the action silently
+ * downgraded.
+ */
+export async function setClassActive(
+  classId: string,
+  active: boolean,
+  reason: string | null,
+): Promise<ApiResult<null>> {
+  const { error } = await supabase.rpc('set_class_active', {
+    p_class: classId,
+    p_active: active,
+    p_reason: reason?.trim() || null,
+  });
+  if (error) return err(error);
+  return { data: null, error: null };
 }
 
 export async function createClass(input: {
@@ -232,16 +319,26 @@ export async function classStaffForInstitution(
     .select('class_id,user_id,class:classes!class_id(name,institution_id)')
     .eq('class.institution_id', institutionId);
   if (error) return err(error);
-  type Row = { class_id: string; user_id: string; class: { name: string; institution_id: string } | null };
+  type Row = {
+    class_id: string;
+    user_id: string;
+    class: { name: string; institution_id: string } | null;
+  };
   const rows = ((data ?? []) as unknown as Row[]).filter((r) => r.class !== null);
   return {
-    data: rows.map((r) => ({ class_id: r.class_id, class_name: r.class!.name, user_id: r.user_id })),
+    data: rows.map((r) => ({
+      class_id: r.class_id,
+      class_name: r.class!.name,
+      user_id: r.user_id,
+    })),
     error: null,
   };
 }
 
 export async function addClassStaff(classId: string, userId: string): Promise<ApiResult<null>> {
-  const { error } = await supabase.from('class_staff').insert({ class_id: classId, user_id: userId });
+  const { error } = await supabase
+    .from('class_staff')
+    .insert({ class_id: classId, user_id: userId });
   if (error) return err(error);
   return { data: null, error: null };
 }
@@ -516,21 +613,37 @@ export async function listCalendarExceptions(
 ): Promise<ApiResult<CalendarException[]>> {
   const { data, error } = await supabase
     .from('calendar_exceptions')
-    .select('id,kind,date_from,date_to,period,meal_id,rotation_id,reason,meal:meals!meal_id(name),rotation:rotations!rotation_id(name)')
+    .select(
+      'id,kind,date_from,date_to,period,meal_id,rotation_id,reason,meal:meals!meal_id(name),rotation:rotations!rotation_id(name)',
+    )
     .eq('institution_id', institutionId)
     .order('date_from', { ascending: false });
   if (error) return err(error);
   type Row = {
-    id: string; kind: CalendarException['kind']; date_from: string; date_to: string;
-    period: AppPeriod | null; meal_id: string | null; rotation_id: string | null; reason: string | null;
-    meal: { name: string } | null; rotation: { name: string } | null;
+    id: string;
+    kind: CalendarException['kind'];
+    date_from: string;
+    date_to: string;
+    period: AppPeriod | null;
+    meal_id: string | null;
+    rotation_id: string | null;
+    reason: string | null;
+    meal: { name: string } | null;
+    rotation: { name: string } | null;
   };
   const rows = (data ?? []) as unknown as Row[];
   return {
     data: rows.map((r) => ({
-      id: r.id, kind: r.kind, date_from: r.date_from, date_to: r.date_to, period: r.period,
-      meal_id: r.meal_id, meal_name: r.meal?.name ?? null,
-      rotation_id: r.rotation_id, rotation_name: r.rotation?.name ?? null, reason: r.reason,
+      id: r.id,
+      kind: r.kind,
+      date_from: r.date_from,
+      date_to: r.date_to,
+      period: r.period,
+      meal_id: r.meal_id,
+      meal_name: r.meal?.name ?? null,
+      rotation_id: r.rotation_id,
+      rotation_name: r.rotation?.name ?? null,
+      reason: r.reason,
     })),
     error: null,
   };
@@ -757,11 +870,20 @@ export async function listRotations(): Promise<ApiResult<RotationSummary[]>> {
     .select('id,name,week_count,active,rotation_slots(count)')
     .order('name');
   if (error) return err(error);
-  type Row = { id: string; name: string; week_count: number; active: boolean; rotation_slots: Array<{ count: number }> };
+  type Row = {
+    id: string;
+    name: string;
+    week_count: number;
+    active: boolean;
+    rotation_slots: Array<{ count: number }>;
+  };
   const rows = (data ?? []) as unknown as Row[];
   return {
     data: rows.map((r) => ({
-      id: r.id, name: r.name, week_count: r.week_count, active: r.active,
+      id: r.id,
+      name: r.name,
+      week_count: r.week_count,
+      active: r.active,
       slot_count: r.rotation_slots?.[0]?.count ?? 0,
     })),
     error: null,
@@ -789,7 +911,10 @@ export async function createRotation(name: string, weekCount: number): Promise<A
  * set_rotation_week_count() validates first and does the whole thing in one
  * transaction: a rejected shrink leaves every slot exactly as it was.
  */
-export async function setRotationWeekCount(id: string, weekCount: number): Promise<ApiResult<null>> {
+export async function setRotationWeekCount(
+  id: string,
+  weekCount: number,
+): Promise<ApiResult<null>> {
   const { error } = await supabase.rpc('set_rotation_week_count', {
     p_rotation: id,
     p_week_count: weekCount,
@@ -810,12 +935,21 @@ export async function rotationSlots(rotationId: string): Promise<ApiResult<Rotat
     .select('week_number,weekday,period,meal_id,meal:meals!meal_id(name)')
     .eq('rotation_id', rotationId);
   if (error) return err(error);
-  type Row = { week_number: number; weekday: number; period: AppPeriod; meal_id: string; meal: { name: string } | null };
+  type Row = {
+    week_number: number;
+    weekday: number;
+    period: AppPeriod;
+    meal_id: string;
+    meal: { name: string } | null;
+  };
   const rows = (data ?? []) as unknown as Row[];
   return {
     data: rows.map((r) => ({
-      week_number: r.week_number, weekday: r.weekday, period: r.period,
-      meal_id: r.meal_id, meal_name: r.meal?.name ?? '—',
+      week_number: r.week_number,
+      weekday: r.weekday,
+      period: r.period,
+      meal_id: r.meal_id,
+      meal_name: r.meal?.name ?? '—',
     })),
     error: null,
   };
@@ -823,18 +957,29 @@ export async function rotationSlots(rotationId: string): Promise<ApiResult<Rotat
 
 // Assign a meal to a slot (upsert), or clear it (mealId null → delete the row).
 export async function setRotationSlot(
-  rotationId: string, week: number, weekday: number, period: AppPeriod, mealId: string | null,
+  rotationId: string,
+  week: number,
+  weekday: number,
+  period: AppPeriod,
+  mealId: string | null,
 ): Promise<ApiResult<null>> {
   if (mealId === null) {
-    const { error } = await supabase.from('rotation_slots').delete()
-      .eq('rotation_id', rotationId).eq('week_number', week).eq('weekday', weekday).eq('period', period);
+    const { error } = await supabase
+      .from('rotation_slots')
+      .delete()
+      .eq('rotation_id', rotationId)
+      .eq('week_number', week)
+      .eq('weekday', weekday)
+      .eq('period', period);
     if (error) return err(error);
     return { data: null, error: null };
   }
-  const { error } = await supabase.from('rotation_slots').upsert(
-    { rotation_id: rotationId, week_number: week, weekday, period, meal_id: mealId },
-    { onConflict: 'rotation_id,week_number,weekday,period' },
-  );
+  const { error } = await supabase
+    .from('rotation_slots')
+    .upsert(
+      { rotation_id: rotationId, week_number: week, weekday, period, meal_id: mealId },
+      { onConflict: 'rotation_id,week_number,weekday,period' },
+    );
   if (error) return err(error);
   return { data: null, error: null };
 }
@@ -857,18 +1002,28 @@ export async function listMeals(opts?: {
   const { data, error } = await q;
   if (error) return err(error);
   type Row = {
-    id: string; name: string; active: boolean; current_revision_id: string | null;
+    id: string;
+    name: string;
+    active: boolean;
+    current_revision_id: string | null;
     periods: { period: AppPeriod }[] | null;
     rev: {
-      ingredients: unknown; allergens: unknown; nutrition: unknown;
-      portion: string | null; image_path: string | null; nutrition_status: string;
+      ingredients: unknown;
+      allergens: unknown;
+      nutrition: unknown;
+      portion: string | null;
+      image_path: string | null;
+      nutrition_status: string;
       revision_no: number;
     } | null;
   };
   const rows = (data ?? []) as unknown as Row[];
   return {
     data: rows.map((r) => ({
-      id: r.id, name: r.name, active: r.active, current_revision_id: r.current_revision_id,
+      id: r.id,
+      name: r.name,
+      active: r.active,
+      current_revision_id: r.current_revision_id,
       ingredients: asStringArray(r.rev?.ingredients),
       allergens: asStringArray(r.rev?.allergens),
       nutrition: (r.rev?.nutrition as Record<string, unknown>) ?? {},
@@ -1374,7 +1529,133 @@ export async function createAccount(input: {
   phone?: string | null;
   authenticate?: boolean;
 }): Promise<ApiResult<{ user_id: string }>> {
-  const { data, error } = await supabase.functions.invoke('admin-create-user', { body: input });
+  return invokeFunction<{ user_id: string }>('admin-create-user', input);
+}
+
+/**
+ * Deactivate or reactivate an account (migration 0044).
+ *
+ * This is the lifecycle action a Super Admin actually has. There is no
+ * permanent delete of a person who has done anything: audit_log names them as
+ * an actor, classroom observations name them as the recorder, and a Parent is
+ * named by a guardian link. Deleting the row would either destroy that history
+ * or leave it pointing at nothing.
+ *
+ * Deactivation is not cosmetic. app_current_role(), app_current_institution_id()
+ * and app_current_kitchen_id() all resolve to NULL for an inactive account, and
+ * every RLS policy in the schema is built on them — so a token issued before
+ * the change reads nothing and writes nothing from the next statement onward.
+ *
+ * The database refuses two things and says which: deactivating yourself, and
+ * deactivating the last active Super Admin (which would lock the platform).
+ */
+export async function setUserActive(
+  userId: string,
+  active: boolean,
+  reason: string | null,
+): Promise<ApiResult<{ warning?: string }>> {
+  // Routed through admin-set-active rather than straight at the RPC so the
+  // Supabase Auth account is banned/unbanned in the same action. The Edge
+  // Function still calls set_user_active WITH THIS CALLER'S JWT, so the
+  // authorization decision, the audit row and the class-assignment cleanup all
+  // stay in the database where they are tested — the function only adds the
+  // Auth half, which needs a key the browser must never hold.
+  return invokeFunction<{ warning?: string }>('admin-set-active', {
+    userId,
+    active,
+    reason: reason?.trim() || null,
+  });
+}
+
+/**
+ * Correct a person's name or phone number.
+ *
+ * Name and phone only, by deliberate scope. EMAIL IS NOT EDITABLE HERE: it is
+ * the authentication identity held by Supabase Auth, and changing only the
+ * app_users copy would leave the person signing in with one address while the
+ * platform displayed another. A properly synchronised email-change workflow
+ * (Auth update + confirmation + profile update in one atomic path) is not part
+ * of this pass, so the field stays immutable and the interface says why rather
+ * than offering an edit that would half-work.
+ *
+ * ROLE is not editable here either. Changing a role moves an account between
+ * RLS scopes, and the safe path is a new correctly-scoped account plus the
+ * deactivation of the old one — not an in-place rewrite of what a live token
+ * is allowed to see.
+ */
+export async function updateUserProfile(
+  userId: string,
+  fullName: string,
+  phone: string | null,
+): Promise<ApiResult<null>> {
+  const { error } = await supabase.rpc('update_user_profile', {
+    p_user: userId,
+    p_full_name: fullName.trim(),
+    p_phone: phone?.trim() || null,
+  });
   if (error) return err(error);
-  return { data: data as { user_id: string }, error: null };
+  return { data: null, error: null };
+}
+
+/**
+ * Issue a new password for someone else's account.
+ *
+ * Goes through the admin-set-password Edge Function because setting another
+ * person's password requires the service-role key, which must never reach a
+ * browser. The caller's own JWT is what authorises it there: a Super Admin may
+ * reset any account, an Institution Admin only their own classroom staff.
+ *
+ * The existing password is NOT retrievable — Supabase stores a bcrypt hash and
+ * there is nothing to read back. Nothing in this path returns, logs or records
+ * a password value; audit_log gets the fact of the reset and its reason.
+ */
+export async function adminSetPassword(
+  userId: string,
+  password: string,
+  reason: string | null,
+): Promise<ApiResult<{ user_id: string; warning?: string }>> {
+  return invokeFunction<{ user_id: string; warning?: string }>('admin-set-password', {
+    userId,
+    password,
+    reason: reason?.trim() || null,
+  });
+}
+
+/**
+ * Change YOUR OWN password while signed in.
+ *
+ * This one needs no privileged key: Supabase Auth accepts it on the caller's
+ * own session, so it works for every role — Parent, Classroom Staff, Kitchen,
+ * Institution Admin, Super Admin — from their own profile screen. It is not a
+ * self-service RESET (there is still no "forgot password" email in this
+ * product); it is a signed-in change, which is a different thing and the one
+ * every account can safely be given.
+ */
+export async function changeMyPassword(newPassword: string): Promise<ApiResult<null>> {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+/**
+ * End one Parent's access to one child (migration 0044).
+ *
+ * Super Admin only, and a reason is required — this removes a person's sight
+ * of a child, which is exactly the kind of change that must never be
+ * anonymous. It deletes the student_parents link and nothing else: the Parent
+ * account survives (they may have other children), the child survives, and
+ * every observation, note and meal record survives untouched.
+ */
+export async function revokeGuardianAccess(
+  studentId: string,
+  userId: string,
+  reason: string,
+): Promise<ApiResult<null>> {
+  const { error } = await supabase.rpc('revoke_guardian_access', {
+    p_student: studentId,
+    p_user: userId,
+    p_reason: reason.trim(),
+  });
+  if (error) return err(error);
+  return { data: null, error: null };
 }

@@ -2,7 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { mealProductionDemand, type MealDemandRow } from '../lib/api';
 import { groupDemandByRevision } from '../lib/kitchen';
 import type { AppPeriod } from '../lib/types';
-import { Banner, Card, EmptyState, Field, PageHead, Pill, Spinner, StatCard } from '../components/ui';
+import {
+  Banner,
+  Card,
+  EmptyState,
+  Field,
+  PageHead,
+  Pill,
+  Spinner,
+  StatCard,
+} from '../components/ui';
 import { Icon, type IconName } from '../components/icons';
 import { todayISO } from '../lib/format';
 
@@ -119,7 +128,9 @@ export default function KitchenPage() {
                     )}
                   </td>
                   <td className="col-secondary cell-sub">
-                    {m.sites.map((s) => `${s.institution_name} (${s.eligible_students})`).join(', ')}
+                    {m.sites
+                      .map((s) => `${s.institution_name} (${s.eligible_students})`)
+                      .join(', ')}
                   </td>
                 </tr>
               ))}

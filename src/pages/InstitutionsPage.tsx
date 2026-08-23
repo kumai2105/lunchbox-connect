@@ -137,8 +137,11 @@ export default function InstitutionsPage() {
                 bypassed the shared component. */}
             <div style={{ marginTop: 12 }}>
               <Field label="Type">
-                <select value={kind} onChange={(e) => setKind(e.target.value as Institution['kind'])}>
-                {/* §6: nursery | school are the only supported types. */}
+                <select
+                  value={kind}
+                  onChange={(e) => setKind(e.target.value as Institution['kind'])}
+                >
+                  {/* §6: nursery | school are the only supported types. */}
                   <option value="nursery">Nursery</option>
                   <option value="school">School</option>
                 </select>

@@ -124,8 +124,13 @@ describe('rbac matrix (9 role domains — docs/02)', () => {
   });
 
   it('parent sees only the parent surface (AT-031, §43)', () => {
+    // `account` is every role's own sign-in details, not an operational
+    // surface: it is where a Parent changes the password their nursery first
+    // issued them. The point of this assertion — that a Parent reaches no part
+    // of the operational product — is unchanged, and the two lines below still
+    // state it directly.
     const visible = viewableResources('parent').sort();
-    expect(visible).toEqual(['parent']);
+    expect(visible).toEqual(['account', 'parent']);
     expect(can('parent', 'today', 'view')).toBe(false);
     expect(can('parent', 'status', 'view')).toBe(false);
   });

@@ -149,10 +149,7 @@ export default function MealAnalyticsPage() {
       const valid = dayRows.filter((r) => isValidPreferenceObservation(r));
       return {
         label: i % labelEvery === 0 ? d.slice(5) : '',
-        value:
-          valid.length > 0
-            ? meanConsumption(valid)
-            : null,
+        value: valid.length > 0 ? meanConsumption(valid) : null,
       };
     });
   }, [rows, from, to]);

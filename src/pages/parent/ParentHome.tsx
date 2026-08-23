@@ -2,12 +2,7 @@ import { Link } from 'react-router-dom';
 import { useParentData } from './context';
 import { Avatar, Card, Pill } from '../../components/ui';
 import { Icon } from '../../components/icons';
-import {
-  formatOperationalDate,
-  initials,
-  operationalHour,
-  todayISO,
-} from '../../lib/format';
+import { formatOperationalDate, initials, operationalHour, todayISO } from '../../lib/format';
 import {
   BEHAVIOR_LABEL,
   meanConsumption,
@@ -44,16 +39,18 @@ export default function ParentHome() {
   const completed = applicable.filter((p) => byPeriod[p]).length;
 
   // §29: previous days with any record or published meal, newest first.
-  const pastDays = [...new Set([...records.map((r) => r.serving_date), ...meals.map((m) => m.service_date)])]
+  const pastDays = [
+    ...new Set([...records.map((r) => r.serving_date), ...meals.map((m) => m.service_date)]),
+  ]
     .filter((d) => d < today)
     .sort((a, b) => (a < b ? 1 : -1))
     .slice(0, 14);
 
   // Overall intake counts only valid, served observations — an upcoming meal
   // or an absence must never be averaged in as a zero (Part 73).
-  const valid = applicable.map((p) => byPeriod[p]).filter(
-    (r): r is NonNullable<typeof r> => !!r && isValidPreferenceObservation(r),
-  );
+  const valid = applicable
+    .map((p) => byPeriod[p])
+    .filter((r): r is NonNullable<typeof r> => !!r && isValidPreferenceObservation(r));
   // Only SCORED observations are averaged: an upcoming or unscored meal is
   // "not recorded", never 0%.
   const overall = meanConsumption(valid);
@@ -72,9 +69,7 @@ export default function ParentHome() {
         <div>
           <div className="parent-greeting">{greeting},</div>
           <h2 className="parent-child-name">{child.given_name}'s day</h2>
-          <div className="parent-date">
-            {formatOperationalDate(new Date())}
-          </div>
+          <div className="parent-date">{formatOperationalDate(new Date())}</div>
         </div>
         <Avatar photoUrl={photoUrl} initials={initials(child.given_name)} size="md" />
       </div>
@@ -104,73 +99,75 @@ export default function ParentHome() {
 
       <h3 className="parent-section">Today's meals</h3>
       <div className="today-meal-list">
-        {(applicable.length ? applicable : PERIOD_ORDER.filter((p) => byPeriod[p])).map((period) => {
-          const rec = byPeriod[period];
-          const item = todayMeals[period];
-          const tone = toneFor(rec);
-          const note = rec ? notes[rec.id] : undefined;
-          return (
-            <div className={`today-meal-card ${tone}`} key={period}>
-              <span className="tmc-icon">
-                <Icon name={PERIOD_ICON[period]} size={16} />
-              </span>
-              <div className="tmc-body">
-                <div className="tmc-period">
-                  {PERIOD_LABEL[period]}
-                  {rec && <span className="tmc-time"> {timeOf(rec.created_at)}</span>}
-                </div>
-                <div className="tmc-meta">{item?.dish_name ?? 'Not published'}</div>
-                {/* §3: the approved structured result the nurse recorded once —
+        {(applicable.length ? applicable : PERIOD_ORDER.filter((p) => byPeriod[p])).map(
+          (period) => {
+            const rec = byPeriod[period];
+            const item = todayMeals[period];
+            const tone = toneFor(rec);
+            const note = rec ? notes[rec.id] : undefined;
+            return (
+              <div className={`today-meal-card ${tone}`} key={period}>
+                <span className="tmc-icon">
+                  <Icon name={PERIOD_ICON[period]} size={16} />
+                </span>
+                <div className="tmc-body">
+                  <div className="tmc-period">
+                    {PERIOD_LABEL[period]}
+                    {rec && <span className="tmc-time"> {timeOf(rec.created_at)}</span>}
+                  </div>
+                  <div className="tmc-meta">{item?.dish_name ?? 'Not published'}</div>
+                  {/* §3: the approved structured result the nurse recorded once —
                     how they ate, plus a parent-safe reason when intake was low.
                     These are controlled fields (not free text), so they are
                     shown directly from the same record; only free-text notes
                     require review before a parent sees them. */}
-                {/* §3/§6: an eating outcome (behaviour, and a preference reason
+                  {/* §3/§6: an eating outcome (behaviour, and a preference reason
                     when intake was low). Absent / Unwell / Asleep are NOT eating
                     outcomes — they surface as the status pill instead, so a
                     parent never reads "Ate independently · Absent". */}
-                {rec &&
-                  rec.served_status === 'served' &&
-                  (rec.behavior ||
-                    (rec.low_intake_reason && !isNonPreferenceReason(rec.low_intake_reason))) && (
-                    <div className="tmc-meta tmc-result">
-                      {rec.behavior && BEHAVIOR_LABEL[rec.behavior]}
-                      {rec.behavior &&
-                        rec.low_intake_reason &&
-                        !isNonPreferenceReason(rec.low_intake_reason) &&
-                        ' · '}
-                      {rec.low_intake_reason &&
-                        !isNonPreferenceReason(rec.low_intake_reason) &&
-                        LOW_INTAKE_REASON_LABEL[rec.low_intake_reason]}
-                    </div>
-                  )}
-                {note && <div className="tmc-note">“{note.body}”</div>}
+                  {rec &&
+                    rec.served_status === 'served' &&
+                    (rec.behavior ||
+                      (rec.low_intake_reason && !isNonPreferenceReason(rec.low_intake_reason))) && (
+                      <div className="tmc-meta tmc-result">
+                        {rec.behavior && BEHAVIOR_LABEL[rec.behavior]}
+                        {rec.behavior &&
+                          rec.low_intake_reason &&
+                          !isNonPreferenceReason(rec.low_intake_reason) &&
+                          ' · '}
+                        {rec.low_intake_reason &&
+                          !isNonPreferenceReason(rec.low_intake_reason) &&
+                          LOW_INTAKE_REASON_LABEL[rec.low_intake_reason]}
+                      </div>
+                    )}
+                  {note && <div className="tmc-note">“{note.body}”</div>}
+                </div>
+                {rec ? (
+                  <Pill
+                    variant={
+                      rec.served_status === 'not_served' ||
+                      isNonPreferenceReason(rec.low_intake_reason)
+                        ? 'slate'
+                        : tone === 'ok'
+                          ? 'free'
+                          : tone === 'warn'
+                            ? 'reduced'
+                            : 'red'
+                    }
+                  >
+                    {rec.served_status === 'not_served'
+                      ? 'Not served'
+                      : isNonPreferenceReason(rec.low_intake_reason)
+                        ? LOW_INTAKE_REASON_LABEL[rec.low_intake_reason!]
+                        : consumptionHumanLabel(rec.consumption_pct)}
+                  </Pill>
+                ) : (
+                  <Pill variant="slate">Upcoming</Pill>
+                )}
               </div>
-              {rec ? (
-                <Pill
-                  variant={
-                    rec.served_status === 'not_served' ||
-                    isNonPreferenceReason(rec.low_intake_reason)
-                      ? 'slate'
-                      : tone === 'ok'
-                        ? 'free'
-                        : tone === 'warn'
-                          ? 'reduced'
-                          : 'red'
-                  }
-                >
-                  {rec.served_status === 'not_served'
-                    ? 'Not served'
-                    : isNonPreferenceReason(rec.low_intake_reason)
-                      ? LOW_INTAKE_REASON_LABEL[rec.low_intake_reason!]
-                      : consumptionHumanLabel(rec.consumption_pct)}
-                </Pill>
-              ) : (
-                <Pill variant="slate">Upcoming</Pill>
-              )}
-            </div>
-          );
-        })}
+            );
+          },
+        )}
       </div>
 
       {pastDays.length > 0 && (

@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import {
-  listMeals,
-  saveMeal,
-  setMealActive,
-  uploadMealImage,
-  mealImageUrl,
-} from '../lib/api';
+import { listMeals, saveMeal, setMealActive, uploadMealImage, mealImageUrl } from '../lib/api';
 import type { AppPeriod, MealLibraryItem } from '../lib/types';
 import { PERIOD_LABEL, PERIOD_ORDER, sortPeriods } from '../lib/periods';
-import { Banner, Btn, Card, EmptyState, Field, Modal, PageHead, Pill, Spinner } from '../components/ui';
+import {
+  Banner,
+  Btn,
+  Card,
+  EmptyState,
+  Field,
+  Modal,
+  PageHead,
+  Pill,
+  Spinner,
+} from '../components/ui';
 import { Icon } from '../components/icons';
 
 // The Meal Library (§4). Admin creates a Meal once here and it is reusable
@@ -233,7 +237,9 @@ export default function MealLibraryPage() {
                       not offer a dish they expected. */}
                   <div className="period-chips">
                     {m.periods.length === 0 ? (
-                      <span className="tmc-meta">No sitting tagged — Menu Builder cannot offer it</span>
+                      <span className="tmc-meta">
+                        No sitting tagged — Menu Builder cannot offer it
+                      </span>
                     ) : (
                       m.periods.map((p) => (
                         <span key={p} className="chip">
