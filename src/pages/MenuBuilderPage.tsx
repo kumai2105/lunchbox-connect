@@ -25,12 +25,7 @@ import { Icon } from '../components/icons';
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const WEEKDAY_INDICES = [0, 1, 2, 3, 4, 5, 6];
 const PERIODS: AppPeriod[] = ['breakfast', 'snack', 'lunch', 'afternoon_snack'];
-const PERIOD_LABEL: Record<AppPeriod, string> = {
-  breakfast: 'Breakfast',
-  snack: 'Morning snack',
-  lunch: 'Lunch',
-  afternoon_snack: 'Afternoon snack',
-};
+import { PERIOD_LABEL } from '../lib/periods';
 
 type SlotKey = string; // `${week}-${weekday}-${period}`
 const keyOf = (w: number, d: number, p: AppPeriod): SlotKey => `${w}-${d}-${p}`;
@@ -48,6 +43,18 @@ export default function MenuBuilderPage() {
   const [busy, setBusy] = useState(false);
   // cell being edited: {week,weekday,period} or null
   const [cell, setCell] = useState<{ w: number; d: number; p: AppPeriod } | null>(null);
+  // Deliberate override: show meals not tagged for this sitting. Resets every
+  // time the picker opens, so an exception is a decision taken once for one
+  // slot and never a mode the author forgets they left on.
+  const [showAllMeals, setShowAllMeals] = useState(false);
+
+  // Meals tagged for the sitting being filled. The tag is an authoring aid, so
+  // this narrows the list rather than restricting what may be assigned — the
+  // override below reveals the rest, and setRotationSlot accepts either.
+  const forThisPeriod = useMemo(
+    () => (cell ? meals.filter((m) => m.periods.includes(cell.p)) : []),
+    [meals, cell],
+  );
   // §10: which service days the grid exposes. Mon–Fri by default; the Admin can
   // reveal weekend/camp days without any code change. Any weekday that already
   // carries a slot stays visible so existing camp menus are never hidden.
@@ -265,7 +272,10 @@ export default function MenuBuilderPage() {
                             <td key={d}>
                               <button
                                 className={`slot-cell${s ? ' filled' : ''}`}
-                                onClick={() => setCell({ w: week, d, p })}
+                                onClick={() => {
+                                  setShowAllMeals(false);
+                                  setCell({ w: week, d, p });
+                                }}
                               >
                                 {s ? s.meal_name : '+'}
                               </button>
@@ -334,10 +344,17 @@ export default function MenuBuilderPage() {
             </button>
             {meals.length === 0 ? (
               <EmptyState text="No active meals. Create meals in the Meal Library first." />
+            ) : forThisPeriod.length === 0 && !showAllMeals ? (
+              <EmptyState
+                text={`No meal is tagged for ${PERIOD_LABEL[cell.p].toLowerCase()}. Tag one in the Meal Library, or show every meal below.`}
+              />
             ) : (
-              meals.map((m) => (
+              (showAllMeals ? meals : forThisPeriod).map((m) => (
                 <button key={m.id} className="meal-pick" onClick={() => void assign(m.id)}>
                   {m.name}
+                  {showAllMeals && !m.periods.includes(cell.p) && (
+                    <span className="tmc-meta"> · not tagged for this sitting</span>
+                  )}
                   {m.allergens.length > 0 && (
                     <span className="tmc-meta"> · {m.allergens.join(', ')}</span>
                   )}
@@ -345,6 +362,19 @@ export default function MenuBuilderPage() {
               ))
             )}
           </div>
+          {/* The tag guides; it does not forbid. A kitchen breaks its own
+              pattern occasionally and the software should let it, visibly. */}
+          {meals.length > 0 && (
+            <label className="tmc-meta" style={{ display: 'block', marginTop: 12 }}>
+              <input
+                type="checkbox"
+                checked={showAllMeals}
+                onChange={(e) => setShowAllMeals(e.target.checked)}
+              />{' '}
+              Show all meals, including those not tagged for{' '}
+              {PERIOD_LABEL[cell.p].toLowerCase()}
+            </label>
+          )}
         </Modal>
       )}
     </div>

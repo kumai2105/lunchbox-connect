@@ -105,9 +105,19 @@ test.describe('acceptance — Meal Library authoring', () => {
     // nothing about the product.
     await page.getByRole('button', { name: /add meal/i }).first().click();
     await page.getByPlaceholder('e.g. Chicken Pasta').fill(name);
+
+    // A meal must say which sittings it is for before it can be saved: an
+    // untagged meal is one Menu Builder can never offer, so the editor refuses
+    // to create one. Assert the refusal rather than just satisfying it.
+    const save = page.getByRole('button', { name: /save meal/i });
+    await expect(save, 'Save was enabled for a meal with no sitting chosen').toBeDisabled();
+    await page.getByRole('checkbox', { name: 'Lunch', exact: true }).check();
+    await page.getByRole('checkbox', { name: 'Morning snack', exact: true }).check();
+    await expect(save).toBeEnabled();
+
     await page.getByPlaceholder('chicken, pasta, tomato').fill('rice, peas');
     await page.getByPlaceholder('gluten, dairy').fill('none');
-    await page.getByRole('button', { name: /save meal/i }).click();
+    await save.click();
 
     // Decision 033: one save creates the Meal AND its revision, and the meal
     // points at that revision. A Meal with no current revision cannot be put on
@@ -127,6 +137,19 @@ test.describe('acceptance — Meal Library authoring', () => {
       .toBe('linked');
 
     await expect(page.getByText(name).first()).toBeVisible();
+
+    // The two sittings are stored against the meal itself — one meal, two
+    // periods, no duplicate row. This is the relationship the Meal Library
+    // previously lacked entirely.
+    const meal = await db.from('meals').select('id').eq('name', name).maybeSingle();
+    const tags = await db
+      .from('meal_periods')
+      .select('period')
+      .eq('meal_id', meal.data!.id as string);
+    expect(
+      (tags.data ?? []).map((t) => t.period as string).sort(),
+      'the meal did not keep the sittings it was tagged with',
+    ).toEqual(['lunch', 'snack']);
   });
 });
 
@@ -201,6 +224,105 @@ test.describe('acceptance — Menu Builder authoring', () => {
     await expect(page.locator('.menu-canvas')).toBeVisible();
     await expect(page.locator('.menu-grid')).toBeVisible();
     await expect(page.locator('.week-tabs')).toBeVisible();
+  });
+
+  /**
+   * THE SLOT PICKER OFFERS THE RIGHT MEALS, AND STILL ALLOWS AN EXCEPTION.
+   *
+   * A meal used to have no relationship to a sitting at all: the period lived
+   * only on the slot, so filling the Breakfast row offered every dish ever
+   * created, lunches included. The tag is an authoring aid — it narrows the
+   * list by default and an explicit override reveals the rest, because a real
+   * kitchen occasionally breaks its own pattern on purpose.
+   *
+   * Both halves are asserted. A filter with no working override is a cage, and
+   * an override that was never exercised is an untested claim.
+   */
+  test('the slot picker defaults to meals tagged for that sitting, and can be overridden', async ({
+    page,
+  }) => {
+    const s = seeded();
+    const db = adminDb();
+    const stamp = Date.now();
+    const breakfastOnly = `E2E Porridge ${stamp}`;
+    const lunchOnly = `E2E Lasagne ${stamp}`;
+    const rotation = `E2E Filter Rotation ${stamp}`;
+
+    await login(page, s.superAdminEmail);
+
+    // Two meals, one tagged for each end of the day, created through the UI so
+    // the tags are written by the product rather than injected behind it.
+    for (const [name, sitting] of [
+      [breakfastOnly, 'Breakfast'],
+      [lunchOnly, 'Lunch'],
+    ] as const) {
+      await page.goto('/meals');
+      await page.getByRole('button', { name: /add meal/i }).first().click();
+      await page.getByPlaceholder('e.g. Chicken Pasta').fill(name);
+      await page.getByRole('checkbox', { name: sitting, exact: true }).check();
+      await page.getByRole('button', { name: /save meal/i }).click();
+      await expect(page.getByText(name).first()).toBeVisible();
+    }
+
+    await page.goto('/menu-builder');
+    await page.getByRole('button', { name: /create menu|new menu|create/i }).first().click();
+    await page.getByPlaceholder('e.g. Spring 2026').fill(rotation);
+    await page
+      .locator('.modal, [role="dialog"]')
+      .getByRole('button', { name: /create/i })
+      .last()
+      .click();
+    await page.locator('.menu-list-item', { hasText: rotation }).first().click();
+    await expect(page.locator('.menu-grid')).toBeVisible();
+
+    // Open the FIRST cell of the Breakfast row.
+    const breakfastRow = page.locator('tr', { has: page.getByText('Breakfast', { exact: true }) });
+    await breakfastRow.locator('.slot-cell').first().click();
+
+    const picker = page.locator('.meal-picker');
+    await expect(picker).toBeVisible();
+    await expect(
+      picker.getByText(breakfastOnly),
+      'a breakfast-tagged meal was missing from the breakfast picker',
+    ).toBeVisible();
+    await expect(
+      picker.getByText(lunchOnly),
+      'a lunch-only meal was offered for a breakfast slot',
+    ).toHaveCount(0);
+
+    // The override is a real escape hatch, not decoration.
+    await page.getByRole('checkbox', { name: /show all meals/i }).check();
+    await expect(
+      picker.getByText(lunchOnly),
+      'the override did not reveal meals tagged for other sittings',
+    ).toBeVisible();
+
+    // And the database accepts the exception — the tag guides, it does not
+    // forbid, so an overridden choice must actually save.
+    await picker.getByText(lunchOnly).click();
+    await expect
+      .poll(
+        async () => {
+          const r = await db
+            .from('rotations')
+            .select('id, rotation_slots(period, meals(name))')
+            .eq('name', rotation)
+            .maybeSingle();
+          // The embed is typed as an array by the client even for a to-one
+          // relationship, so normalise rather than assert a shape it does not
+          // actually return.
+          const slots = (r.data?.rotation_slots ?? []) as unknown as {
+            period: string;
+            meals: { name: string } | { name: string }[] | null;
+          }[];
+          return slots.some((x) => {
+            const m = Array.isArray(x.meals) ? x.meals[0] : x.meals;
+            return x.period === 'breakfast' && m?.name === lunchOnly;
+          });
+        },
+        { message: 'the deliberately overridden slot never persisted' },
+      )
+      .toBe(true);
   });
 });
 

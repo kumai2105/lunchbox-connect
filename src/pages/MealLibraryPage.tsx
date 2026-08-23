@@ -6,7 +6,8 @@ import {
   uploadMealImage,
   mealImageUrl,
 } from '../lib/api';
-import type { MealLibraryItem } from '../lib/types';
+import type { AppPeriod, MealLibraryItem } from '../lib/types';
+import { PERIOD_LABEL, PERIOD_ORDER, sortPeriods } from '../lib/periods';
 import { Banner, Btn, Card, EmptyState, Field, Modal, PageHead, Pill, Spinner } from '../components/ui';
 import { Icon } from '../components/icons';
 
@@ -22,6 +23,8 @@ type Draft = {
   portion: string;
   nutrition: string; // "kcal: 420, protein: 12" free-form key:value lines
   image_path: string | null;
+  /** Which sittings this meal suits. Several, and never a duplicate meal. */
+  periods: AppPeriod[];
 };
 
 const EMPTY: Draft = {
@@ -32,6 +35,9 @@ const EMPTY: Draft = {
   portion: '',
   nutrition: '',
   image_path: null,
+  // A new meal starts untagged, so the author has to say what it is for
+  // rather than inherit a guess. Save is blocked until at least one is set.
+  periods: [],
 };
 
 function toList(s: string): string[] {
@@ -112,6 +118,7 @@ export default function MealLibraryPage() {
       portion: m.portion ?? '',
       nutrition: nutritionToText(m.nutrition),
       image_path: m.image_path,
+      periods: m.periods,
     });
   }
 
@@ -143,6 +150,7 @@ export default function MealLibraryPage() {
       nutrition: parseNutrition(draft.nutrition),
       portion: draft.portion.trim() || null,
       image_path: imagePath,
+      periods: draft.periods,
     });
     setBusy(false);
     if (res.error) {
@@ -220,6 +228,20 @@ export default function MealLibraryPage() {
                     {!m.active && <Pill variant="reduced">Archived</Pill>}
                     {m.nutrition_status === 'APPROVED' && <Pill variant="free">Approved</Pill>}
                   </div>
+                  {/* What the meal is FOR, before what is in it: it is the
+                      first thing an author checks when the Menu Builder did
+                      not offer a dish they expected. */}
+                  <div className="period-chips">
+                    {m.periods.length === 0 ? (
+                      <span className="tmc-meta">No sitting tagged — Menu Builder cannot offer it</span>
+                    ) : (
+                      m.periods.map((p) => (
+                        <span key={p} className="chip">
+                          {PERIOD_LABEL[p]}
+                        </span>
+                      ))
+                    )}
+                  </div>
                   {m.allergens.length > 0 && (
                     <div className="meal-allergens">
                       {m.allergens.map((a) => (
@@ -254,7 +276,11 @@ export default function MealLibraryPage() {
               <Btn variant="ghost" onClick={() => setDraft(null)}>
                 Cancel
               </Btn>
-              <Btn variant="brand" onClick={onSave} disabled={busy || !draft.name.trim()}>
+              <Btn
+                variant="brand"
+                onClick={onSave}
+                disabled={busy || !draft.name.trim() || draft.periods.length === 0}
+              >
                 {busy ? 'Saving…' : 'Save meal'}
               </Btn>
             </>
@@ -269,6 +295,39 @@ export default function MealLibraryPage() {
                 autoFocus
               />
             </Field>
+            {/* Before the recipe detail, because it is what decides where the
+                meal can be used at all. A meal with no period is a meal the
+                Menu Builder cannot offer for any slot. */}
+            <Field label="Served at (choose one or more)">
+              <div className="period-tags">
+                {PERIOD_ORDER.map((p) => {
+                  const on = draft.periods.includes(p);
+                  return (
+                    <label key={p} className={`period-tag${on ? ' on' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() =>
+                          setDraft({
+                            ...draft,
+                            periods: on
+                              ? draft.periods.filter((x) => x !== p)
+                              : sortPeriods([...draft.periods, p]),
+                          })
+                        }
+                      />
+                      {PERIOD_LABEL[p]}
+                    </label>
+                  );
+                })}
+              </div>
+            </Field>
+            {draft.periods.length === 0 && (
+              <p className="tmc-meta">
+                Choose at least one sitting. Menu Builder offers a meal for the sittings it is
+                tagged for; an untagged meal would not appear for any of them.
+              </p>
+            )}
             <Field label="Ingredients (comma-separated)">
               <input
                 value={draft.ingredients}

@@ -12,7 +12,7 @@ const PERIOD_META: Record<AppPeriod, { label: string; icon: IconName }> = {
   lunch: { label: 'Lunch', icon: 'utensils' },
   afternoon_snack: { label: 'Afternoon snack', icon: 'cookie' },
 };
-const PERIOD_ORDER: AppPeriod[] = ['breakfast', 'snack', 'lunch', 'afternoon_snack'];
+import { PERIOD_ORDER } from '../lib/periods';
 
 /**
  * Institution published schedule — READ ONLY (Founder-approved addition).

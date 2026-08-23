@@ -270,6 +270,8 @@ export interface MealLibraryItem {
   image_path: string | null;
   nutrition_status: string;
   revision_no: number | null;
+  /** Which sittings this meal is suitable for. Several, or none. */
+  periods: AppPeriod[];
 }
 
 export interface MealInput {
@@ -281,4 +283,10 @@ export interface MealInput {
   portion: string | null;
   image_path?: string | null;
   nutrition_status?: string;
+  /**
+   * The complete tag set after the save. Omitted (undefined) leaves the
+   * existing tags untouched; an empty array clears them. The two are
+   * deliberately different, and save_meal treats them that way.
+   */
+  periods?: AppPeriod[];
 }

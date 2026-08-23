@@ -23,7 +23,7 @@ export interface ProductionLine {
   sites: DemandRowLike[];
 }
 
-const PERIOD_ORDER: AppPeriod[] = ['breakfast', 'snack', 'lunch', 'afternoon_snack'];
+import { PERIOD_ORDER } from './periods';
 
 export function groupDemandByRevision(rows: DemandRowLike[]): ProductionLine[] {
   const map = new Map<string, ProductionLine>();

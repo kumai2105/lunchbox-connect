@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { PERIOD_ORDER } from './periods';
 
 // The client-readable columns of a Classroom Meal Record.
 //
@@ -848,7 +849,7 @@ export async function listMeals(opts?: {
   let q = supabase
     .from('meals')
     .select(
-      'id,name,active,current_revision_id,rev:meal_revisions!current_revision_id(ingredients,allergens,nutrition,portion,image_path,nutrition_status,revision_no)',
+      'id,name,active,current_revision_id,periods:meal_periods(period),rev:meal_revisions!current_revision_id(ingredients,allergens,nutrition,portion,image_path,nutrition_status,revision_no)',
     )
     .order('name');
   if (!opts?.includeArchived) q = q.eq('active', true);
@@ -857,6 +858,7 @@ export async function listMeals(opts?: {
   if (error) return err(error);
   type Row = {
     id: string; name: string; active: boolean; current_revision_id: string | null;
+    periods: { period: AppPeriod }[] | null;
     rev: {
       ingredients: unknown; allergens: unknown; nutrition: unknown;
       portion: string | null; image_path: string | null; nutrition_status: string;
@@ -874,6 +876,9 @@ export async function listMeals(opts?: {
       image_path: r.rev?.image_path ?? null,
       nutrition_status: r.rev?.nutrition_status ?? 'NOT_APPROVED',
       revision_no: r.rev?.revision_no ?? null,
+      // Sorted so the tag order a person reads is the order the sittings
+      // actually happen in, not whatever order the rows came back.
+      periods: PERIOD_ORDER.filter((p) => (r.periods ?? []).some((x) => x.period === p)),
     })),
     error: null,
   };
@@ -889,6 +894,8 @@ export async function saveMeal(input: MealInput): Promise<ApiResult<string>> {
     p_portion: input.portion,
     p_image_path: input.image_path ?? null,
     p_nutrition_status: input.nutrition_status ?? 'NOT_APPROVED',
+    // undefined -> null -> "leave the tags alone". An empty array clears them.
+    p_periods: input.periods ?? null,
   });
   if (error) return err(error);
   return { data: data as string, error: null };

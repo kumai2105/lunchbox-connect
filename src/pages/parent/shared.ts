@@ -4,7 +4,7 @@ import type { IconName } from '../../components/icons';
 import { formatOperationalTime } from '../../lib/format';
 
 // Four approved meal periods (docs/02 §26, docs/09 AT-082).
-export const PERIOD_ORDER: AppPeriod[] = ['breakfast', 'snack', 'lunch', 'afternoon_snack'];
+export { PERIOD_ORDER } from '../../lib/periods';
 
 export const PERIOD_LABEL: Record<AppPeriod, string> = {
   breakfast: 'Breakfast',
