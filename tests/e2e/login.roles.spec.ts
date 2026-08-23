@@ -76,7 +76,7 @@ test.describe('login matrix — nine roles', () => {
     // person choosing a role, and the stored value is unchanged behind it.
     expect(roleOptions).toEqual([
       'Super Admin',
-      'Nursery / School Admin',
+      'Institution Admin',
       'Operations Manager',
       'Finance / Owner',
       'Viewer',

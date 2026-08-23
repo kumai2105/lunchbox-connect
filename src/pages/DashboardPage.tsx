@@ -59,6 +59,11 @@ export default function DashboardPage() {
   if (error && !rows) return <EmptyState text={`Could not load the dashboard: ${error}`} />;
   if (!rows) return <Spinner />;
 
+  // Whether this person operates LunchBox Connect across customers, or works
+  // for one of those customers. Read from the role, not from how many rows came
+  // back: a Super Admin who happens to have one customer is still the operator.
+  const isGlobalOperator = role === 'super_admin';
+
   const activeStudents = rows.reduce((sum, r) => sum + r.active_students, 0);
   const mealsToday = rows.reduce((sum, r) => sum + r.meals_today, 0);
   const eligibleStudents = totalActiveStudents(rows);
@@ -87,13 +92,29 @@ export default function DashboardPage() {
           approved destination exists for the role, the metric still shows —
           only the navigation is withheld (no replacement route is invented). */}
       <div className="stat-grid">
-        <StatCard
-          icon="building"
-          label="Institutions"
-          value={rows.length}
-          trend="across the chain"
-          to={can(role, 'institutions', 'view') ? '/institutions' : undefined}
-        />
+        {/* PROVEN, not assumed: v_dashboard_institutions is security_invoker,
+            so institutions_select scopes it to the caller. An Institution Admin
+            reads exactly one row — their own — and a Super Admin reads them
+            all. The number was never global; the WORDING was, and "1 across
+            the chain" reads to an Institution Admin like a company-wide figure
+            they should not have. Each role now gets the label that describes
+            what it is actually looking at. */}
+        {isGlobalOperator ? (
+          <StatCard
+            icon="building"
+            label="Institutions"
+            value={rows.length}
+            trend="across the chain"
+            to={can(role, 'institutions', 'view') ? '/institutions' : undefined}
+          />
+        ) : (
+          <StatCard
+            icon="building"
+            label="Your institution"
+            value={rows[0]?.name ?? '—'}
+            trend={rows[0] ? 'the one you administer' : 'none assigned to your account'}
+          />
+        )}
         <StatCard
           icon="users"
           label="Active students"
@@ -136,8 +157,12 @@ export default function DashboardPage() {
       </div>
 
       <Card
-        title="Institutions — serving today"
-        hint="read model · RLS-scoped"
+        title={isGlobalOperator ? 'Institutions — serving today' : 'Serving today'}
+        hint={
+          isGlobalOperator
+            ? 'every institution you operate'
+            : 'your institution only'
+        }
         actions={
           can(role, 'institutions', 'view') ? (
             <Link to="/institutions" className="btn ghost">

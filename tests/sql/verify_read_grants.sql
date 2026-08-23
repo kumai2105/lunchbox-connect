@@ -89,7 +89,40 @@ begin
   end if;
   raise notice 'PASS s2: a Nursery Admin still reads no audit row — the grant did not widen visibility';
 
+  -- ---- s3: the dashboard read model is SCOPED, not merely reachable --
+  -- The Institutions figure on the dashboard is `rows.length` of this view.
+  -- An Institution Admin seeing a company-wide customer count would be
+  -- operational information about other customers; the view is
+  -- security_invoker (0039) so institutions_select scopes it, and this asserts
+  -- that rather than trusting it. The Founder asked whether the number was a
+  -- leak: it is not, and this is what keeps it that way.
+  insert into institutions (name, kind) values ('RG Second Institution', 'school')
+    on conflict (name) do nothing;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_na, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_n from v_dashboard_institutions;
+  reset role;
+  if v_n <> 1 then
+    raise exception
+      'FAIL s3: an Institution Admin sees % institution row(s) in the dashboard read model, expected exactly their own', v_n;
+  end if;
+  raise notice 'PASS s3: an Institution Admin sees exactly one institution — their own';
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_sa, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_n from v_dashboard_institutions;
+  reset role;
+  if v_n < 2 then
+    raise exception
+      'FAIL s3: a Super Admin sees only % institution row(s) — the operator must see every customer', v_n;
+  end if;
+  raise notice 'PASS s3: a Super Admin sees every institution (% rows)', v_n;
+
   raise notice '---------------------------------------------------------';
   raise notice 'READ GRANTS: /dashboard and /audit are reachable by the role';
-  raise notice 'that owns them, and by nobody else.';
+  raise notice 'that owns them, by nobody else, and the dashboard read model';
+  raise notice 'is scoped to the caller rather than merely readable.';
 end $$;

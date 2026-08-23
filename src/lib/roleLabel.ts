@@ -10,7 +10,13 @@ import type { AppRole } from './types';
  */
 const LABELS: Record<string, string> = {
   super_admin: 'Super Admin',
-  school_admin: 'Nursery / School Admin',
+  // The person administering ONE customer Institution, which may be a nursery
+  // or a school. "School Admin" told a nursery manager they were something they
+  // are not; naming both is clumsy and still implies the two are different
+  // roles. The STORED value stays `school_admin` — renaming a database enum
+  // that RLS, RBAC and years of tests depend on would be a migration in service
+  // of a label.
+  school_admin: 'Institution Admin',
   operations_manager: 'Operations Manager',
   finance_owner: 'Finance / Owner',
   viewer: 'Viewer',
