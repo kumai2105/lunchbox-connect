@@ -2,8 +2,11 @@
 
 [![CI](https://github.com/Kumai2105/lunchbox-connect/actions/workflows/ci.yml/badge.svg)](https://github.com/Kumai2105/lunchbox-connect/actions)
 
-**Live:** https://www.lunchboxconnect.com — released 2026-08-21 against
-production schema `0039`. The Worker also answers on its origin
+**Live:** https://www.lunchboxconnect.com — frontend `2793a90c` against
+production schema `0042`. Migrations `0043`–`0045` and the frontend that
+depends on them are **verified but not yet deployed**; see
+`docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md` for the gate and the go-live
+sequence, which is always **migrations → Edge Functions → frontend**. The Worker also answers on its origin
 `https://lunchbox-connect.koumai-2105.workers.dev`, kept as a rollback path. **Before real meals can flow, each
 Institution has to be configured in the app — its service plan, its menu
 assignment and its calendar, all as Super Admin, all by clicking. See
@@ -34,7 +37,8 @@ pnpm · Vitest · Playwright · ESLint · Prettier
 pnpm install
 cp .env.example .env          # fill VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
 supabase link --project-ref <your-ref>
-supabase db push              # migrations 0001–0041
+supabase db push              # migrations 0001–0045
+pnpm functions:deploy         # admin-create-user, admin-set-password, admin-set-active
 pnpm dev                      # http://localhost:5173
 ```
 
@@ -59,9 +63,9 @@ Privileged steps that need your accounts (the tool cannot supply them):
 ```bash
 pnpm typecheck   # full-project TypeScript
 pnpm lint
-pnpm test:unit   # RBAC, calendar, meal analytics, kitchen, operational date, effective-dated configuration (122 tests)
+pnpm test:unit   # RBAC, calendar, meal analytics, kitchen, operational date, effective-dated configuration (125 tests)
 pnpm test:e2e    # live-boundary Playwright suite — needs the env below
-./tests/sql/run_verification.sh   # 21 SQL suites on a throwaway PostgreSQL 16
+./tests/sql/run_verification.sh   # 23 SQL suites, 278 assertions, on a throwaway PostgreSQL 16
 ```
 
 `run_verification.sh` builds a PostgreSQL 16 cluster from nothing, applies
@@ -98,9 +102,11 @@ pnpm test:e2e
 The global setup seeds its own namespaced users/data idempotently (never your
 real data) on the current architecture — Meal → Menu → published Meal Service →
 class_staff → Classroom record → Parent result — and writes
-`tests/e2e/.seeded.json` (gitignored). 7 specs, **33 tests** — `login.roles` is
-parameterised over the nine role domains, so it contributes 10 of them. Take the
-number from `pnpm exec playwright test --list` rather than from any document.
+`tests/e2e/.seeded.json` (gitignored). 14 specs, **98 tests** — `login.roles`
+is parameterised over the nine role domains, so it contributes 10 of them. Take
+the number from `pnpm exec playwright test --list` rather than from any
+document; the CI gate does exactly that and fails on a silent skip as well as
+on a failure.
 
 No Supabase project of your own is required: `.github/workflows/e2e-local-supabase.yml`
 starts a throwaway local stack on a GitHub runner and runs the whole suite
@@ -127,9 +133,12 @@ src/
             analytics, reports, review, status, users, audit, parent/*
   components/  layout + shared UI (design ported from the approved mockup)
 supabase/
-  migrations/ 0001–0041 (schema, RLS, resolution/publish engine, meal library,
+  migrations/ 0001–0045 (schema, RLS, resolution/publish engine, meal library,
               class_staff, per-meal demand, analytics, DB-boundary integrity,
-              historical immutability of referenced meal images)
+              historical immutability of referenced meal images, Meal Period
+              tags, and the account/institution/class lifecycle)
+  functions/  admin-create-user, admin-set-password, admin-set-active — the
+              three privileged actions. The service-role key lives only here.
   functions/admin-create-user/  privileged account creation (super/nursery admin)
 tests/
   e2e/        Playwright specs on the current architecture (+ global-setup)

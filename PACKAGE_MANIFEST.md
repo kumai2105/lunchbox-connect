@@ -1,27 +1,30 @@
 # LunchBox Connect — Package Manifest
 
-## SNAPSHOT — INDEPENDENT REVIEW, 23 August 2026
+## SNAPSHOT — CORE OPERABILITY CLOSURE, 23 August 2026
 
-**Verified SHA:** `6f94b017db9f3388e0386c9f4318cc133625804b`
+**Verified SHA:** `SHA_PLACEHOLDER`
 **Branch:** `claude/new-session-k5dd5u`
-**Archive:** `LunchBox-Connect-CURRENT-INDEPENDENT-REVIEW.zip`
 
-Every gate below was run against that exact tree immediately before packaging.
-Totals are read from the suites themselves, not carried forward from an earlier
-manifest.
+Every gate below was run against that exact tree. Totals are read from the
+suites themselves, not carried forward from an earlier manifest.
 
-| Gate                 | Command                                    | Result                                                                 |
-| -------------------- | ------------------------------------------ | ---------------------------------------------------------------------- |
-| Browser suite        | `e2e-local-supabase.yml` run `32636221047` | **PASS — 85 / 85** in 13 spec files · 0 failed · 0 skipped · 0 retries |
-| Database suites      | `./tests/sql/run_verification.sh`          | **PASS — 22 suites**, 237 named assertions                             |
-| Authorization matrix | `verify_authorization_matrix`              | **PASS — 520 checks**                                                  |
-| Unit tests           | `pnpm test:unit`                           | **PASS — 122** across 13 files                                         |
-| TypeScript           | `pnpm typecheck`                           | **PASS** — app + node + `tests/e2e`, three projects                    |
-| Lint                 | `pnpm lint`                                | **PASS**                                                               |
-| Production build     | `pnpm build`                               | **PASS**                                                               |
-| Worker / config      | `wrangler deploy --dry-run`                | **PASS** — `env.ASSETS  Assets`, no upload                             |
+| Gate                 | Command                                        | Result                                                               |
+| -------------------- | ---------------------------------------------- | -------------------------------------------------------------------- |
+| Browser suite        | `e2e-local-supabase.yml` run `RUN_PLACEHOLDER` | **PASS — 98 / 98** in 14 spec files · 0 failed · 0 skipped · 0 flaky |
+| Database suites      | `./tests/sql/run_verification.sh`              | **PASS — 23 suites**, 278 named assertions                           |
+| Authorization matrix | `verify_authorization_matrix`                  | **PASS — 520 checks**                                                |
+| Unit tests           | `pnpm test:unit`                               | **PASS — 125** across 13 files                                       |
+| TypeScript           | `pnpm typecheck`                               | **PASS** — app + node + `tests/e2e`, three projects                  |
+| Lint                 | `pnpm lint`                                    | **PASS**, 0 warnings                                                 |
+| Production build     | `pnpm build`                                   | **PASS**                                                             |
 
-**Migration ceiling:** `0043_meal_period_tags.sql` (43 migrations).
+**Migration ceiling in this tree:** `0045_tag_only_edit_is_not_a_new_revision.sql`
+(45 migrations).
+**Migration ceiling in production:** `0042` — `0043`, `0044` and `0045` are
+**PENDING**. See "Not deployed" below.
+
+Growth since the previous snapshot (`6f94b017`): 85 → 98 browser tests,
+22 → 23 SQL suites, 237 → 278 assertions, 122 → 125 unit tests.
 
 ### The browser gate is self-counting
 
@@ -29,40 +32,57 @@ The workflow takes its expected total from `playwright test --list` rather than
 a number written down by hand, then asserts `expected == total`,
 `unexpected == 0` and `skipped == 0`. A stale hand-counted number could pass
 while whole specs silently stopped being collected; this cannot. The step named
-"Assert every test executed, 0 failed, 0 skipped" is what makes the 85 above a
+"Assert every test executed, 0 failed, 0 skipped" is what makes the 98 above a
 measurement rather than a claim.
 
-### One failure was found and fixed during this verification
+### Two failures were found and fixed during this verification
 
-Run `32635246818` failed on two tests, and the defect was in the test coverage,
-not the product. Requiring a Meal to state its sittings before it can be saved
-had been applied to the Meal editor and to `acceptance.spec.ts`, but
-`operability.spec.ts` and `provisioning.spec.ts` also create Meals through the
-UI and were not updated — both waited on a Save button that correctly never
-enabled. Fixed in `6f94b017`, and the suite is green on that SHA. Recorded here
-because a gate that never caught anything would not be evidence of much.
+Run `32640684885` failed on two tests, and **both were defects in my
+assertions, not in the product**:
 
-### Re-proved in this run
+- `lifecycle.spec.ts` looked for the phrase "how you sign in" in the account
+  edit dialog; the dialog says "what this person signs in with". Corrected to
+  assert the sentence the screen carries, plus the role/scope explanation —
+  the point of that test being that immutability is EXPLAINED, not merely
+  enforced by a greyed-out box.
+- `operability.spec.ts` located the eligibility control by its "Not eligible"
+  option, which this closure renamed to "Not in the meal service" when it
+  retired "billable to nursery" from what a person reads.
 
-Super Admin scope · Institution Admin sees only its own Institution (asserted in
-`verify_read_grants` s3: exactly one row for the Institution Admin, more than
-one for the Super Admin) · no cross-Institution exposure · Parent isolation ·
-Classroom scope · Kitchen scope · all nine roles sign in and out · Menu Builder
-authoring and the period-filtered slot picker with its override · Meal Library
-authoring · Institution configuration · and the complete
-Meal → Menu → Institution → Publish → Classroom → Parent → Kitchen chain, which
-is one test that walks the whole thing rather than several that each assume the
-step before it.
+The six tests reported as "did not run" were the remainder of the serial block
+that aborted on the first failure, not silent skips. Recorded here because a
+gate that never caught anything would not be evidence of much.
+
+### What this closure added to the evidence
+
+- `tests/sql/verify_lifecycle_security.sql` — 35 assertions proving that
+  deactivation, archival and guardian revocation hold **at the database
+  boundary against a live token**, not merely in the interface, and that no
+  audit row anywhere carries password material.
+- `tests/e2e/lifecycle.spec.ts` — the same actions driven by a person, on
+  disposable fixtures it creates and removes. Includes proving a deactivated
+  account cannot get in from a **fresh browser context**, that a reissued
+  password works while the old one is refused, and that a Parent can change
+  their own password.
 
 The nine simulation personas are unchanged: none was deleted, renamed,
 reassigned or stripped of a role, and each still signs in as the role it exists
-to simulate.
+to simulate. The one account this closure deactivated in a test was created by
+that test and removed afterwards.
 
-### Packaging note
+### NOT DEPLOYED — and this is the important line in this manifest
 
-This manifest is a documentation-only layer written on top of the verified SHA,
-which is the established convention for this project — the code being described
-is `6f94b017`, and this file records what was measured against it.
+**Migrations `0043`, `0044` and `0045` have not been applied to production**,
+because applying them requires an interactive authorisation a non-interactive
+session cannot perform. The frontend in this tree **must not be deployed ahead
+of them**: `app_users.active` and `institutions.active` do not exist at `0042`,
+their absence reads back as `undefined`, which is falsy, and **every account
+would render as "Deactivated" and every institution as "Archived"** on the live
+site.
+
+Production is untouched by this closure. Frontend `2793a90c` on database `0042`
+remains live and remains correct for itself. The go-live sequence is in
+`docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md`.
 
 ---
 

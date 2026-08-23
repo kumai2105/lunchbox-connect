@@ -85,28 +85,33 @@ README only. The full spec pack introduced corrections:
 The stack is **approved** (A1–A3) and recorded in `docs/13` **Decision 034**:
 TypeScript · React 18 + Vite (SPA) · Supabase (PostgreSQL, Auth, Storage, Edge
 Functions) · Row Level Security as the boundary · Supabase CLI migrations
-(`0001`–`0041`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
+(`0001`–`0045`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
 Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
 `TECHNICAL_STACK = NOT_YET_DEFINED` statements are SUPERSEDED.
 
 ## Verification evidence (release candidate)
 
 - `pnpm typecheck` — clean · `pnpm lint` — clean (0 warnings)
-- `pnpm test:unit` — **110 tests** (RBAC incl. the read-only Institution
+- `pnpm test:unit` — **125 tests** (RBAC incl. the read-only Institution
   schedule, calendar, meal analytics incl. the unscored-is-not-0% rule, kitchen
   revision grouping, operational date + Asia/Dubai presentation, the parent
   child-switch selection/readiness invariant, the four factual dashboard
   completion states, exhaustive analytics pagination past 5,000 rows, and the
-  nav-link/route reachability check)
-- `./tests/sql/run_verification.sh` — **21 SQL suites** (223 assertions) on a throwaway
-  PostgreSQL 16, incl. the 520-check authorization matrix and the raw-path
-  DB-boundary suite (RPC-only writes, note-publish authority, tenant/eligibility
-  triggers, meal-image storage visibility, meal-image historical immutability,
-  and audit-log tamper resistance)
-- `pnpm test:e2e` — 6 specs / **27** tests (not 19: `login.roles` runs once per
-  role). Executed by `.github/workflows/e2e-local-supabase.yml` against an
-  ephemeral Supabase stack started on the GitHub runner, because this sandbox
-  blocks `*.supabase.co`. The target is `127.0.0.1`; production is refused
-  outright by the seeder, by `build:e2e` and by the workflow guard
+  nav-link/route reachability check, the `account` resource every role holds
+  over its own sign-in details, and the derivation that withholds a role from
+  the account-creation picker while every screen in its navigation is a shell)
+- `./tests/sql/run_verification.sh` — **23 SQL suites** (278 assertions) on a
+  throwaway PostgreSQL 16, incl. the 520-check authorization matrix, the
+  raw-path DB-boundary suite (RPC-only writes, note-publish authority,
+  tenant/eligibility triggers, meal-image storage visibility, meal-image
+  historical immutability, and audit-log tamper resistance) and the lifecycle
+  security suite (deactivation proven against a live token, archival refusals,
+  guardian revocation, and no password material anywhere in Audit)
+- `pnpm test:e2e` — 14 specs / **98** tests, 0 failed, 0 skipped, 0 flaky
+  (`login.roles` runs once per role, so it contributes 10). Executed by
+  `.github/workflows/e2e-local-supabase.yml` against an ephemeral Supabase
+  stack started on the GitHub runner, because this sandbox blocks
+  `*.supabase.co`. The target is `127.0.0.1`; production is refused outright by
+  the seeder, by `build:e2e` and by the workflow guard
 - Full report: `docs/VERIFICATION_FINAL.md`
   before claiming completion.
