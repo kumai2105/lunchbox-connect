@@ -82,7 +82,23 @@ try {
     await page.getByLabel('Full name', { exact: true }).fill(DISPOSABLE_NAME);
     await page.getByLabel('Email', { exact: true }).fill(DISPOSABLE_EMAIL);
     await page.getByLabel('Password (min 8)', { exact: true }).fill(PASS_OLD);
-    await page.getByLabel('Role', { exact: true }).selectOption('parent');
+    // ROLE: viewer, and the choice is evidence-driven rather than arbitrary.
+    //
+    // This fixture exists only to have its password reset and to sign in. It
+    // needs a role that requires no institution, no kitchen and no linked
+    // child. `viewer` is the one role whose production landing path is ALREADY
+    // PROVEN: prod-browser-auth signs in as the viewer persona against this
+    // exact origin and asserts it settles on a path that is neither / nor
+    // /login (run 32655454452). So `waitForLanded` below cannot produce a false
+    // failure for it.
+    //
+    // It was `parent` first. That was wrong on its own terms — a guardian
+    // account exists so someone can see what their child is served, so a
+    // guardian with nothing linked is a transient provisioning state, not a
+    // fixture to manufacture on purpose. Creating one here would also have
+    // leaned on the finding-13 fix to make the account usable at all, which is
+    // an unnecessary dependency for a test about passwords.
+    await page.getByLabel('Role', { exact: true }).selectOption('viewer');
     await page.getByRole('button', { name: 'Create account', exact: true }).click();
 
     const row = page.locator('tr', { hasText: DISPOSABLE_EMAIL });

@@ -482,7 +482,7 @@ overload; 20 `meal_periods` rows backfilled; security advisors report 0 ERROR.
 
 ---
 
-## 13. A Parent with no linked child was locked inside their own account — CLOSED
+## 13. A guardian account between provisioning and linking was locked inside itself — CLOSED
 
 **Status:** closed 2026-08-23 · `src/pages/parent/ParentShell.tsx`,
 `ParentAccountCards.tsx`
@@ -494,22 +494,35 @@ empty state **and nothing else** — no navigation, no `Outlet`, no route. Every
 Parent-portal test to date had a linked child, so the branch had never been
 exercised by anything but a glance.
 
-Two real people reach that branch: a Parent whose account is created before
-their child is linked (which is the normal provisioning order — the account is
-made on the Users screen, the link on the Guardians screen), and a Parent whose
-guardian link has just been revoked. Both could sign in, and then do nothing at
-all. They could not change their password, and **they could not sign out**,
+**There is no such thing as a childless guardian**, and the product is not
+designed for one — a guardian account exists precisely so that someone can see
+what their child is being served. What this describes is a TRANSIENT STATE, not
+a user type, and it is reached two ways, both ordinary:
+
+- **Between provisioning and linking.** The account is created on the Users
+  screen and the child is linked on the Guardians screen. Two screens, two
+  steps. For the interval between them the account exists with nothing linked —
+  and that interval is the normal provisioning order, not a mistake.
+- **After revocation.** Decision 041 lets a Super Admin end guardian access
+  with a reason. That capability shipped in this very release. The moment it is
+  used, the account is in exactly this state.
+
+Both could sign in, and then do nothing at all. They could not change their password, and **they could not sign out**,
 because the sign-out control lives on the profile screen the shell would not
 render.
 
-Their own account never depended on a child, so it no longer disappears with
-one. The account cards — name, phone, password, sign out — are a component used
+Their own sign-in details never depended on a child, so they no longer
+disappear with one. The empty state is still correct and still shown — being
+unlinked IS the truth for that account — it simply is not the whole screen any
+more. The account cards — name, phone, password, sign out — are a component used
 by both the normal profile and the childless state. The empty state is still
 shown, because it is true; it is simply no longer the whole screen.
 
 Worth recording for what it says about the gate: the new lifecycle spec creates
-a Parent account and then uses it, which is the first time anything had driven
-a Parent with no children. The assertion now also requires the way out to be
+a guardian account and then uses it, which is the first time anything had driven
+that intermediate state at all. Every earlier Parent-portal test started from a
+fixture that already had a child linked, so the branch had never been exercised
+by anything but a glance. The assertion now also requires the way out to be
 present.
 
 ---
