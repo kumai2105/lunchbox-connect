@@ -69,7 +69,13 @@ function must<T>(what: string, res: { data: T | null; error: { message: string }
 test.describe('operational spine', () => {
   test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
   test.setTimeout(180_000);
-  test.describe.configure({ mode: 'serial' });
+  // Serial AND unretried. These tests share one day's state on purpose — the
+  // chain is the subject — so a retry restarts in the middle of a day that has
+  // already been half lived: demand finalised, a manifest built, custody taken.
+  // The retry then fails on something the first attempt did, which is how a
+  // real defect gets reported as "Cannot coerce the result to a single JSON
+  // object" three screens away from its cause.
+  test.describe.configure({ mode: 'serial', retries: 0 });
 
   test.beforeAll(async () => {
     const db = adminDb();
@@ -388,19 +394,30 @@ test.describe('operational spine', () => {
     // made the first one; nothing can be finalised until the rest are made.
     await page.goto('/dietary');
     await settled(page);
-    for (let i = 0; i < 4; i++) {
-      const decide = page.getByRole('button', { name: 'Decide meal', exact: true }).first();
-      if (!(await decide.count())) break;
-      await decide.click();
+    const decisions = page
+      .locator('.card')
+      .filter({ hasText: 'Meal decisions blocking production' });
+    const decideBtn = decisions.getByRole('button', { name: 'Decide meal', exact: true }).first();
+    const nothingOutstanding = decisions.getByText('has a recorded meal decision');
+
+    for (let i = 0; i < 6; i++) {
+      // This screen loads the day's services first and each service's
+      // outstanding decisions second, so the buttons appear a beat after the
+      // spinner clears. Waiting for a button OR the "nothing outstanding" line
+      // is what makes the loop honest — a bare count taken during that gap
+      // reads zero and silently skips work that really is outstanding.
+      await expect(decideBtn.or(nothingOutstanding).first()).toBeVisible({ timeout: 20_000 });
+      if (!(await decideBtn.isVisible())) break;
+      await decideBtn.click();
       await page
         .locator('.modal')
         .getByRole('button', { name: 'Confirm standard meal', exact: true })
         .click();
       await expect(page.locator('.modal')).toHaveCount(0, { timeout: 20_000 });
     }
-    await expect(page.getByRole('button', { name: 'Decide meal' })).toHaveCount(0, {
-      timeout: 20_000,
-    });
+    // A positive statement, not an absence: the screen itself says there is
+    // nothing left to decide.
+    await expect(nothingOutstanding).toBeVisible({ timeout: 20_000 });
 
     // ---- finalise every sitting
     await page.goto('/operations');
