@@ -4,6 +4,7 @@ import { useParentData } from './context';
 import { Avatar, Card, Pill } from '../../components/ui';
 import { Icon } from '../../components/icons';
 import { formatOperationalDate, initials, operationalHour, todayISO } from '../../lib/format';
+import { studentEntitledPeriods } from '../../lib/api';
 import {
   BEHAVIOR_LABEL,
   meanConsumption,
@@ -73,6 +74,34 @@ export default function ParentHome() {
     .filter((d) => d < today)
     .sort((a, b) => (a < b ? 1 : -1))
     .slice(0, 14);
+
+  // HISTORY IS ENTITLEMENT-FILTERED TOO.
+  //
+  // Before Meal Plans the site's published sittings and the child's were the
+  // same list, so a history built from published services was correct by
+  // construction. This release makes that false: a Lunch row on a morning-only
+  // child's history reads exactly like a meal nobody recorded, which is the
+  // thing the whole entitlement model exists to prevent.
+  //
+  // `null` means not known yet — show nothing rather than something wrong.
+  const [pastEntitled, setPastEntitled] = useState<Set<string> | null>(null);
+  const firstPast = pastDays[pastDays.length - 1];
+  const lastPast = pastDays[0];
+
+  useEffect(() => {
+    let active = true;
+    if (!child || !firstPast || !lastPast) {
+      setPastEntitled(new Set());
+      return;
+    }
+    void studentEntitledPeriods(child.id, firstPast, lastPast).then((r) => {
+      if (!active) return;
+      setPastEntitled(new Set((r.data ?? []).map((e) => `${e.service_date}|${e.period}`)));
+    });
+    return () => {
+      active = false;
+    };
+  }, [child, firstPast, lastPast]);
 
   // Overall intake counts only valid, served observations — an upcoming meal
   // or an absence must never be averaged in as a zero (Part 73).
@@ -205,7 +234,11 @@ export default function ParentHome() {
             {pastDays.map((day) => {
               const dayRecs = recordsForDate(records, day);
               const dayMeals = mealsForDate(meals, day);
-              const periods = PERIOD_ORDER.filter((p) => dayMeals[p] || dayRecs[p]);
+              const periods = PERIOD_ORDER.filter(
+                (p) =>
+                  (dayMeals[p] || dayRecs[p]) &&
+                  (pastEntitled === null || pastEntitled.has(`${day}|${p}`) || Boolean(dayRecs[p])),
+              );
               return (
                 <Card key={day}>
                   <div className="history-day">

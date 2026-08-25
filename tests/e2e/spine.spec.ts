@@ -644,9 +644,12 @@ test.describe('operational spine', () => {
     await login(page, seeded().parentEmail);
     await page.goto('/parent');
     await settled(page);
-    await expect(page.getByText('Breakfast').first()).toBeVisible({ timeout: 20_000 });
-    // Lunch is not theirs — and must not be rendered as a missed or pending meal.
-    await expect(page.getByText('Lunch')).toHaveCount(0);
+    // Exactly the two sittings this child receives, named, in order. A bare
+    // getByText('Lunch') would also match the product's own name in the header
+    // — "LunchBox Connect" contains it — so the claim is made against the meal
+    // cards themselves.
+    await expect(page.locator('.today-meal-card')).toHaveCount(2, { timeout: 20_000 });
+    await expect(page.locator('.tmc-period')).toHaveText(['Breakfast', 'Morning snack']);
 
     await db
       .from('student_parents')

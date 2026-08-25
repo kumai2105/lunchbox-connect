@@ -2237,6 +2237,30 @@ export async function serviceRoster(serviceId: string): Promise<ApiResult<Roster
   return { data: (data ?? []) as RosterRow[], error: null };
 }
 
+/**
+ * Which published sittings were this child's, across a range of days.
+ *
+ * One call for the whole range. The Parent portal's history shows up to a
+ * fortnight, and asking per day per sitting would be fifty-odd round trips on
+ * a phone.
+ */
+export async function studentEntitledPeriods(
+  studentId: string,
+  from: string,
+  to: string,
+): Promise<ApiResult<Array<{ service_date: string; period: AppPeriod }>>> {
+  const { data, error } = await supabase.rpc('student_entitled_periods', {
+    p_student: studentId,
+    p_from: from,
+    p_to: to,
+  });
+  if (error) return err(error);
+  return {
+    data: (data ?? []) as Array<{ service_date: string; period: AppPeriod }>,
+    error: null,
+  };
+}
+
 export async function reconciliation(date: string): Promise<ApiResult<ReconciliationRow[]>> {
   const { data, error } = await supabase.rpc('operational_reconciliation', { p_date: date });
   if (error) return err(error);

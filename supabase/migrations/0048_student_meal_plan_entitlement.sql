@@ -682,6 +682,35 @@ create policy student_meal_plans_select on student_meal_plans for select
 revoke all on function save_meal_plan(uuid,text,app_period[])                   from public, anon;
 revoke all on function retire_meal_plan(uuid,boolean)                           from public, anon;
 revoke all on function set_institution_meal_plans(uuid,uuid[])                  from public, anon;
+-- ---------------------------------------------------------------------
+-- WHICH SITTINGS WERE THIS CHILD'S, OVER A RANGE OF DAYS
+--
+-- The Parent portal shows today from entitlement, and it must show the
+-- previous fortnight the same way. Before Meal Plans the two agreed by
+-- construction — every child on a site received every published sitting — so a
+-- history that listed the site's sittings was also the child's. This release
+-- makes that assumption false, and a Lunch row on a morning-only child's
+-- history reads exactly like a meal nobody recorded.
+--
+-- One call for the whole range rather than one per day: the screen shows up to
+-- fourteen days, and asking per day per sitting would be fifty-odd round trips
+-- on a phone.
+-- ---------------------------------------------------------------------
+create or replace function student_entitled_periods(p_student uuid, p_from date, p_to date)
+returns table (service_date date, period app_period)
+language sql stable security definer set search_path = public as $$
+  select ms.service_date, ms.period
+    from students s
+    join meal_services ms
+      on ms.institution_id = s.institution_id
+     and ms.published
+     and ms.service_date between p_from and p_to
+   where s.id = p_student
+     and app_can_see_student(p_student)
+     and app_student_counts_for(s.id, s.institution_id, ms.service_date, ms.period)
+   order by ms.service_date, ms.period;
+$$;
+
 revoke all on function assign_student_meal_plan(uuid,uuid,date,text)            from public, anon;
 revoke all on function end_student_meal_plan(uuid,date,text)                    from public, anon;
 revoke all on function bulk_assign_student_meal_plan(uuid[],uuid,date,text)     from public, anon;
@@ -691,6 +720,7 @@ revoke all on function app_student_plan_on(uuid,date)                           
 revoke all on function app_student_entitled(uuid,date,app_period)               from public, anon;
 revoke all on function app_plan_enforced(uuid,date)                             from public, anon;
 revoke all on function app_student_counts_for(uuid,uuid,date,app_period)        from public, anon;
+revoke all on function student_entitled_periods(uuid,date,date)                 from public, anon;
 
 grant execute on function save_meal_plan(uuid,text,app_period[])               to authenticated;
 grant execute on function retire_meal_plan(uuid,boolean)                       to authenticated;
@@ -704,3 +734,4 @@ grant execute on function app_student_plan_on(uuid,date)                       t
 grant execute on function app_student_entitled(uuid,date,app_period)           to authenticated;
 grant execute on function app_plan_enforced(uuid,date)                         to authenticated;
 grant execute on function app_student_counts_for(uuid,uuid,date,app_period)    to authenticated;
+grant execute on function student_entitled_periods(uuid,date,date)            to authenticated;

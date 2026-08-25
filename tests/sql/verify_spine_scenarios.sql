@@ -71,9 +71,18 @@ begin
            (v_inst,current_date,'snack',(select current_revision_id from meals where id=v_meal),true,now()),
            (v_inst,current_date,'lunch',(select current_revision_id from meals where id=v_meal),true,now()),
            (v_inst,current_date,'afternoon_snack',(select current_revision_id from meals where id=v_meal),true,now());
-  select id into v_svc_b from meal_services where institution_id=v_inst and period='breakfast';
-  select id into v_svc_s from meal_services where institution_id=v_inst and period='snack';
-  select id into v_svc_l from meal_services where institution_id=v_inst and period='lunch';
+  -- A published day in the PAST as well, so the Parent portal's history has
+  -- something real to be right or wrong about.
+  insert into meal_services (institution_id,service_date,period,meal_revision_id,published,published_at)
+    values (v_inst,current_date - 5,'breakfast',(select current_revision_id from meals where id=v_meal),true,now()),
+           (v_inst,current_date - 5,'lunch',(select current_revision_id from meals where id=v_meal),true,now());
+
+  select id into v_svc_b from meal_services
+   where institution_id=v_inst and period='breakfast' and service_date=current_date;
+  select id into v_svc_s from meal_services
+   where institution_id=v_inst and period='snack' and service_date=current_date;
+  select id into v_svc_l from meal_services
+   where institution_id=v_inst and period='lunch' and service_date=current_date;
   select id into v_svc_p from meal_services where institution_id=v_inst and period='afternoon_snack';
 
   set local role authenticated;
@@ -112,6 +121,22 @@ begin
    where student_id=v_stu and effective_until = current_date - 1;
   if n <> 1 then raise exception 'FAIL the previous assignment was not closed cleanly'; end if;
   raise notice 'PASS c2: a Plan change takes effect forward and leaves history truthful';
+
+  -- The Parent portal's history asks this one question for a whole fortnight.
+  -- Five days ago this child held the Morning Plan, so that day's Lunch was
+  -- never theirs — and a history built from the SITE's published sittings would
+  -- show it to their guardian as a meal nobody recorded.
+  select count(*) into n from student_entitled_periods(v_stu, current_date - 5, current_date - 5)
+   where period = 'lunch';
+  if n <> 0 then
+    raise exception 'FAIL a morning-only day projected % Lunch sittings', n;
+  end if;
+  select count(*) into n from student_entitled_periods(v_stu, current_date - 5, current_date - 5)
+   where period = 'breakfast';
+  if n <> 1 then
+    raise exception 'FAIL that day''s Breakfast was theirs and was not projected (%)', n;
+  end if;
+  raise notice 'PASS c3: a past day answers per child, not per site';
 
   -- ============================================ §78 TWO DELIVERY RUNS
   -- Same entitlement, same totals — only the transport grouping differs.
