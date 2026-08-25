@@ -39,6 +39,7 @@ type Ids = {
   fullIds: string[];
   serviceIds: Record<string, string>;
   receiverId: string;
+  staffId: string;
 };
 
 /**
@@ -52,6 +53,15 @@ type Ids = {
 const RECEIVER_EMAIL = `zz.spine.receiver.${stamp}@lunchboxconnect.com`;
 // The receivers table shows a person's NAME, not their address.
 const RECEIVER_NAME = `ZZ Spine Receiver ${stamp}`;
+
+/**
+ * Classroom Staff of THIS institution, for the same reason as the receiver:
+ * class_staff refuses a staff member from another institution (0032/0043), so
+ * the shared fixture's Classroom account cannot be assigned to this spec's
+ * class. It is not a defect — it is the tenant boundary doing its job.
+ */
+const STAFF_EMAIL = `zz.spine.staff.${stamp}@lunchboxconnect.com`;
+const STAFF_NAME = `ZZ Spine Staff ${stamp}`;
 
 let ids: Ids;
 
@@ -195,6 +205,38 @@ test.describe('operational spine', () => {
         .select('user_id'),
     );
 
+    const staffAccount = await db.auth.admin.createUser({
+      email: STAFF_EMAIL,
+      password: PASS,
+      email_confirm: true,
+    });
+    if (staffAccount.error || !staffAccount.data.user) {
+      throw new Error(
+        `fixture: create the Classroom account — ${staffAccount.error?.message ?? 'no user returned'}`,
+      );
+    }
+    const staffId = staffAccount.data.user.id;
+    must<Array<{ user_id: string }>>(
+      'create the Classroom app_users row',
+      await db
+        .from('app_users')
+        .insert({
+          user_id: staffId,
+          role: 'classroom_staff',
+          institution_id: instId,
+          full_name: STAFF_NAME,
+          email: STAFF_EMAIL,
+        })
+        .select('user_id'),
+    );
+    must<Array<{ class_id: string }>>(
+      'assign the Classroom account to this class',
+      await db
+        .from('class_staff')
+        .insert({ class_id: classId, user_id: staffId })
+        .select('class_id'),
+    );
+
     ids = {
       instId,
       classId,
@@ -202,6 +244,7 @@ test.describe('operational spine', () => {
       fullIds: all.filter((s) => s.given_name === 'Full').map((s) => s.id),
       serviceIds,
       receiverId,
+      staffId,
     };
   });
 
@@ -218,8 +261,9 @@ test.describe('operational spine', () => {
     await db.from('institutions').delete().eq('id', ids.instId);
     await db.from('meals').delete().in('name', [STD_MEAL, ALT_MEAL]);
     await db.from('meal_plans').delete().in('name', [MORNING_PLAN, FULL_PLAN]);
-    await db.from('app_users').delete().eq('user_id', ids.receiverId);
+    await db.from('app_users').delete().in('user_id', [ids.receiverId, ids.staffId]);
     await db.auth.admin.deleteUser(ids.receiverId);
+    await db.auth.admin.deleteUser(ids.staffId);
   });
 
   // ------------------------------------------------------------------ plans
@@ -562,23 +606,7 @@ test.describe('operational spine', () => {
   test('the Classroom records only entitled children, and says so about the rest', async ({
     page,
   }) => {
-    const db = adminDb();
-    const staff = must<{ user_id: string }>(
-      'find the seeded Classroom account',
-      await db.from('app_users').select('user_id').eq('email', seeded().classroomEmail).single(),
-    );
-    must<Array<{ class_id: string }>>(
-      'assign the Classroom account to this class',
-      await db
-        .from('class_staff')
-        .upsert(
-          { class_id: ids.classId, user_id: staff.user_id },
-          { onConflict: 'class_id,user_id' },
-        )
-        .select('class_id'),
-    );
-
-    await login(page, seeded().classroomEmail);
+    await login(page, STAFF_EMAIL);
     await page.goto('/today');
     // The register opens on a class, and the chooser is a bare <select> with no
     // label — getByLabel(/Class/) matched nothing, the selection was skipped,
