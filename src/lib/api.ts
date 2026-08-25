@@ -2159,23 +2159,15 @@ export async function manifestsForDate(date: string): Promise<ApiResult<Delivery
 
 /** A Driver's own work. RLS already restricts this; the filter is for clarity. */
 export async function myManifests(date: string): Promise<ApiResult<DeliveryManifest[]>> {
-  const { data, error } = await supabase
-    .from('delivery_manifests')
-    .select('*, institutions(name)')
-    .gte('service_date', date)
-    .order('service_date')
-    .order('run_number');
+  // Through the RPC, not a table read with an embed. A Driver holds no read on
+  // `institutions` — correctly, a delivery assignment is not a reason to browse
+  // the customer list — and PostgREST returns an unreadable embedded row as
+  // null, so the screen said "Institution — run 1" and the Driver could not see
+  // where they were going. my_delivery_manifests() projects the name for their
+  // own manifests only.
+  const { data, error } = await supabase.rpc('my_delivery_manifests', { p_from: date });
   if (error) return err(error);
-  const rows = (data ?? []) as unknown as Array<
-    DeliveryManifest & { institutions: Array<{ name: string }> | { name: string } | null }
-  >;
-  return {
-    data: rows.map(({ institutions, ...r }) => {
-      const rel = Array.isArray(institutions) ? institutions[0] : institutions;
-      return { ...r, institution_name: rel?.name };
-    }),
-    error: null,
-  };
+  return { data: (data ?? []) as DeliveryManifest[], error: null };
 }
 
 export async function manifestLines(manifestId: string): Promise<ApiResult<ManifestLine[]>> {

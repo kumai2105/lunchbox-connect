@@ -583,6 +583,50 @@ drop policy if exists manifest_lines_select on manifest_lines;
 create policy manifest_lines_select on manifest_lines for select
   using (exists (select 1 from delivery_manifests dm where dm.id = manifest_id));
 
+-- ---------------------------------------------------------------------
+-- WHAT THE DRIVER SEES
+--
+-- A Driver holds no read on `institutions` — app_can_see_institution() covers
+-- the Super Admin, the site's own Admin and Classroom Staff, and a Parent of a
+-- child there, and a Driver is none of those. That is correct: a delivery
+-- assignment is not a reason to browse the customer list.
+--
+-- But a Driver does need the NAME of the site they are carrying food to, and a
+-- PostgREST embed cannot give it to them — an unreadable embedded row comes
+-- back as null, so the screen would read "Institution — run 1" and the Driver
+-- would not know where to go.
+--
+-- So the name is projected here, for their own manifests only, by a function
+-- that selects exactly the fields the screen needs. Same principle as
+-- kitchen_special_meals(): the boundary is what is SELECTed, not a widened
+-- policy. Nothing else about the institution becomes visible.
+-- ---------------------------------------------------------------------
+create or replace function my_delivery_manifests(p_from date)
+returns table (
+  id                  uuid,
+  institution_id      uuid,
+  institution_name    text,
+  service_date        date,
+  run_number          smallint,
+  window_from         time,
+  window_to           time,
+  delivery_point      text,
+  state               dispatch_state,
+  driver_user_id      uuid,
+  handover_with_issue boolean,
+  handed_over_at      timestamptz
+)
+language sql stable security definer set search_path = public as $$
+  select m.id, m.institution_id, i.name, m.service_date, m.run_number,
+         m.window_from, m.window_to, m.delivery_point, m.state,
+         m.driver_user_id, m.handover_with_issue, m.handed_over_at
+    from delivery_manifests m
+    join institutions i on i.id = m.institution_id
+   where m.service_date >= p_from
+     and (m.driver_user_id = auth.uid() or app_is_super_admin())
+   order by m.service_date, m.run_number;
+$$;
+
 revoke all on function set_delivery_config(uuid,date,smallint,text,jsonb,jsonb) from public, anon;
 revoke all on function set_delivery_receiver(uuid,uuid,boolean)                 from public, anon;
 revoke all on function app_is_delivery_receiver(uuid)                           from public, anon;
@@ -593,6 +637,7 @@ revoke all on function driver_confirm_collection(uuid)                          
 revoke all on function driver_confirm_arrival(uuid)                             from public, anon;
 revoke all on function confirm_handover(uuid,boolean)                           from public, anon;
 revoke all on function app_service_handed_over(uuid)                            from public, anon;
+revoke all on function my_delivery_manifests(date)                              from public, anon;
 
 grant execute on function set_delivery_config(uuid,date,smallint,text,jsonb,jsonb) to authenticated;
 grant execute on function set_delivery_receiver(uuid,uuid,boolean)                 to authenticated;
@@ -604,3 +649,4 @@ grant execute on function driver_confirm_collection(uuid)                       
 grant execute on function driver_confirm_arrival(uuid)                             to authenticated;
 grant execute on function confirm_handover(uuid,boolean)                           to authenticated;
 grant execute on function app_service_handed_over(uuid)                            to authenticated;
+grant execute on function my_delivery_manifests(date)                              to authenticated;

@@ -316,7 +316,18 @@ begin
   if n <> 0 then raise exception 'FAIL a Driver read % student rows', n; end if;
   select count(*) into n from student_meal_plans;
   if n <> 0 then raise exception 'FAIL a Driver read % Meal Plan assignments', n; end if;
-  raise notice 'PASS b5: a Driver sees only assigned deliveries, and no child data';
+  -- A Driver holds no read on institutions — a delivery assignment is not a
+  -- reason to browse the customer list — so the name of the site they are
+  -- carrying to has to be PROJECTED to them, not embedded. Without this the
+  -- screen reads "Institution — run 1" and the Driver cannot see where to go.
+  select count(*) into n from institutions;
+  if n <> 0 then raise exception 'FAIL a Driver read % institution rows directly', n; end if;
+  select count(*) into n from my_delivery_manifests(current_date)
+   where institution_name is not null;
+  if n <> 2 then
+    raise exception 'FAIL a Driver got % named manifests from my_delivery_manifests (want 2)', n;
+  end if;
+  raise notice 'PASS b5: a Driver sees only assigned deliveries, named, and no child data';
 
   -- Parent: own child only, and no logistics at all.
   perform set_config('request.jwt.claims',
