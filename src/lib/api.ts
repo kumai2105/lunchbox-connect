@@ -32,6 +32,29 @@ import {
   type ServingRecord,
   type Student,
   type StudentParentLink,
+  // ---- operational spine (0048–0053)
+  type DeliveryConfig,
+  type DeliveryManifest,
+  type DemandDriftRow,
+  type DemandRow,
+  type DietaryRequirement,
+  type DietaryRequirementType,
+  type DietaryReviewStatus,
+  type FinalDemand,
+  type IssueStatus,
+  type KitchenSpecialMeal,
+  type ManifestLine,
+  type MealPlan,
+  type OperationalIssue,
+  type OperationalStage,
+  type PlanReadinessRow,
+  type ProductionRun,
+  type ReconciliationRow,
+  type RosterRow,
+  type SpecialLine,
+  type SpecialMealResolutionKind,
+  type StudentMealPlan,
+  type UnresolvedDecision,
 } from './types';
 
 export type ApiResult<T> = { data: T | null; error: string | null };
@@ -1666,4 +1689,601 @@ export async function revokeGuardianAccess(
   });
   if (error) return err(error);
   return { data: null, error: null };
+}
+
+// =====================================================================
+// OPERATIONAL SPINE
+//
+// Every write below goes through a SECURITY DEFINER rpc rather than a direct
+// table write. That is not ceremony: the authority check, the validation and
+// the audit row live together inside those functions, so there is no way to
+// perform one without the others — including from a console.
+// =====================================================================
+
+// ------------------------------------------------------------- meal plans
+export async function listMealPlans(): Promise<ApiResult<MealPlan[]>> {
+  const { data, error } = await supabase
+    .from('meal_plans')
+    .select('id, name, active, meal_plan_periods(period)')
+    .order('name');
+  if (error) return err(error);
+  const rows = (data ?? []) as unknown as Array<{
+    id: string;
+    name: string;
+    active: boolean;
+    meal_plan_periods: Array<{ period: AppPeriod }> | null;
+  }>;
+  return {
+    data: rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      active: r.active,
+      periods: (r.meal_plan_periods ?? []).map((p) => p.period),
+    })),
+    error: null,
+  };
+}
+
+export async function saveMealPlan(input: {
+  id?: string | null;
+  name: string;
+  periods: AppPeriod[];
+}): Promise<ApiResult<string>> {
+  const { data, error } = await supabase.rpc('save_meal_plan', {
+    p_plan_id: input.id ?? null,
+    p_name: input.name,
+    p_periods: input.periods,
+  });
+  if (error) return err(error);
+  return { data: data as string, error: null };
+}
+
+export async function retireMealPlan(id: string, active: boolean): Promise<ApiResult<null>> {
+  const { error } = await supabase.rpc('retire_meal_plan', { p_plan: id, p_active: active });
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+export async function institutionMealPlans(institutionId: string): Promise<ApiResult<string[]>> {
+  const { data, error } = await supabase
+    .from('institution_meal_plans')
+    .select('meal_plan_id')
+    .eq('institution_id', institutionId);
+  if (error) return err(error);
+  return { data: (data ?? []).map((r) => (r as { meal_plan_id: string }).meal_plan_id), error: null };
+}
+
+export async function setInstitutionMealPlans(
+  institutionId: string,
+  planIds: string[],
+): Promise<ApiResult<null>> {
+  const { error } = await supabase.rpc('set_institution_meal_plans', {
+    p_inst: institutionId,
+    p_plans: planIds,
+  });
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+// -------------------------------------------------------- student plans
+export async function studentMealPlans(studentId: string): Promise<ApiResult<StudentMealPlan[]>> {
+  const { data, error } = await supabase
+    .from('student_meal_plans')
+    .select('id, student_id, meal_plan_id, effective_from, effective_until, note, meal_plans(name)')
+    .eq('student_id', studentId)
+    .order('effective_from', { ascending: false });
+  if (error) return err(error);
+  const rows = (data ?? []) as unknown as Array<
+    StudentMealPlan & { meal_plans: Array<{ name: string }> | { name: string } | null }
+  >;
+  return {
+    data: rows.map(({ meal_plans, ...r }) => {
+      const rel = Array.isArray(meal_plans) ? meal_plans[0] : meal_plans;
+      return { ...r, meal_plan_name: rel?.name };
+    }),
+    error: null,
+  };
+}
+
+/** Every child's current plan for a whole institution, for the roster screen. */
+export async function currentPlansForInstitution(
+  institutionId: string,
+  onDate: string,
+): Promise<ApiResult<Record<string, { planId: string; planName: string }>>> {
+  const { data, error } = await supabase
+    .from('student_meal_plans')
+    .select('student_id, meal_plan_id, effective_from, effective_until, meal_plans(name), students!inner(institution_id)')
+    .eq('students.institution_id', institutionId)
+    .lte('effective_from', onDate);
+  if (error) return err(error);
+  // PostgREST returns an embedded relation as an ARRAY even for a to-one join,
+  // so it is read as one rather than cast to an object that never arrives.
+  const out: Record<string, { planId: string; planName: string }> = {};
+  for (const raw of (data ?? []) as unknown as Array<{
+    student_id: string;
+    meal_plan_id: string;
+    effective_until: string | null;
+    meal_plans: Array<{ name: string }> | { name: string } | null;
+  }>) {
+    if (raw.effective_until && raw.effective_until < onDate) continue;
+    const rel = Array.isArray(raw.meal_plans) ? raw.meal_plans[0] : raw.meal_plans;
+    out[raw.student_id] = { planId: raw.meal_plan_id, planName: rel?.name ?? '—' };
+  }
+  return { data: out, error: null };
+}
+
+export async function assignStudentMealPlan(input: {
+  studentId: string;
+  planId: string;
+  from: string;
+  note?: string | null;
+}): Promise<ApiResult<string>> {
+  const { data, error } = await supabase.rpc('assign_student_meal_plan', {
+    p_student: input.studentId,
+    p_plan: input.planId,
+    p_from: input.from,
+    p_note: input.note?.trim() || null,
+  });
+  if (error) return err(error);
+  return { data: data as string, error: null };
+}
+
+export async function endStudentMealPlan(
+  assignmentId: string,
+  until: string,
+  reason?: string | null,
+): Promise<ApiResult<null>> {
+  const { error } = await supabase.rpc('end_student_meal_plan', {
+    p_assignment: assignmentId,
+    p_until: until,
+    p_reason: reason?.trim() || null,
+  });
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+/**
+ * Bulk assignment is atomic in the database: the rpc raises if ANY student is
+ * refused, which rolls the whole call back. There is deliberately no partial
+ * success path — a roster half-assigned is worse than one not assigned.
+ */
+export async function bulkAssignStudentMealPlan(input: {
+  studentIds: string[];
+  planId: string;
+  from: string;
+  note?: string | null;
+}): Promise<ApiResult<number>> {
+  const { data, error } = await supabase.rpc('bulk_assign_student_meal_plan', {
+    p_students: input.studentIds,
+    p_plan: input.planId,
+    p_from: input.from,
+    p_note: input.note?.trim() || null,
+  });
+  if (error) return err(error);
+  return { data: data as number, error: null };
+}
+
+export async function planReadiness(
+  institutionId: string,
+  from: string,
+): Promise<ApiResult<PlanReadinessRow[]>> {
+  const { data, error } = await supabase.rpc('institution_plan_readiness', {
+    p_inst: institutionId,
+    p_from: from,
+  });
+  if (error) return err(error);
+  return { data: (data ?? []) as PlanReadinessRow[], error: null };
+}
+
+export async function activateStudentMealPlans(
+  institutionId: string,
+  from: string,
+): Promise<ApiResult<null>> {
+  const { error } = await supabase.rpc('activate_student_meal_plans', {
+    p_inst: institutionId,
+    p_from: from,
+  });
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+// ---------------------------------------------------------- dietary
+export async function dietaryForStudent(
+  studentId: string,
+): Promise<ApiResult<DietaryRequirement[]>> {
+  const { data, error } = await supabase
+    .from('student_dietary_requirements')
+    .select('*')
+    .eq('student_id', studentId)
+    .order('submitted_at', { ascending: false });
+  if (error) return err(error);
+  return { data: (data ?? []) as DietaryRequirement[], error: null };
+}
+
+export async function dietaryReviewQueue(): Promise<ApiResult<DietaryRequirement[]>> {
+  const { data, error } = await supabase
+    .from('student_dietary_requirements')
+    .select('*')
+    .in('review_status', ['SUBMITTED', 'NEEDS_CLARIFICATION'])
+    .order('submitted_at');
+  if (error) return err(error);
+  return { data: (data ?? []) as DietaryRequirement[], error: null };
+}
+
+export async function submitDietaryRequirement(input: {
+  studentId: string;
+  type: DietaryRequirementType;
+  text: string;
+  source?: string | null;
+  from?: string | null;
+}): Promise<ApiResult<string>> {
+  const { data, error } = await supabase.rpc('submit_dietary_requirement', {
+    p_student: input.studentId,
+    p_type: input.type,
+    p_text: input.text,
+    p_source: input.source?.trim() || null,
+    p_from: input.from ?? null,
+  });
+  if (error) return err(error);
+  return { data: data as string, error: null };
+}
+
+export async function reviewDietaryRequirement(
+  id: string,
+  status: DietaryReviewStatus,
+  note?: string | null,
+): Promise<ApiResult<null>> {
+  const { error } = await supabase.rpc('review_dietary_requirement', {
+    p_id: id,
+    p_status: status,
+    p_note: note?.trim() || null,
+  });
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+export async function endDietaryRequirement(
+  id: string,
+  reason?: string | null,
+): Promise<ApiResult<null>> {
+  const { error } = await supabase.rpc('end_dietary_requirement', {
+    p_id: id,
+    p_reason: reason?.trim() || null,
+  });
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+export async function unresolvedDecisions(
+  serviceId: string,
+): Promise<ApiResult<UnresolvedDecision[]>> {
+  const { data, error } = await supabase.rpc('unresolved_meal_decisions', { p_service: serviceId });
+  if (error) return err(error);
+  return { data: (data ?? []) as UnresolvedDecision[], error: null };
+}
+
+export async function resolveSpecialMeal(input: {
+  studentId: string;
+  serviceId: string;
+  kind: SpecialMealResolutionKind;
+  revisionId?: string | null;
+  prepNote?: string | null;
+}): Promise<ApiResult<string>> {
+  const { data, error } = await supabase.rpc('resolve_special_meal', {
+    p_student: input.studentId,
+    p_service: input.serviceId,
+    p_kind: input.kind,
+    p_revision: input.revisionId ?? null,
+    p_prep_note: input.prepNote?.trim() || null,
+  });
+  if (error) return err(error);
+  return { data: data as string, error: null };
+}
+
+// ------------------------------------------------------------- demand
+export async function demandForDate(date: string): Promise<ApiResult<DemandRow[]>> {
+  const { data, error } = await supabase.rpc('meal_production_demand', { p_date: date });
+  if (error) return err(error);
+  return { data: (data ?? []) as DemandRow[], error: null };
+}
+
+export async function finalDemandForDate(date: string): Promise<ApiResult<FinalDemand[]>> {
+  const { data, error } = await supabase
+    .from('final_demand')
+    .select('*')
+    .eq('service_date', date)
+    .is('superseded_at', null)
+    .order('period');
+  if (error) return err(error);
+  return { data: (data ?? []) as FinalDemand[], error: null };
+}
+
+export async function finalizeDemand(serviceId: string): Promise<ApiResult<string>> {
+  const { data, error } = await supabase.rpc('finalize_demand', { p_service: serviceId });
+  if (error) return err(error);
+  return { data: data as string, error: null };
+}
+
+export async function demandDrift(date: string): Promise<ApiResult<DemandDriftRow[]>> {
+  const { data, error } = await supabase.rpc('demand_drift', { p_date: date });
+  if (error) return err(error);
+  return { data: (data ?? []) as DemandDriftRow[], error: null };
+}
+
+export async function adjustFinalDemand(id: string, reason: string): Promise<ApiResult<string>> {
+  const { data, error } = await supabase.rpc('adjust_final_demand', {
+    p_final: id,
+    p_reason: reason,
+  });
+  if (error) return err(error);
+  return { data: data as string, error: null };
+}
+
+export async function keepFinalDemand(id: string, reason: string): Promise<ApiResult<null>> {
+  const { error } = await supabase.rpc('keep_final_demand', { p_final: id, p_reason: reason });
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+export async function specialLines(finalDemandIds: string[]): Promise<ApiResult<SpecialLine[]>> {
+  if (!finalDemandIds.length) return { data: [], error: null };
+  const { data, error } = await supabase
+    .from('final_demand_special_lines')
+    .select('*')
+    .in('final_demand_id', finalDemandIds);
+  if (error) return err(error);
+  return { data: (data ?? []) as SpecialLine[], error: null };
+}
+
+// --------------------------------------------------- production / packing
+export async function productionRuns(
+  finalDemandIds: string[],
+): Promise<ApiResult<ProductionRun[]>> {
+  if (!finalDemandIds.length) return { data: [], error: null };
+  const { data, error } = await supabase
+    .from('production_runs')
+    .select('*')
+    .in('final_demand_id', finalDemandIds);
+  if (error) return err(error);
+  return { data: (data ?? []) as ProductionRun[], error: null };
+}
+
+async function callVoid(fn: string, args: Record<string, unknown>): Promise<ApiResult<null>> {
+  const { error } = await supabase.rpc(fn, args);
+  if (error) return err(error);
+  return { data: null, error: null };
+}
+
+export const startProduction = (id: string) => callVoid('start_production', { p_final: id });
+export const completeProduction = (id: string) => callVoid('complete_production', { p_final: id });
+export const startPacking = (id: string) => callVoid('start_packing', { p_final: id });
+export const completePacking = (id: string) => callVoid('complete_packing', { p_final: id });
+export const confirmSpecialProduced = (id: string) =>
+  callVoid('confirm_special_produced', { p_line: id });
+export const confirmSpecialPacked = (id: string) =>
+  callVoid('confirm_special_packed', { p_line: id });
+
+export async function kitchenSpecialMeals(date: string): Promise<ApiResult<KitchenSpecialMeal[]>> {
+  const { data, error } = await supabase.rpc('kitchen_special_meals', { p_date: date });
+  if (error) return err(error);
+  return { data: (data ?? []) as KitchenSpecialMeal[], error: null };
+}
+
+// ------------------------------------------------------------ delivery
+export async function deliveryConfigs(
+  institutionId: string,
+): Promise<ApiResult<DeliveryConfig[]>> {
+  const { data, error } = await supabase
+    .from('institution_delivery_configs')
+    .select('*')
+    .eq('institution_id', institutionId)
+    .order('effective_from', { ascending: false });
+  if (error) return err(error);
+  return { data: (data ?? []) as DeliveryConfig[], error: null };
+}
+
+export async function setDeliveryConfig(input: {
+  institutionId: string;
+  from: string;
+  runCount: number;
+  deliveryPoint: string;
+  windows: Array<{ run: number; from: string; to: string }>;
+  periodRuns: Record<string, number>;
+}): Promise<ApiResult<string>> {
+  const { data, error } = await supabase.rpc('set_delivery_config', {
+    p_inst: input.institutionId,
+    p_from: input.from,
+    p_run_count: input.runCount,
+    p_delivery_point: input.deliveryPoint,
+    p_windows: input.windows,
+    p_period_runs: input.periodRuns,
+  });
+  if (error) return err(error);
+  return { data: data as string, error: null };
+}
+
+export async function deliveryReceivers(institutionId: string): Promise<ApiResult<string[]>> {
+  const { data, error } = await supabase
+    .from('delivery_receivers')
+    .select('user_id')
+    .eq('institution_id', institutionId);
+  if (error) return err(error);
+  return { data: (data ?? []).map((r) => (r as { user_id: string }).user_id), error: null };
+}
+
+export async function setDeliveryReceiver(
+  institutionId: string,
+  userId: string,
+  authorized: boolean,
+): Promise<ApiResult<null>> {
+  return callVoid('set_delivery_receiver', {
+    p_inst: institutionId,
+    p_user: userId,
+    p_authorized: authorized,
+  });
+}
+
+export async function buildManifests(
+  institutionId: string,
+  date: string,
+): Promise<ApiResult<number>> {
+  const { data, error } = await supabase.rpc('build_manifests', {
+    p_inst: institutionId,
+    p_date: date,
+  });
+  if (error) return err(error);
+  return { data: data as number, error: null };
+}
+
+export async function manifestsForDate(date: string): Promise<ApiResult<DeliveryManifest[]>> {
+  const { data, error } = await supabase
+    .from('delivery_manifests')
+    .select('*, institutions(name)')
+    .eq('service_date', date)
+    .order('run_number');
+  if (error) return err(error);
+  const rows = (data ?? []) as unknown as Array<
+    DeliveryManifest & { institutions: Array<{ name: string }> | { name: string } | null }
+  >;
+  return {
+    data: rows.map(({ institutions, ...r }) => {
+      const rel = Array.isArray(institutions) ? institutions[0] : institutions;
+      return { ...r, institution_name: rel?.name };
+    }),
+    error: null,
+  };
+}
+
+/** A Driver's own work. RLS already restricts this; the filter is for clarity. */
+export async function myManifests(date: string): Promise<ApiResult<DeliveryManifest[]>> {
+  const { data, error } = await supabase
+    .from('delivery_manifests')
+    .select('*, institutions(name)')
+    .gte('service_date', date)
+    .order('service_date')
+    .order('run_number');
+  if (error) return err(error);
+  const rows = (data ?? []) as unknown as Array<
+    DeliveryManifest & { institutions: Array<{ name: string }> | { name: string } | null }
+  >;
+  return {
+    data: rows.map(({ institutions, ...r }) => {
+      const rel = Array.isArray(institutions) ? institutions[0] : institutions;
+      return { ...r, institution_name: rel?.name };
+    }),
+    error: null,
+  };
+}
+
+export async function manifestLines(manifestId: string): Promise<ApiResult<ManifestLine[]>> {
+  const { data, error } = await supabase
+    .from('manifest_lines')
+    .select('*')
+    .eq('manifest_id', manifestId)
+    .order('period');
+  if (error) return err(error);
+  return { data: (data ?? []) as ManifestLine[], error: null };
+}
+
+export const assignManifestDriver = (manifestId: string, driverId: string) =>
+  callVoid('assign_manifest_driver', { p_manifest: manifestId, p_driver: driverId });
+export const releaseManifest = (id: string) => callVoid('release_manifest', { p_manifest: id });
+export const driverConfirmCollection = (id: string) =>
+  callVoid('driver_confirm_collection', { p_manifest: id });
+export const driverConfirmArrival = (id: string) =>
+  callVoid('driver_confirm_arrival', { p_manifest: id });
+export const confirmHandover = (id: string, withIssue = false) =>
+  callVoid('confirm_handover', { p_manifest: id, p_with_issue: withIssue });
+
+// -------------------------------------------------------------- issues
+export async function listIssues(date?: string): Promise<ApiResult<OperationalIssue[]>> {
+  let q = supabase.from('operational_issues').select('*').order('raised_at', { ascending: false });
+  if (date) q = q.eq('service_date', date);
+  const { data, error } = await q;
+  if (error) return err(error);
+  return { data: (data ?? []) as OperationalIssue[], error: null };
+}
+
+export async function reportIssue(input: {
+  stage: OperationalStage;
+  category: string;
+  description: string;
+  institutionId?: string | null;
+  date?: string | null;
+  finalDemandId?: string | null;
+  manifestId?: string | null;
+  specialLineId?: string | null;
+}): Promise<ApiResult<string>> {
+  const { data, error } = await supabase.rpc('report_operational_issue', {
+    p_stage: input.stage,
+    p_category: input.category,
+    p_description: input.description,
+    p_institution: input.institutionId ?? null,
+    p_date: input.date ?? null,
+    p_final: input.finalDemandId ?? null,
+    p_manifest: input.manifestId ?? null,
+    p_special_line: input.specialLineId ?? null,
+  });
+  if (error) return err(error);
+  return { data: data as string, error: null };
+}
+
+export const advanceIssue = (id: string, status: IssueStatus, resolution?: string | null) =>
+  callVoid('advance_operational_issue', {
+    p_id: id,
+    p_status: status,
+    p_resolution: resolution?.trim() || null,
+  });
+
+// --------------------------------------------- roster / reconciliation
+export async function serviceRoster(serviceId: string): Promise<ApiResult<RosterRow[]>> {
+  const { data, error } = await supabase.rpc('service_roster', { p_service: serviceId });
+  if (error) return err(error);
+  return { data: (data ?? []) as RosterRow[], error: null };
+}
+
+export async function reconciliation(date: string): Promise<ApiResult<ReconciliationRow[]>> {
+  const { data, error } = await supabase.rpc('operational_reconciliation', { p_date: date });
+  if (error) return err(error);
+  return { data: (data ?? []) as ReconciliationRow[], error: null };
+}
+
+export async function classroomCompletion(date: string): Promise<
+  ApiResult<Array<{ institution_id: string; institution_name: string; period: AppPeriod; entitled: number; recorded: number }>>
+> {
+  const { data, error } = await supabase.rpc('classroom_completion', { p_date: date });
+  if (error) return err(error);
+  return {
+    data: (data ?? []) as Array<{
+      institution_id: string;
+      institution_name: string;
+      period: AppPeriod;
+      entitled: number;
+      recorded: number;
+    }>,
+    error: null,
+  };
+}
+
+export async function closeOperationalDay(
+  date: string,
+  note?: string | null,
+): Promise<ApiResult<null>> {
+  return callVoid('close_operational_day', { p_date: date, p_note: note?.trim() || null });
+}
+
+export async function correctOperationalRecord(input: {
+  entity: string;
+  id: string;
+  field: string;
+  value: string;
+  reason: string;
+}): Promise<ApiResult<null>> {
+  return callVoid('correct_operational_record', {
+    p_entity: input.entity,
+    p_id: input.id,
+    p_field: input.field,
+    p_value: input.value,
+    p_reason: input.reason,
+  });
 }

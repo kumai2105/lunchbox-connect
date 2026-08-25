@@ -44,6 +44,10 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
     { page: 'analytics', label: 'Meal analytics', icon: 'barChart' },
     { page: 'today', label: 'Serving (Today)', icon: 'sun' },
     { page: 'review', label: 'Parent-safe updates', icon: 'checkCircle' },
+    { page: 'mealplans', path: 'meal-plans', label: 'Meal Plans', icon: 'clipboardList' },
+    { page: 'dietary', label: 'Dietary review', icon: 'heart' },
+    { page: 'operations', label: 'Operations', icon: 'wrench' },
+    { page: 'delivery', label: 'Delivery setup', icon: 'truck' },
     { page: 'kitchen', label: 'Kitchen production', icon: 'flame' },
     { page: 'deliveries', label: 'Deliveries', icon: 'truck', shell: true },
     { page: 'reports', label: 'Reporting', icon: 'barChart', shell: true },
@@ -56,6 +60,7 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
     { page: 'schedule', label: 'Published menu', icon: 'utensils' },
     { page: 'classes', label: 'Classes', icon: 'folder' },
     { page: 'staff', label: 'Staff', icon: 'user' },
+    { page: 'handover', label: "Today's delivery", icon: 'truck' },
     // §3/§4: Classroom recording and note publication by a Nursery Admin are
     // NOT_YET_DEFINED, so Today (serving) and Parent-safe updates are not in the
     // Nursery Admin nav.
@@ -76,9 +81,16 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
   classroom_staff: [
     { page: 'today', label: 'Today — serving', icon: 'sun' },
     { page: 'students', label: 'My students', icon: 'users' },
+    // Shown to every Classroom Staff member, but the screen itself refuses the
+    // handover unless this person is an authorised receiver for the site —
+    // and the database refuses it too, which is the boundary that counts.
+    { page: 'handover', label: "Today's delivery", icon: 'truck' },
   ],
   kitchen: [{ page: 'kitchen', label: 'Production demand', icon: 'flame' }],
-  driver: [{ page: 'deliveries', label: 'My deliveries', icon: 'truck', shell: true }],
+  // The Driver's entry stops being a shell in this release: assigned Manifests,
+  // Confirm collection and Arrived at institution are real, and RLS restricts
+  // the rows to that Driver's own work.
+  driver: [{ page: 'mydeliveries', path: 'my-deliveries', label: 'My deliveries', icon: 'truck' }],
 };
 
 /**

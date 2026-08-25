@@ -30,6 +30,13 @@ export type Resource =
   | 'absences'
   | 'audit'
   | 'account'
+  // ---- operational spine (0048–0053)
+  | 'mealplans'
+  | 'dietary'
+  | 'operations'
+  | 'delivery'
+  | 'mydeliveries'
+  | 'handover'
   | 'parent';
 
 export type Action = 'view' | 'create' | 'update' | 'delete' | 'publish' | 'record' | 'set';
@@ -154,6 +161,65 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
     driver: ['view', 'update'],
   },
   parent: { super_admin: ['view'], parent: ['view'] },
+
+  // =====================================================================
+  // OPERATIONAL SPINE
+  //
+  // Each entry is the authority the DATABASE already enforces, restated so the
+  // interface offers exactly what the caller can actually do. Where they would
+  // disagree, the database wins — these control what is OFFERED, never what is
+  // permitted.
+  // =====================================================================
+
+  // Meal Plan definitions are LunchBox's. An Institution Admin reads the Plans
+  // available to it (and each child's current Plan) but never authors one, and
+  // never changes a child's entitlement — that is production and, later,
+  // commercial truth.
+  mealplans: {
+    super_admin: ['view', 'create', 'update', 'delete'],
+    school_admin: ['view'],
+  },
+
+  // The Institution SUBMITS a requirement for its own child; LunchBox reviews
+  // it. Submission is not approval, so school_admin gets 'create' and 'view'
+  // and nothing else. The Kitchen appears nowhere here: it produces what it is
+  // told to produce and approves nothing.
+  dietary: {
+    super_admin: ['view', 'create', 'update'],
+    school_admin: ['view', 'create'],
+  },
+
+  // Demand, finalisation, production and packing. Institution access to Kitchen
+  // production planning remains NOT_YET_DEFINED and is therefore denied, exactly
+  // as 0036 decided for the demand function itself.
+  operations: {
+    super_admin: ['view', 'create', 'update', 'publish'],
+    kitchen: ['view', 'update'],
+  },
+
+  // Delivery configuration is set by LunchBox and read by the site it governs.
+  delivery: {
+    super_admin: ['view', 'create', 'update'],
+    kitchen: ['view'],
+    school_admin: ['view'],
+  },
+
+  // A Driver's own assigned work. Deliberately its own resource rather than a
+  // wider 'deliveries' grant, so it cannot drift into meaning anything else.
+  mydeliveries: {
+    super_admin: ['view'],
+    driver: ['view', 'update'],
+  },
+
+  // Receiving a delivery. Classroom Staff appear because an Institution may
+  // deliberately authorise one as a receiver — but the CAPABILITY is checked in
+  // the database (app_is_delivery_receiver), not inferred from the role. This
+  // entry only decides whether the screen is reachable at all.
+  handover: {
+    super_admin: ['view', 'update'],
+    school_admin: ['view', 'update'],
+    classroom_staff: ['view', 'update'],
+  },
 };
 
 export function can(role: AppRole | null | undefined, resource: Resource, action: Action): boolean {

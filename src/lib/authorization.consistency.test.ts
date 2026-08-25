@@ -177,8 +177,13 @@ describe('authorization consistency: nav vs rbac matrix', () => {
     // navigation is `shell: true` has no product behind it, so creating such
     // an account hands somebody a sign-in that leads to "not built yet".
     const offerable = provisionableRoles().sort();
+    // `driver` joined this list in the operational-spine release, and it joined
+    // it the right way round: the Driver navigation stopped being a shell when
+    // My deliveries became a real screen with real actions (assigned manifests,
+    // Confirm collection, Arrived at institution). The rule did not change —
+    // the product did, and the derived list moved with it.
     expect(offerable).toEqual(
-      ['classroom_staff', 'kitchen', 'parent', 'school_admin', 'super_admin'].sort(),
+      ['classroom_staff', 'driver', 'kitchen', 'parent', 'school_admin', 'super_admin'].sort(),
     );
     // And the withdrawal is derived, not hard-coded: each excluded role is
     // excluded BECAUSE every one of its nav entries is a shell.

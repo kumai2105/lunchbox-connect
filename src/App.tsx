@@ -34,6 +34,13 @@ import DeliveriesPage from './pages/DeliveriesPage';
 import ReportsPage from './pages/ReportsPage';
 import OpsPage from './pages/OpsPage';
 import AbsencesPage from './pages/AbsencesPage';
+// ---- operational spine
+import MealPlansPage from './pages/MealPlansPage';
+import DietaryPage from './pages/DietaryPage';
+import OperationsPage from './pages/OperationsPage';
+import DeliverySetupPage from './pages/DeliverySetupPage';
+import DriverPage from './pages/DriverPage';
+import HandoverPage from './pages/HandoverPage';
 
 /**
  * Where a role belongs when it has nowhere specific to be.
@@ -256,6 +263,58 @@ export default function App() {
               element={
                 <Page page="kitchen">
                   <KitchenPage />
+                </Page>
+              }
+            />
+            {/* Operational spine. Each path matches its NavItem `path` (or its
+                resource id where they are the same), because a sidebar link
+                that points at a route App.tsx never declares is a dead link —
+                the catch-all silently bounces it to the dashboard. */}
+            <Route
+              path="/meal-plans"
+              element={
+                <Page page="mealplans">
+                  <MealPlansPage />
+                </Page>
+              }
+            />
+            <Route
+              path="/dietary"
+              element={
+                <Page page="dietary">
+                  <DietaryPage />
+                </Page>
+              }
+            />
+            <Route
+              path="/operations"
+              element={
+                <Page page="operations">
+                  <OperationsPage />
+                </Page>
+              }
+            />
+            <Route
+              path="/delivery"
+              element={
+                <Page page="delivery">
+                  <DeliverySetupPage />
+                </Page>
+              }
+            />
+            <Route
+              path="/my-deliveries"
+              element={
+                <Page page="mydeliveries">
+                  <DriverPage />
+                </Page>
+              }
+            />
+            <Route
+              path="/handover"
+              element={
+                <Page page="handover">
+                  <HandoverPage />
                 </Page>
               }
             />

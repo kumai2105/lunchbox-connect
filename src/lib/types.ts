@@ -49,6 +49,13 @@ export interface Institution {
   archived_at: string | null;
   archived_by: string | null;
   archived_reason: string | null;
+  /**
+   * Student Meal Plan enforcement boundary (migration 0048). NULL means this
+   * site has NOT been switched over and its production demand keeps its exact
+   * pre-0048 meaning. A date means entitlement governs on and after it.
+   */
+  student_plan_enforced_from?: string | null;
+  student_plan_activated_at?: string | null;
 }
 
 // LunchBox Connect operational entity (docs/13 Decision 031) — not owned by
@@ -325,4 +332,247 @@ export interface MealInput {
    * deliberately different, and save_meal treats them that way.
    */
   periods?: AppPeriod[];
+}
+
+// =====================================================================
+// OPERATIONAL SPINE — Student Meal Plan entitlement through to handover.
+//
+// These mirror the 0048–0053 contracts. `AppPeriod` is reused deliberately:
+// a Meal Plan selects a subset of the EXISTING sittings and introduces no new
+// period type.
+// =====================================================================
+
+export interface MealPlan {
+  id: string;
+  name: string;
+  active: boolean;
+  periods: AppPeriod[];
+}
+
+/** Effective-dated entitlement for one child. `effective_until` is inclusive. */
+export interface StudentMealPlan {
+  id: string;
+  student_id: string;
+  meal_plan_id: string;
+  meal_plan_name?: string;
+  effective_from: string;
+  effective_until: string | null;
+  note: string | null;
+}
+
+/** A child who cannot be served yet, and the reason in words an operator can act on. */
+export interface PlanReadinessRow {
+  student_id: string;
+  student_no: string;
+  student_name: string;
+  class_name: string | null;
+  problem: string;
+}
+
+export type DietaryRequirementType =
+  | 'ALLERGY'
+  | 'DIETARY_RESTRICTION'
+  | 'OTHER_MEAL_REQUIREMENT';
+
+export type DietaryReviewStatus =
+  | 'SUBMITTED'
+  | 'APPROVED'
+  | 'NEEDS_CLARIFICATION'
+  | 'REJECTED'
+  | 'ENDED';
+
+export interface DietaryRequirement {
+  id: string;
+  student_id: string;
+  requirement_type: DietaryRequirementType;
+  requirement_text: string;
+  source: string | null;
+  effective_from: string;
+  effective_until: string | null;
+  review_status: DietaryReviewStatus;
+  review_note: string | null;
+  submitted_at: string;
+  reviewed_at: string | null;
+}
+
+export type SpecialMealResolutionKind = 'STANDARD_CONFIRMED' | 'ALTERNATIVE_ASSIGNED';
+
+export interface UnresolvedDecision {
+  student_id: string;
+  student_no: string;
+  student_name: string;
+  requirement_type: DietaryRequirementType;
+  requirement_text: string;
+}
+
+/**
+ * Live demand. `total_required` is ALWAYS `standard_required + special_required`
+ * — a special Meal replaces a standard one rather than adding to it.
+ */
+export interface DemandRow {
+  institution_id: string;
+  institution_name: string;
+  meal_service_id: string;
+  period: AppPeriod;
+  meal_revision_id: string | null;
+  meal_name: string | null;
+  eligible_students: number;
+  safety_note_flagged: number;
+  standard_required: number;
+  special_required: number;
+  total_required: number;
+  unresolved_decisions: number;
+  plan_enforced: boolean;
+}
+
+export interface FinalDemand {
+  id: string;
+  institution_id: string;
+  service_date: string;
+  period: AppPeriod;
+  meal_service_id: string;
+  meal_revision_id: string | null;
+  entitled_students: number;
+  standard_quantity: number;
+  special_quantity: number;
+  total_quantity: number;
+  plan_enforced: boolean;
+  finalized_at: string;
+  superseded_at: string | null;
+}
+
+export interface SpecialLine {
+  id: string;
+  final_demand_id: string;
+  student_id: string;
+  meal_revision_id: string;
+  reference: string;
+  prep_note: string | null;
+  produced_at: string | null;
+  packed_at: string | null;
+}
+
+export interface DemandDriftRow {
+  final_demand_id: string;
+  institution_name: string;
+  period: AppPeriod;
+  meal_name: string | null;
+  finalized_total: number;
+  recalculated_total: number;
+  finalized_standard: number;
+  recalculated_standard: number;
+  finalized_special: number;
+  recalculated_special: number;
+}
+
+export type ProductionState = 'READY' | 'IN_PRODUCTION' | 'COMPLETE';
+export type PackingState = 'WAITING_FOR_PRODUCTION' | 'PACKING' | 'PACKED';
+
+export interface ProductionRun {
+  id: string;
+  final_demand_id: string;
+  production_state: ProductionState;
+  packing_state: PackingState;
+}
+
+export type DispatchState =
+  | 'PREPARING'
+  | 'READY_FOR_DISPATCH'
+  | 'RELEASED'
+  | 'IN_TRANSIT'
+  | 'ARRIVED'
+  | 'HANDED_OVER';
+
+export interface DeliveryManifest {
+  id: string;
+  institution_id: string;
+  institution_name?: string;
+  service_date: string;
+  run_number: number;
+  window_from: string | null;
+  window_to: string | null;
+  delivery_point: string | null;
+  state: DispatchState;
+  driver_user_id: string | null;
+  handover_with_issue: boolean;
+  handed_over_at: string | null;
+}
+
+export interface ManifestLine {
+  id: string;
+  manifest_id: string;
+  final_demand_id: string;
+  period: AppPeriod;
+  meal_revision_id: string | null;
+  standard_quantity: number;
+  special_quantity: number;
+  total_quantity: number;
+}
+
+export interface DeliveryConfig {
+  id: string;
+  institution_id: string;
+  effective_from: string;
+  effective_until: string | null;
+  run_count: number;
+  delivery_point: string;
+}
+
+export type OperationalStage = 'PRODUCTION' | 'PACKING' | 'DISPATCH' | 'DELIVERY';
+export type IssueStatus = 'OPEN' | 'LUNCHBOX_ACTIONED' | 'INSTITUTION_ACKNOWLEDGED' | 'CLOSED';
+
+export interface OperationalIssue {
+  id: string;
+  stage: OperationalStage;
+  category: string;
+  description: string;
+  institution_id: string | null;
+  service_date: string | null;
+  manifest_id: string | null;
+  status: IssueStatus;
+  raised_at: string;
+  resolution: string | null;
+}
+
+/** Who is on a service, and what each child actually receives. */
+export interface RosterRow {
+  student_id: string;
+  student_no: string;
+  given_name: string;
+  family_name: string;
+  class_id: string | null;
+  entitled: boolean;
+  special_reference: string | null;
+  actual_meal_revision_id: string | null;
+  actual_meal_name: string | null;
+  decision_pending: boolean;
+}
+
+export interface ReconciliationRow {
+  institution_id: string;
+  institution_name: string;
+  period: AppPeriod;
+  meal_name: string | null;
+  entitled_students: number;
+  required_total: number;
+  required_standard: number;
+  required_special: number;
+  production_state: string;
+  packing_state: string;
+  dispatch_state: string;
+  specials_produced: number;
+  specials_packed: number;
+  specials_total: number;
+  open_issues: number;
+  plan_enforced: boolean;
+}
+
+export interface KitchenSpecialMeal {
+  reference: string;
+  institution_name: string;
+  class_name: string | null;
+  child_label: string;
+  meal_name: string;
+  period: AppPeriod;
+  prep_note: string | null;
 }
