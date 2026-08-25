@@ -182,28 +182,93 @@ jobs:
           fi
 
       # ---------------------------------------------------------------- APPLY
-      - name: APPLY · push the pending migrations
+      # APPLY — one file at a time, through the Management API.
+      #
+      # NOT `supabase db push`. That refuses on this project, and it is right
+      # to: every migration this database has ever received was applied through
+      # the Management API, which records the ledger row as a TIMESTAMP version
+      # carrying the file's name (20260823172428 / 0043_meal_period_tags). The
+      # CLI derives its version from the filename prefix instead — 0043 — so it
+      # finds fifty remote versions it has no local file for and stops.
+      #
+      # Its suggested remedy is to mark all fifty `reverted` and push
+      # everything. On a live database that would replay 0001-0047 against a
+      # schema that already has them. It is the wrong instruction here, and it
+      # is offered without knowing that.
+      #
+      # So this continues the pattern that produced every existing row rather
+      # than rewriting the ledger to suit a tool this project never used:
+      # apply the file, record it, in order, stopping at the first error.
+      # Additive only — no existing ledger row is read back except to skip
+      # what is already applied.
+      - name: APPLY · each pending migration, then record it
         if: steps.gate.outputs.apply == 'true'
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: supabase db push --include-all
-
-      - name: VERIFY · the ledger moved, and the ceiling is actually there
-        if: steps.gate.outputs.apply == 'true'
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          echo "===== migration ledger AFTER ====="
-          supabase migration list | tee /tmp/ledger-after.txt
-          echo "=================================="
-          CEILING=$(ls supabase/migrations/*.sql | sed 's#.*/##' | sort | tail -1 | cut -d_ -f1)
-          if ! grep -q "$CEILING" /tmp/ledger-after.txt; then
-            echo "::error::The remote ledger does not show $CEILING after the push. Do NOT deploy the frontend."
+          set -euo pipefail
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local sql="$1" label="$2" code
+            code=$(curl -sS -o /tmp/resp.json -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+              --data "$(jq -Rn --arg q "$sql" '{query:$q}')")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::$label failed with HTTP $code"
+              cat /tmp/resp.json
+              exit 1
+            fi
+          }
+
+          run_sql "select version, name from supabase_migrations.schema_migrations order by version;" "read ledger"
+          APPLIED=$(jq -r '.[].name' /tmp/resp.json)
+          echo "ledger holds $(echo "$APPLIED" | wc -l) rows; last: $(echo "$APPLIED" | tail -1)"
+
+          for f in supabase/migrations/*.sql; do
+            NAME=$(basename "$f" .sql)
+            if echo "$APPLIED" | grep -qx "$NAME"; then continue; fi
+            echo "----- applying $NAME -----"
+            # One transaction per file: a migration that fails half way leaves
+            # nothing behind to reason about later.
+            run_sql "$(printf 'begin;\n%s\ncommit;' "$(cat "$f")")" "apply $NAME"
+            VERSION=$(date -u +%Y%m%d%H%M%S)
+            run_sql "insert into supabase_migrations.schema_migrations (version, name)
+                     values ('$VERSION', '$NAME');" "record $NAME"
+            echo "recorded $NAME as $VERSION"
+            sleep 1
+          done
+
+      - name: VERIFY · the objects exist, not merely the ledger rows
+        if: steps.gate.outputs.apply == 'true'
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          ask() {
+            curl -sS -X POST "$API" -H "Authorization: Bearer $TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -Rn --arg q "$1" '{query:$q}')"
+          }
+
+          echo "===== ledger AFTER (last 8) ====="
+          ask "select version, name from supabase_migrations.schema_migrations order by version;" \
+            | jq -r '.[] | "\(.version)  \(.name)"' | tail -8
+
+          # A ledger row is a claim about the database. These are the database.
+          echo "===== objects ====="
+          ask "select to_regclass('public.meal_plans')::text         as meal_plans,
+                      to_regclass('public.student_meal_plans')::text as student_meal_plans,
+                      to_regclass('public.final_demand')::text       as final_demand,
+                      to_regclass('public.delivery_manifests')::text as delivery_manifests,
+                      to_regclass('public.operational_days')::text   as operational_days;" \
+            | tee /tmp/objects.json
+          if jq -e '.[0] | to_entries | map(select(.value == null)) | length > 0' /tmp/objects.json >/dev/null; then
+            echo "::error::Something the spine needs is missing after the apply. Do NOT deploy the frontend."
             exit 1
           fi
-          echo "Remote ledger reaches $CEILING."
+          echo "Every object the release requires is present."
 
       # ------------------------------------------------------- EDGE FUNCTIONS
       - name: Are the function secrets in place?
