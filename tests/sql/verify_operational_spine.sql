@@ -35,21 +35,21 @@ begin
   insert into institution_service_plans (institution_id,periods,effective_from)
     values (v_inst2, array['breakfast','lunch']::app_period[], current_date - 30);
 
-  -- Disposable people of this suite's own, rather than depending on the shared
-  -- actor fixture: other suites leave committed rows behind, so "there is a
-  -- Driver somewhere" is not a safe assumption to build an assertion on.
-  insert into auth.users (id, email) values
-    ('00000000-0000-0000-0000-00000000d001','zz.spine.driver@zz.test'),
-    ('00000000-0000-0000-0000-00000000d002','zz.spine.admin@zz.test'),
-    ('00000000-0000-0000-0000-00000000d003','zz.spine.parent@zz.test')
-  on conflict do nothing;
-  insert into app_users (user_id, role, full_name, email, institution_id) values
-    ('00000000-0000-0000-0000-00000000d001','driver','ZZ Spine Driver','zz.spine.driver@zz.test',null),
-    ('00000000-0000-0000-0000-00000000d002','school_admin','ZZ Spine Admin','zz.spine.admin@zz.test',v_inst),
-    ('00000000-0000-0000-0000-00000000d003','parent','ZZ Spine Parent','zz.spine.parent@zz.test',null)
-  on conflict do nothing;
-  v_driver := '00000000-0000-0000-0000-00000000d001';
-  v_admin  := '00000000-0000-0000-0000-00000000d002';
+  -- Disposable people of this suite's own, with GENERATED ids. A hard-coded
+  -- UUID can collide with a row another suite committed, and `on conflict do
+  -- nothing` would then silently keep that row instead — giving this fixture a
+  -- "driver" that is really a super_admin.
+  v_driver := gen_random_uuid();
+  v_admin  := gen_random_uuid();
+  v_recv   := gen_random_uuid();
+
+  insert into auth.users (id,email) values
+    (v_driver,'zz.spine.driver@zz.test'), (v_admin,'zz.spine.admin@zz.test'),
+    (v_recv,'zz.spine.parent@zz.test');
+  insert into app_users (user_id,role,full_name,email,institution_id) values
+    (v_driver,'driver','ZZ Spine Driver','zz.spine.driver@zz.test',null),
+    (v_admin,'school_admin','ZZ Spine Admin','zz.spine.admin@zz.test',v_inst),
+    (v_recv,'parent','ZZ Spine Parent','zz.spine.parent@zz.test',null);
 
   v_meal := save_meal(null,'ZZ Spine Chicken Curry',null,null,null,null,null);
   v_alt  := save_meal(null,'ZZ Spine Dairy-Free Curry',null,null,null,null,null);
@@ -366,7 +366,7 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub',v_super,'role','authenticated')::text, true);
   begin
-    perform set_delivery_receiver(v_inst, '00000000-0000-0000-0000-00000000d003', true);
+    perform set_delivery_receiver(v_inst, v_recv, true);
     raise exception 'FAIL a Parent was authorised to receive deliveries';
   exception when others then
     if sqlerrm like 'FAIL%' then raise; end if;
