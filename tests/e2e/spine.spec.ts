@@ -563,24 +563,29 @@ test.describe('operational spine', () => {
     page,
   }) => {
     const db = adminDb();
-    await db.from('class_staff').upsert(
-      {
-        class_id: ids.classId,
-        user_id: (
-          await db.from('app_users').select('user_id').eq('email', seeded().classroomEmail).single()
-        ).data!.user_id as string,
-      },
-      { onConflict: 'class_id,user_id' },
+    const staff = must<{ user_id: string }>(
+      'find the seeded Classroom account',
+      await db.from('app_users').select('user_id').eq('email', seeded().classroomEmail).single(),
+    );
+    must<Array<{ class_id: string }>>(
+      'assign the Classroom account to this class',
+      await db
+        .from('class_staff')
+        .upsert(
+          { class_id: ids.classId, user_id: staff.user_id },
+          { onConflict: 'class_id,user_id' },
+        )
+        .select('class_id'),
     );
 
     await login(page, seeded().classroomEmail);
     await page.goto('/today');
-    await settled(page);
-    // This account may hold more than one class — it keeps whatever the shared
-    // fixture gave it — so pick ours when a picker is offered. The counts below
-    // are what prove the right register is on screen.
-    const classPicker = page.getByLabel(/Class/);
-    if (await classPicker.count()) await classPicker.selectOption({ label: CLASS });
+    // The register opens on a class, and the chooser is a bare <select> with no
+    // label — getByLabel(/Class/) matched nothing, the selection was skipped,
+    // and the page stayed on "choose a class to open the register". Zero chips
+    // is what that looks like. Drive the control that is actually there.
+    await page.locator('.filters select').selectOption({ label: CLASS });
+    await expect(page.locator('.roster-chip').first()).toBeVisible({ timeout: 20_000 });
 
     // Lunch: the four full-plan children are on the register…
     await selectPeriod(page, 'Lunch');
@@ -625,7 +630,10 @@ test.describe('operational spine', () => {
 
 /** The register's period switch, by visible label. */
 async function selectPeriod(page: Page, label: string) {
-  const tab = page.getByRole('button', { name: label, exact: true });
-  if (await tab.count()) await tab.first().click();
-  await page.waitForTimeout(600);
+  // Required, not optional. A sitting this institution serves must be offered;
+  // silently skipping the click would leave the previous period on screen and
+  // assert the wrong register's numbers.
+  const tab = page.getByRole('button', { name: label, exact: true }).first();
+  await expect(tab).toBeVisible({ timeout: 20_000 });
+  await tab.click();
 }
