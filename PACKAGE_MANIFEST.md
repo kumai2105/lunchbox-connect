@@ -2,23 +2,31 @@
 
 ## SNAPSHOT — CORE OPERABILITY CLOSURE, 23 August 2026
 
-**Verified SHA:** `c0a77d44b720f5b0cb85d051de041ab9784a8377` — the last commit that changed code
+**Verified SHA:** `1c72f7030129878d9a56e21e8992a3e540ac4596` — the branch head
 **Branch:** `claude/new-session-k5dd5u`
 
-Every gate below was run against that exact tree. Totals are read from the
-suites themselves, not carried forward from an earlier manifest.
+Totals are read from the suites themselves, not carried forward from an earlier
+manifest.
 
-Commits after that SHA on this branch are Markdown only — this manifest and the
-release record, which describe it. That is not a loophole: the browser workflow
-declares `paths-ignore: ['**/*.md']` precisely because a documentation commit
-cannot change what a browser does, and the SHA named above is the one the
-suites actually executed against. **A code change would move this SHA and
-require a fresh run.**
+**This SHA replaced `c0a77d44`, and the reason is worth recording.** That SHA
+was described here as "the last commit that changed code", with everything
+after it said to be Markdown only. That was **false**: `0047` — a `.sql` file,
+not documentation — was added after it, in response to a production security
+advisor finding. So the tree the gates had run against contained migrations up
+to `0046`, while this manifest simultaneously claimed a ceiling of `0047`. Two
+statements about the same tree that could not both be true.
+
+`0047` was verified directly in production when it was applied, but it had
+never been **replayed from nothing** through the local stack that this gate
+depends on. It has now been, and the browser suite was re-run on the head that
+contains it. The lesson is the ordinary one: "code change" includes migrations,
+and a manifest that infers its own freshness from a file-extension rule will
+eventually infer wrong.
 
 | Gate                 | Command                                    | Result                                                                 |
 | -------------------- | ------------------------------------------ | ---------------------------------------------------------------------- |
-| Browser suite        | `e2e-local-supabase.yml` run `32643257414` | **PASS — 100 / 100** in 14 spec files · 0 failed · 0 skipped · 0 flaky |
-| Database suites      | `./tests/sql/run_verification.sh`          | **PASS — 23 suites**, 280 named assertions                             |
+| Browser suite        | `e2e-local-supabase.yml` run `32893563897` | **PASS — 100 / 100** on `1c72f70` · 0 failed · 0 skipped · 0 flaky · migrations `0001`–`0047` replayed from nothing |
+| Database suites      | `./tests/sql/run_verification.sh`          | **PASS — 23 suites**, 280 named assertions — last full run at `c0a77d44`, see note |
 | Authorization matrix | `verify_authorization_matrix`              | **PASS — 520 checks**                                                  |
 | Unit tests           | `pnpm test:unit`                           | **PASS — 125** across 13 files                                         |
 | TypeScript           | `pnpm typecheck`                           | **PASS** — app + node + `tests/e2e`, three projects                    |
@@ -26,7 +34,17 @@ require a fresh run.**
 | Production build     | `pnpm build`                               | **PASS**                                                               |
 
 **Migration ceiling in this tree:** `0047_new_helpers_are_not_anon_reachable.sql`
-(47 migrations).
+(47 migrations) — and this tree is now the one the browser gate ran against.
+
+**Scope note on the database suites.** Their last full execution was at
+`c0a77d44`, which predates `0047`. `0047` is grant-only — it revokes `EXECUTE`
+from `anon`/`public` on eight functions and re-grants to `authenticated` — and
+it is covered three other ways: the migration ledger reached `0047` on a
+from-nothing replay in run `32893563897`; the 100 browser tests exercised the
+lifecycle on that same tree; and production was queried directly after the
+apply, returning `anon` EXECUTE on none of the batch's fourteen functions with
+0 advisor errors. Re-running the SQL suites against `0047` is the one gate not
+independently repeated, and it is named here rather than implied.
 **Migration ceiling in production:** **`0047`** — `0043` through `0047` were
 applied 2026-08-23. See "Deployed" below.
 
