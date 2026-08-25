@@ -1,55 +1,30 @@
 # LunchBox Connect — Package Manifest
 
-## SNAPSHOT — CORE OPERABILITY CLOSURE, 23 August 2026
+## SNAPSHOT — OPERATIONAL SPINE, 25 August 2026
 
-**Verified SHA:** `1c72f7030129878d9a56e21e8992a3e540ac4596` — the branch head
 **Branch:** `claude/new-session-k5dd5u`
 
 Totals are read from the suites themselves, not carried forward from an earlier
 manifest.
 
-**This SHA replaced `c0a77d44`, and the reason is worth recording.** That SHA
-was described here as "the last commit that changed code", with everything
-after it said to be Markdown only. That was **false**: `0047` — a `.sql` file,
-not documentation — was added after it, in response to a production security
-advisor finding. So the tree the gates had run against contained migrations up
-to `0046`, while this manifest simultaneously claimed a ceiling of `0047`. Two
-statements about the same tree that could not both be true.
-
-`0047` was verified directly in production when it was applied, but it had
-never been **replayed from nothing** through the local stack that this gate
-depends on. It has now been, and the browser suite was re-run on the head that
-contains it. The lesson is the ordinary one: "code change" includes migrations,
-and a manifest that infers its own freshness from a file-extension rule will
-eventually infer wrong.
-
 | Gate                 | Command                                    | Result                                                                 |
 | -------------------- | ------------------------------------------ | ---------------------------------------------------------------------- |
-| Browser suite        | `e2e-local-supabase.yml` run `32893563897` | **PASS — 100 / 100** on `1c72f70` · 0 failed · 0 skipped · 0 flaky · migrations `0001`–`0047` replayed from nothing |
-| Database suites      | `./tests/sql/run_verification.sh`          | **PASS — 23 suites**, 280 named assertions — last full run at `c0a77d44`, see note |
+| Browser suite        | `e2e-local-supabase.yml` run `32909746502` | **PASS — 108 / 108** · 0 failed · 0 skipped · 0 flaky · migrations `0001`–`0053` replayed from nothing on an ephemeral Supabase stack |
+| Database suites      | `./tests/sql/run_verification.sh`          | **PASS — 25 suites**, 319 named assertions, replayed from nothing on PostgreSQL 16 |
 | Authorization matrix | `verify_authorization_matrix`              | **PASS — 520 checks**                                                  |
 | Unit tests           | `pnpm test:unit`                           | **PASS — 125** across 13 files                                         |
 | TypeScript           | `pnpm typecheck`                           | **PASS** — app + node + `tests/e2e`, three projects                    |
 | Lint                 | `pnpm lint`                                | **PASS**, 0 warnings                                                   |
 | Production build     | `pnpm build`                               | **PASS**                                                               |
+| Security advisors    | `prod-advisors.yml`                        | **0 ERRORS** — the release bar. Warnings reported, not gated           |
 
-**Migration ceiling in this tree:** `0047_new_helpers_are_not_anon_reachable.sql`
-(47 migrations) — and this tree is now the one the browser gate ran against.
+**Migration ceiling in this tree:** `0053_reconciliation_closure_corrections.sql`
+(53 migrations).
+**Migration ceiling in production:** **`0053`** — `0048` through `0053` applied
+2026-08-25. See "Deployed" below.
 
-**Scope note on the database suites.** Their last full execution was at
-`c0a77d44`, which predates `0047`. `0047` is grant-only — it revokes `EXECUTE`
-from `anon`/`public` on eight functions and re-grants to `authenticated` — and
-it is covered three other ways: the migration ledger reached `0047` on a
-from-nothing replay in run `32893563897`; the 100 browser tests exercised the
-lifecycle on that same tree; and production was queried directly after the
-apply, returning `anon` EXECUTE on none of the batch's fourteen functions with
-0 advisor errors. Re-running the SQL suites against `0047` is the one gate not
-independently repeated, and it is named here rather than implied.
-**Migration ceiling in production:** **`0047`** — `0043` through `0047` were
-applied 2026-08-23. See "Deployed" below.
-
-Growth since the previous snapshot (`6f94b017`): 85 → 100 browser tests,
-22 → 23 SQL suites, 237 → 280 assertions, 122 → 125 unit tests.
+Growth since the previous snapshot (`1c72f703`): 100 → 108 browser tests,
+23 → 25 SQL suites, 280 → 319 assertions. Unit tests unchanged at 125.
 
 ### The browser gate is self-counting
 
@@ -57,272 +32,81 @@ The workflow takes its expected total from `playwright test --list` rather than
 a number written down by hand, then asserts `expected == total`,
 `unexpected == 0` and `skipped == 0`. A stale hand-counted number could pass
 while whole specs silently stopped being collected; this cannot. The step named
-"Assert every test executed, 0 failed, 0 skipped" is what makes the 100 above a
+"Assert every test executed, 0 failed, 0 skipped" is what makes the 108 above a
 measurement rather than a claim.
 
-### Four failures were found during this verification, and the split matters
+### Nine runs, and the split is the point
 
-**Three were mine.** Run `32640684885` failed on two tests, and both were
-defects in my assertions, not in the product:
+Getting from the first green local build to 108/108 took nine runs of the
+browser suite. **Seven failures were mine, in the tests. Two were the product**,
+and one more product defect was found while investigating a third.
 
-- `lifecycle.spec.ts` looked for the phrase "how you sign in" in the account
-  edit dialog; the dialog says "what this person signs in with". Corrected to
-  assert the sentence the screen carries, plus the role/scope explanation —
-  the point of that test being that immutability is EXPLAINED, not merely
-  enforced by a greyed-out box.
-- `operability.spec.ts` located the eligibility control by its "Not eligible"
-  option, which this closure renamed to "Not in the meal service" when it
-  retired "billable to nursery" from what a person reads.
+The two the suite caught in the product:
 
-The six tests reported as "did not run" were the remainder of the serial block
-that aborted on the first failure, not silent skips.
+- **Three screens used the UTC date rather than the operational (Asia/Dubai)
+  one.** The activation dialog defaulted *Enforce from* to
+  `new Date().toISOString()`, and Delivery Setup carried the same expression
+  twice — one of them deciding which delivery configuration counts as
+  *current*. Between 20:00 and 24:00 UTC that is the wrong day. The run that
+  caught it executed at 01:41 Dubai.
+- **The Driver could not see where they were going.** A PostgREST embed of
+  `institutions(name)` returns **null**, not an error, for a role that cannot
+  read the table — and a Driver correctly cannot. The card read
+  "Institution — run 1". Fixed by projecting the name through
+  `my_delivery_manifests()` rather than by widening the policy.
 
-Run `32642338782` added a third of the same kind: the end-to-end chain located
-the institution invite modal's password field by a label that this closure's
-reveal-control conversion had renamed. That one was worth having — it exposed
-three provisioning screens carrying three different labels for the same field
-("min 8", "min 8 chars", "min 8 — share securely"), which is precisely how a
-locator breaks on a change made two screens away. They now share one label.
+And the one found alongside: the Parent portal's **Recent days** history listed
+the sittings the *site* published rather than the ones the *child* was entitled
+to — correct by construction before Meal Plans existed, wrong the moment they
+did. `student_entitled_periods()` closes it in one call per range.
 
-**One was the product.** Run `32641054574` came back 97/98, and the single
-failure was real: a Parent with **no child linked** could not reach their own
-profile, because the Parent shell rendered the "no children are linked" empty
-state and nothing else — no navigation, no route. Such a Parent could not
-change their password and **could not sign out**, since the sign-out control
-lives on that screen. Two ordinary people reach that state: one whose account
-is created before their child is linked, which is the normal provisioning
-order, and one whose guardian link has just been revoked.
+Three of the seven test failures were the fixture being refused by a rule that
+was working correctly: `class_staff` rejecting a staff member from another
+institution, delivery-receiver eligibility rejecting an Admin of another site,
+and a shared Parent fixture whose portal opened on a different child. Each is
+now a disposable account this spec creates and removes.
 
-No previous test had ever created a Parent with no children. This closure's
-lifecycle spec makes a Parent account and then uses it, which is how it
-surfaced. Recorded here because a gate that never caught anything would not be
-evidence of much — and because the interesting failure was the one that was not
-the test's fault.
+### What this release added to the evidence
 
-### What this closure added to the evidence
-
-- `tests/sql/verify_lifecycle_security.sql` — 35 assertions proving that
-  deactivation, archival and guardian revocation hold **at the database
-  boundary against a live token**, not merely in the interface, and that no
-  audit row anywhere carries password material.
-- `tests/e2e/lifecycle.spec.ts` — the same actions driven by a person, on
-  disposable fixtures it creates and removes. Includes proving a deactivated
-  account cannot get in from a **fresh browser context**, that a reissued
-  password works while the old one is refused, and that a Parent can change
-  their own password.
+- `tests/sql/verify_operational_spine.sql` — 24 assertions on the entitlement
+  boundary, including *mixed plans give exactly 120 / 120 / 80 / 80* and
+  *77 standard + 3 special = 80 total, never 83*.
+- `tests/sql/verify_spine_scenarios.sql` — 15 assertions on a mid-month plan
+  change, two-run delivery, a special Meal that never arrives, custody accepted
+  with an issue open, a Driver's own manifests carrying a name while reading
+  zero institution rows, and each new authorization boundary from the
+  Institution Admin, Kitchen, Driver and Parent side.
+- `tests/e2e/spine.spec.ts` — one working day end to end, by the people who
+  carry it out: Meal Plans → mixed assignment → activation → published service
+  → special-meal decision → exact demand → finalise → produce → pack → deliver
+  → collect → arrive → hand over → the Classroom records only entitled children
+  → the Parent sees the truth.
 
 The nine simulation personas are unchanged: none was deleted, renamed,
-reassigned or stripped of a role, and each still signs in as the role it exists
-to simulate. The one account this closure deactivated in a test was created by
-that test and removed afterwards.
+reassigned or stripped of a role. Every account the new spec touches is created
+by it and removed afterwards.
 
-### DEPLOYED — and this is the important line in this manifest
+### DEPLOYED
 
-**Migrations `0043` through `0047` are applied to production**
-(`llnofriwvnerntrbpehc`), the two new Edge Functions are ACTIVE, and the
-frontend followed from the gated SHA.
+**Migrations `0048` through `0053` are applied to production**
+(`llnofriwvnerntrbpehc`), each in its own transaction and each recorded, and
+the three privileged Edge Functions are ACTIVE.
 
-The order was migrations → Edge Functions → frontend, and it could not be any
-other order: `app_users.active` and `institutions.active` do not exist at
-`0042`, their absence reads back as `undefined`, which is falsy, so a frontend
-deployed first would have rendered **every account as "Deactivated" and every
-institution as "Archived"** on the live site.
+A recovery point — the `public` and `auth` schemas as they stood at `0047` —
+was captured before anything changed and retained for 90 days. It is a schema
+dump, not a data dump.
 
-`0047` was not planned. The Supabase security advisor, run immediately after
-the apply, found that eight helper and trigger functions from `0043`–`0046` had
-inherited PostgreSQL's default `EXECUTE` to `PUBLIC` and were reachable by
-`anon`. It revokes them. Advisors afterwards: **0 ERROR**.
+Verification asked the database rather than the ledger: `to_regclass` on
+`meal_plans`, `student_meal_plans`, `final_demand`, `delivery_manifests` and
+`operational_days`, all non-null, before any frontend was allowed to follow.
 
-A recovery point was captured from the live database before anything changed —
-`docs/recovery/2026-08-23-pre-0043.md`. The full sequence, the verification
-table and the two findings are in
-`docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md` and `docs/OPEN_FINDINGS.md`
-(findings 12 and 14).
+The order was migrations → Edge Functions → frontend, and it is not
+negotiable: the spine's columns and functions do not exist at `0047`, their
+absence reads back as `undefined`, which is falsy, and a frontend that arrived
+first would tell a site full of correctly-served children that none of them is
+entitled to anything.
 
----
-
-## Historical manifest (previous packaging)
-
-**Packaged:** 2026-08-20
-**Branch:** `claude/new-session-k5dd5u`
-**Release commit:** `222d32b`
-**Package identity:** the ZIP is named `lunchbox-connect-222d32b.zip`, and this
-manifest and `docs/VERIFICATION_FINAL.md` both reference `222d32b`. The manifest
-and the regenerated report are committed as a thin packaging layer on top of
-`222d32b` (that is the commit whose code they describe); the archive contains
-that layer so the delivered docs are the current ones.
-
-The identity moved from `0f63ec7` because the release-layer pass changed the
-EXECUTABLE tree — the Cloudflare assets binding and the deploy workflow — not
-just documentation. A configuration change that decides whether the site serves
-at all is a code change, so it gets its own hash.
-
----
-
-## 1. Build status — actual command output
-
-All gates were run immediately before packaging.
-
-| Gate             | Command                           | Result                                                                          |
-| ---------------- | --------------------------------- | ------------------------------------------------------------------------------- |
-| Types            | `pnpm typecheck`                  | **PASS** — app + node + `tests/e2e`, no errors                                  |
-| Lint             | `pnpm lint`                       | **PASS** — no errors, no warnings                                               |
-| Unit tests       | `pnpm test:unit`                  | **PASS — 116** across 12 files                                                  |
-| Production build | `pnpm build`                      | **PASS**                                                                        |
-| Worker config    | `wrangler deploy --dry-run`       | **PASS** — prints `env.ASSETS  Assets`; no upload, no deploy                    |
-| Database suites  | `./tests/sql/run_verification.sh` | **PASS — 21 suites**, 223 named assertions + the 520-check authorization matrix |
-
-Unit files: `mealAnalytics.test.ts` (22), `api.errors.test.ts` (6, the
-PostgrestError shape and the "[object Object]" regression), `format.test.ts` (15, Asia/Dubai
-boundary and presentation), `calendar.test.ts` (14), `rbac.test.ts` (13, incl.
-the read-only `schedule` resource), `pages/parent/shared.test.ts` (12, the
-child-switch selection/readiness invariant and the request guard),
-`authorization.consistency.test.ts` (11 — archive-only entities, and the
-nav-link/route reachability check that catches a sidebar link pointing at a
-route the router never declares),
-`completion.test.ts` (9, the four factual dashboard states + the
-scored-observation-weighted average), `pagination.test.ts` (5, exhaustive
-analytics paging past 5,000 rows), `kitchen.test.ts` (3), `status.test.ts` (3), `worker.config.test.ts` (3 — the
-Worker's runtime bindings must be DECLARED in `wrangler.jsonc`, not merely
-asserted by the Worker's own local `interface Env`).
-
-**Not run in this sandbox:** `pnpm test:e2e` (Playwright, 6 specs / **27**
-tests — the figure was recorded as 19 until the suite was executed; `login.roles`
-parameterises over the nine roles). This sandbox blocks `*.supabase.co` and the
-container registries, so the suite runs on GitHub Actions instead
-(`.github/workflows/e2e-local-supabase.yml`), against an ephemeral Supabase
-stack started on the runner. That target is `127.0.0.1`; the production project
-is refused outright by the seeder, by `build:e2e` and by the workflow's own
-guard.
-
-## 2. Database verification
-
-`./tests/sql/run_verification.sh` builds a PostgreSQL 16 cluster from nothing,
-applies `supabase/migrations/0001`–`0042` verbatim, and runs 21 suites. Each
-suite is mutation-tested (deliberately broken to prove it can fail).
-
-Per-suite named assertions: `db_boundary` 51 · `note_privacy_and_states` 40 ·
-`rls_cross_portal` 18 · `golden_path` 14 · `correction_order` 12 ·
-`menu_cutover` 9 · `downstream_wiring` 8 · `publish_record_race` 7 ·
-`insert_returning` 7 ·
-`fresh_deploy` 6 · `slot_resize_concurrency` 5 · `class_staff` 3 ·
-`publish_future` 3 · `analytics_volume` 3 · `kitchen_demand` 2 ·
-`special_period` 1 · `super_admin_onboarding` 7 — **196 total**, plus `authorization_matrix`, which reports a
-single aggregate line covering **520 role×resource×action checks**.
-
-New in this release: `verify_publish_record_race` (a REAL second session via
-dblink proving publishing and classroom recording serialize against each other,
-and that a served Meal Service can no longer have its revision swapped
-underneath an in-flight observation) and `verify_analytics_volume` (6,000
-observations proving the retired 5,000-row cap is gone — the average reads
-exactly 83.3% where a capped read would say 100%).
-
-The closure sweep on top of that release added `verify_db_boundary`
-assertions for the two areas it examined most closely: a meal image referenced
-by any Meal Revision can no longer be deleted or overwritten (an unreferenced
-upload still can — a control assertion proves the bucket is reference-guarded,
-not frozen), and an `audit_log` entry cannot be forged, rewritten or deleted
-from any client session.
-
-Mutation evidence and the honest limits of each concurrency case — including
-which cases do **not** discriminate because a foreign key's own lock already
-blocks there — are in **`docs/VERIFICATION_FINAL.md`**, whose section 4 also
-records the twelve areas that were swept, verified and deliberately left
-unchanged.
-
-## 3. What is in the archive
-
-Everything required to build and run the project, excluding only §5.
-
-- **`src/`** — React/Vite/TypeScript app: `App.tsx`, `components/`, `lib/`
-  (api incl. exhaustive pagination, rbac, roles, auth, mealAnalytics,
-  completion, calendar, types, …), `pages/` (admin/nursery/kitchen incl.
-  `StaffPage`, `MealLibraryPage`, `MenuBuilderPage`, `InstitutionServiceTab`,
-  `InstitutionCalendarTab`), `pages/parent/` (mobile parent portal), and
-  `InstitutionSchedulePage` — the Founder-approved READ-ONLY published-menu
-  view for a Nursery/School Admin. The retired legacy `MenuPage` is gone.
-- **`supabase/`** — `migrations/0001`–`0041` (schema, RLS, resolution/publish
-  engine, meal library RPCs, class_staff, per-meal demand, analytics one-truth,
-  the integrity pass 0029/0030/0031, the tenant-integrity + permission
-  correction 0032, the client-boundary lockdown 0033, the note-privacy /
-  state-validity / atomicity pass 0034, the record-state-semantics +
-  slot/resize locking pass 0035, the boundary-closure +
-  publish/record-serialization pass 0036, the historical immutability of
-  referenced meal images 0037, the role merge 0038, and the restoration of
-  `security_invoker` on the dashboard/analytics views 0039);
-  `functions/admin-create-user/`; `config.toml`.
-- **`tests/`** — `sql/` (16 `verify_*.sql` suites + shim + actors + runner),
-  `e2e/` (6 Playwright specs + fixtures + global-setup, on the current chain,
-  type-checked by `tsconfig.e2e.json`).
-- **`docs/`** — the spec pack, `VERIFICATION_FINAL.md`, `VERIFICATION_DECISION_033.md`.
-- **`remediation/`** — separated, review-gated production scripts + README.
-- **Config / deploy** — `package.json`, `pnpm-lock.yaml`, `vite.config.ts`,
-  `vitest.config.ts`, `playwright.config.ts`, `tsconfig*.json`,
-  `eslint.config.js`, `.prettierrc`, `wrangler.jsonc`, `worker/`,
-  `.github/workflows/` (ci + deploy, incl. the backend-readiness gate),
-  `index.html`, `README.md`, `scripts/PRODUCTION_APPLY.md`,
-  `scripts/build-e2e.mjs`, `.env.example`.
-- **`CLAUDE_CODE_GOLIVE.md`** — **retired stub** pointing to
-  `scripts/PRODUCTION_APPLY.md`; do not follow the old runbook (it is gone).
-
-## 4. Assets
-
-No binary image assets. Icons are inline SVG (`src/components/icons.tsx`), the
-logo is CSS-rendered, Inter loads from Google Fonts. Student and meal photos are
-uploaded at runtime into private Supabase Storage buckets, not shipped files.
-
-## 5. Deliberately excluded
-
-| Excluded        | Why                                                                                         |
-| --------------- | ------------------------------------------------------------------------------------------- |
-| **`.env`**      | Holds `SUPABASE_SERVICE_ROLE_KEY`, which bypasses RLS. Never packaged. Copy `.env.example`. |
-| `node_modules/` | Reinstall with `pnpm install` (`pnpm-lock.yaml` pins versions).                             |
-| `dist/`         | Build output; regenerate with `pnpm build`.                                                 |
-| `.git/`         | History is on the branch above.                                                             |
-
-The only key present anywhere in the tree is the **public anon key** (in
-`.env.example` and the deploy workflow), which is public by design — RLS, not
-secrecy, is the boundary.
-
-## 6. Running it
-
-```bash
-pnpm install
-cp .env.example .env      # fill in your Supabase URL + anon key
-pnpm dev                  # http://localhost:5173
-pnpm typecheck && pnpm lint && pnpm test:unit && pnpm build
-./tests/sql/run_verification.sh
-```
-
-Migrations apply in numerical order, `0001` → `0041`. For production, follow
-`scripts/PRODUCTION_APPLY.md` (schema first, then deploy + verify the
-`admin-create-user` Edge Function; service plans / rotation assignments /
-publishing are Admin-UI actions, never migration side effects). The frontend
-deploy workflow now **refuses to run** until `BACKEND_READY_MIGRATION` attests
-that production holds at least the newest migration in this repository.
-
-## 7. Honest status — what is NOT finished (BLOCKED_BY_SPEC)
-
-Account editing / deactivation and self-profile mutation of security identity;
-Nursery/School Admin classroom recording; the free-text note review/publication
-workflow (who / process / conditions); Parent association & provisioning /
-email-delivered self-activation; guardian UNLINK (removed this pass — no spec
-defines it); cross-institution Student/Class transfer; retention / archive /
-deletion semantics; the structured StudentAllergy/StudentDietaryRestriction
-taxonomy (§42); production-lock policy beyond the served-records boundary;
-Packing/Dispatch/Delivery state machine; expected-vs-actual quantities;
-multi-kitchen routing; per-institution timezones. Deliveries, Ops and Absences
-remain honest `NOT_YET_DEFINED` shells. This pass **removed** authorities that
-existed without a defining spec rather than inventing more. Nothing has been
-applied to the production database in this pass.
-
-> ⚠️ **Applying to production:** read the production migration ledger first and
-> apply only the versions missing from it. Migration `0033` deliberately
-> **stops** if production already holds two service-plan or rotation-assignment
-> rows for the same institution and effective date — it names them rather than
-> guessing which one wins. Migration `0034` **archives** every historical
-> `serving_records.note` value into `serving_record_note_archive` before
-> clearing the column: nothing is destroyed, and the archive is the record of
-> what was written. Migrations `0035` and `0036` add their record-state and
-> boundary constraints as `NOT VALID`, so pre-existing history is grandfathered
-> and never rewritten.
+**Nothing changed for any existing site.** `student_plan_enforced_from` is NULL
+everywhere. Demand keeps its exact pre-`0048` meaning until a Super Admin
+switches a site over, and `activate_student_meal_plans()` refuses while any
+operationally active child there lacks a valid Plan — naming every one of them.

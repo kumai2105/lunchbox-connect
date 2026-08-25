@@ -6,9 +6,21 @@ of each approved area and every honest shell.
 
 Legend: ✅ built · ⬜ honest shell (BLOCKED_BY_SPEC) · ⬣ claimed-with-caution
 
-**Live in production (2026-08-23):** database at migration **`0047`**; Edge
-Functions `admin-set-password` and `admin-set-active` **ACTIVE**; frontend
-deployed from the gated SHA of this branch.
+**Live in production (2026-08-25):** database at migration **`0053`**; Edge
+Functions `admin-create-user`, `admin-set-password` and `admin-set-active`
+**ACTIVE**; frontend deployed from the gated SHA of this branch.
+
+The operational spine — Student Meal Plan entitlement, exact demand,
+dietary decisions, production, delivery custody and day closure — was applied
+on 2026-08-25 as migrations `0048`–`0053`. **It changed nothing for anyone yet:**
+every Institution carries `student_plan_enforced_from` NULL, so production
+demand keeps its exact pre-`0048` meaning until a Super Admin switches a site
+over, and `activate_student_meal_plans()` refuses while any operationally
+active child there lacks a Plan. See
+`docs/RELEASE_2026-08-25_OPERATIONAL_SPINE.md`, and
+`docs/FOUNDER_OPERATIONS_SPEC.md` for the operating model itself.
+
+**Previously (2026-08-23):** database at `0047`.
 
 Migrations `0043`–`0047` were applied to `llnofriwvnerntrbpehc` in that order,
 followed by the two Edge Functions, and only then the frontend — because

@@ -1,0 +1,78 @@
+name: Production security advisors (read-only)
+
+# THE ZERO-NEW-ERRORS GATE.
+#
+# Supabase's own security advisor, asked directly, after an apply. Strictly
+# read-only: one GET, no SQL, nothing deployed, nothing changed.
+#
+# It exists because this project has already been bitten once. Migrations
+# 0043-0046 created fourteen functions, and eight of them inherited
+# PostgreSQL's default EXECUTE to PUBLIC — which includes `anon`. Nothing in
+# the migrations said so, no test caught it, and the only reason it was found
+# is that somebody ran the advisor after applying. 0047 revoked them.
+#
+# The bar for a release is ZERO advisor ERRORS. Warnings are reported and not
+# gated: this schema carries ~98 of them, almost all "a SECURITY DEFINER
+# function is executable by a role that can reach it", which is what a
+# definer function is FOR. Failing on warnings would train everyone to ignore
+# the gate, which is worse than not having one.
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/prod-advisors.yml']
+
+env:
+  PROJECT_REF: llnofriwvnerntrbpehc
+
+jobs:
+  advisors:
+    name: Ask the advisor what it thinks of production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Require the token
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          [ -n "$TOKEN" ] || {
+            echo "::error::SUPABASE_ACCESS_TOKEN is not set."
+            exit 1
+          }
+          echo "Token is present."
+
+      - name: Security advisors
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/adv.json -w '%{http_code}' \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/advisors/security" \
+            -H "Authorization: Bearer $TOKEN")
+          if [ "$code" != "200" ]; then
+            echo "::error::advisor request failed with HTTP $code"
+            cat /tmp/adv.json
+            exit 1
+          fi
+
+          echo "===== by level ====="
+          jq -r '.lints | group_by(.level)[] | "\(.[0].level)\t\(length)"' /tmp/adv.json
+          echo "===== by rule ====="
+          jq -r '.lints | group_by(.name)[] | "\(length)\t\(.[0].name)"' /tmp/adv.json | sort -rn
+
+          ERRORS=$(jq '[.lints[] | select(.level == "ERROR")] | length' /tmp/adv.json)
+          if [ "$ERRORS" -gt 0 ]; then
+            echo "===== ERRORS ====="
+            jq -r '.lints[] | select(.level == "ERROR")
+                   | "\(.name): \(.detail)"' /tmp/adv.json
+            echo "::error::$ERRORS advisor ERROR(s) on production. This release does not ship with any."
+            exit 1
+          fi
+
+          WARNS=$(jq '[.lints[] | select(.level == "WARN")] | length' /tmp/adv.json)
+          echo "::notice::0 advisor errors. $WARNS warnings, reported and not gated — see this file's header for why."
+
+          # The specific thing 0047 was written for: a function reachable by
+          # anon that should not be. Report the count so a jump is visible even
+          # though warnings do not fail the job.
+          ANON=$(jq '[.lints[] | select(.name == "anon_security_definer_function_executable")] | length' /tmp/adv.json)
+          echo "::notice::anon-executable SECURITY DEFINER functions: $ANON (39 before this release; every function 0048-0053 adds is revoked from anon in its own migration)."

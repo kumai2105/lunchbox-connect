@@ -2,12 +2,17 @@
 
 [![CI](https://github.com/Kumai2105/lunchbox-connect/actions/workflows/ci.yml/badge.svg)](https://github.com/Kumai2105/lunchbox-connect/actions)
 
-**Live:** https://www.lunchboxconnect.com — frontend `1626bba3` against
-production schema `0047`. The core operability closure of 2026-08-23
-(migrations `0043`–`0047`, the `admin-set-password` and `admin-set-active` Edge
-Functions, and the interface for all of it) is **deployed**; see
-`docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md` for the executed gate and the
-verification. The release order is always **migrations → Edge Functions →
+**Live:** https://www.lunchboxconnect.com — against production schema `0053`.
+The operational spine of 2026-08-25 (migrations `0048`–`0053`: Student Meal
+Plan entitlement, exact demand, dietary decisions, production, delivery custody
+and day closure) is **applied**; see
+`docs/RELEASE_2026-08-25_OPERATIONAL_SPINE.md` for the executed gate and
+`docs/FOUNDER_OPERATIONS_SPEC.md` for the operating model it implements.
+It changes nothing for any existing site until that site is switched over
+deliberately: `student_plan_enforced_from` is NULL everywhere, and until it is
+set, demand keeps its exact previous meaning. The closure of 2026-08-23
+(`0043`–`0047`) is recorded in
+`docs/RELEASE_2026-08-23_LIFECYCLE_CLOSURE.md`. The release order is always **migrations → Edge Functions →
 frontend**, and it is not optional: a frontend that arrives before its columns
 reads their absence as `undefined`, which is falsy, and shows every account as
 deactivated. The Worker also answers on its origin

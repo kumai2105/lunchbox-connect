@@ -152,3 +152,107 @@ replaces one for one; delivery frequency changes transport, not entitlement;
 the Driver carries and the Institution receives; exact fulfilment is the normal
 case and the interface says so; temperature and formal batch traceability
 remain deferred.
+
+## What the gate cost, and what it caught
+
+Nine runs of the browser suite stand between the first green local build and
+108/108. Recorded because the split is the interesting part.
+
+**Seven were defects in the tests.** A landing route the fixtures knew about and
+the spec did not; a role picker that had legitimately gained an entry; fixtures
+calling gated RPCs through the service key, which is not a user and never
+passes `app_is_super_admin()`; loops guarded by a bare `.count()` taken before
+the screen's first fetch had returned; assertions matching two elements at
+once, including one where `getByText('Lunch')` matched the product's own name
+in the header.
+
+Three of those deserve their own line, because in each case the fixture was
+refused by a rule that was working:
+
+- `class_staff` refused a Classroom account from another institution. The
+  tenant boundary, doing its job. The spec now creates its own staff member.
+- The Authorized Delivery Receiver must be the site's own Admin or Classroom
+  Staff, so the shared fixture's Institution Admin was correctly ineligible —
+  which is why the handover step had been written as optional and proved
+  nothing. The spec now creates its own receiver and the step is mandatory.
+- The shared fixture's Parent already had a child elsewhere, so linking a second
+  one made the portal open on the first. The screen reported that child's
+  sittings perfectly correctly while the assertion asked about ours.
+
+**Two were defects in the product**, and the suite is the only reason they are
+not in production:
+
+- **Three screens used the UTC date, not the operational one.** The activation
+  dialog defaulted *Enforce from* to `new Date().toISOString()`, and Delivery
+  Setup used the same expression twice — once to decide which configuration is
+  *current*. Between 20:00 and 24:00 UTC that is the wrong day in Dubai. The
+  run that caught it executed at 01:41 Dubai: the fixture assigned Plans
+  effective the 26th and the dialog asked whether everyone had a Plan covering
+  the 25th. All three now call `operationalToday()`.
+- **The Driver could not see where they were going.** *My deliveries* read
+  `delivery_manifests` with an embedded `institutions(name)`. A Driver holds no
+  read on `institutions` — correctly — and PostgREST returns an unreadable
+  embedded row as **null**, not an error, so the card rendered
+  "Institution — run 1". Fixed by projection rather than by widening the
+  policy: `my_delivery_manifests()` returns the fields that screen needs for
+  that Driver's own manifests, and `b5` proves a Driver still reads zero
+  institution rows directly.
+
+A third was found while investigating a failure rather than by the failure
+itself: today's Parent cards were entitlement-filtered but the **Recent days**
+list below them was not. Before Meal Plans the site's published sittings and
+the child's were the same list; this release makes that false, and a Lunch row
+on a morning-only child's history reads to their guardian exactly like a meal
+nobody recorded. `student_entitled_periods()` answers the whole range in one
+call and reuses `app_student_counts_for()`, so the history cannot reach a
+different answer than production did.
+
+## Production apply
+
+Applied 25 August 2026 from commit `90eb71d`, through
+`.github/workflows/prod-apply-migrations.yml` dispatched with the project ref
+typed in full.
+
+A recovery point was captured before anything changed — the `public` and `auth`
+schemas as they stood at `0047` — and retained as a workflow artifact for 90
+days. It is a schema dump, not a data dump.
+
+| Migration | Recorded as |
+| --- | --- |
+| `0048_student_meal_plan_entitlement` | `20260825235052` |
+| `0049_dietary_requirements_and_special_meals` | `20260825235055` |
+| `0050_exact_demand_and_finalisation` | `20260825235100` |
+| `0051_production_packing_issues` | `20260825235103` |
+| `0052_delivery_manifest_dispatch_handover` | `20260825235107` |
+| `0053_reconciliation_closure_corrections` | `20260825235110` |
+
+Then the three privileged Edge Functions were redeployed —
+`admin-create-user`, `admin-set-password`, `admin-set-active` — and
+`SUPABASE_SERVICE_ROLE_KEY` confirmed present in the function environment by
+name and digest. That key exists only there. It is in no frontend build.
+
+### `supabase db push` could not do this, and the reason matters
+
+Every migration this project has ever received went through the Supabase
+Management API, which records the ledger row as a **timestamp** carrying the
+file's name — `20260823172428 / 0043_meal_period_tags`. The CLI derives its
+version from the filename prefix instead, `0043`, so it found fifty remote rows
+it had no local file for and stopped. Nothing was wrong with the database.
+
+Its suggested remedy is to mark all fifty `reverted` and push everything, which
+on a live database replays `0001`–`0047` against a schema that already has
+them. The apply step now continues the pattern that produced every existing
+row: skip what is recorded, then apply and record each remaining file in its
+own transaction.
+
+Verification asks the database, not the ledger. A row in `schema_migrations` is
+a claim; `to_regclass` on `meal_plans`, `student_meal_plans`, `final_demand`,
+`delivery_manifests` and `operational_days` is the thing itself, and a null in
+any of them fails the job before a frontend can be deployed against it.
+
+### Nothing changed for anyone
+
+Every Institution carries `student_plan_enforced_from` NULL. Production demand
+keeps its exact pre-`0048` meaning until a Super Admin switches a site over
+deliberately, and `activate_student_meal_plans()` refuses while any
+operationally active child there lacks a valid Plan — naming each one.
