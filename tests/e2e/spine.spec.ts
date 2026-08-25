@@ -392,54 +392,60 @@ test.describe('operational spine', () => {
     // ---- an approved requirement needs a decision for EVERY entitled sitting,
     // and this child holds the full Plan, so that is four. The previous test
     // made the first one; nothing can be finalised until the rest are made.
-    await page.goto('/dietary');
-    await settled(page);
+    //
+    // The loop is driven from OPERATIONS, not from Dietary, and each round
+    // starts with a fresh page. Dietary loads the day's services first and each
+    // service's outstanding decisions second, and its "nothing outstanding"
+    // empty state is also what an unloaded screen looks like — so neither its
+    // buttons nor its empty state can be read as a settled fact. Operations
+    // has one load and an unambiguous shape: four rows for this institution,
+    // each either finalisable or carrying an outstanding-decision pill.
+    const required = page.locator('.card').filter({ hasText: 'Required today' });
+    const instRows = required.locator('tr', { hasText: INST });
     const decisions = page
       .locator('.card')
       .filter({ hasText: 'Meal decisions blocking production' });
-    const decideBtn = decisions.getByRole('button', { name: 'Decide meal', exact: true }).first();
-    const nothingOutstanding = decisions.getByText('has a recorded meal decision');
 
-    for (let i = 0; i < 6; i++) {
-      // This screen loads the day's services first and each service's
-      // outstanding decisions second, so the buttons appear a beat after the
-      // spinner clears. Waiting for a button OR the "nothing outstanding" line
-      // is what makes the loop honest — a bare count taken during that gap
-      // reads zero and silently skips work that really is outstanding.
-      await expect(decideBtn.or(nothingOutstanding).first()).toBeVisible({ timeout: 20_000 });
-      if (!(await decideBtn.isVisible())) break;
-      await decideBtn.click();
+    for (let round = 0; round < 6; round++) {
+      await page.goto('/operations');
+      await settled(page);
+      await expect(instRows).toHaveCount(4, { timeout: 20_000 });
+      const blocked = instRows.filter({ hasText: 'meal decision' });
+      if ((await blocked.count()) === 0) break;
+
+      // Operations has just said a decision is outstanding, so Dietary must be
+      // able to offer it. If it cannot, the two views disagree about the same
+      // fact and that is a defect worth failing on, not waiting out.
+      await page.goto('/dietary');
+      await settled(page);
+      const decide = decisions.getByRole('button', { name: 'Decide meal', exact: true }).first();
+      await expect(decide).toBeVisible({ timeout: 20_000 });
+      await decide.click();
       await page
         .locator('.modal')
         .getByRole('button', { name: 'Confirm standard meal', exact: true })
         .click();
       await expect(page.locator('.modal')).toHaveCount(0, { timeout: 20_000 });
     }
-    // A positive statement, not an absence: the screen itself says there is
-    // nothing left to decide.
-    await expect(nothingOutstanding).toBeVisible({ timeout: 20_000 });
 
     // ---- finalise every sitting
     await page.goto('/operations');
     await settled(page);
-    const required = page.locator('.card').filter({ hasText: 'Required today' });
-    await expect(required.locator('tr', { hasText: INST })).toHaveCount(4, { timeout: 20_000 });
+    await expect(instRows).toHaveCount(4, { timeout: 20_000 });
+    await expect(instRows.filter({ hasText: 'meal decision' })).toHaveCount(0, { timeout: 20_000 });
 
-    for (let i = 0; i < 4; i++) {
-      const btn = required
-        .locator('tr', { hasText: INST })
-        .getByRole('button', { name: 'Finalise demand', exact: true })
-        .first();
-      if (!(await btn.count())) break;
+    // Four sittings, four rounds, and each round waits for the count of
+    // FINALISED rows to reach it. No count() guard: "no button" is also what an
+    // unloaded table and a half-rendered one look like, so a loop that exits on
+    // it can finalise nothing and still reach the next line.
+    for (let done = 1; done <= 4; done++) {
+      const btn = instRows.getByRole('button', { name: 'Finalise demand', exact: true }).first();
+      await expect(btn).toBeVisible({ timeout: 20_000 });
       await btn.click();
-      await expect(page.locator('.banner.ok')).toBeVisible({ timeout: 20_000 });
+      await expect(instRows.filter({ hasText: 'Finalised' })).toHaveCount(done, {
+        timeout: 20_000,
+      });
     }
-    // Assert what was FINALISED, not that no button remains. An empty table
-    // has no buttons either, and that is exactly how a silent do-nothing loop
-    // passes this line and fails twenty lines later.
-    await expect(
-      required.locator('tr', { hasText: INST }).filter({ hasText: 'Finalised' }),
-    ).toHaveCount(4, { timeout: 20_000 });
 
     // ---- build the manifest
     const build = page.getByRole('button', { name: 'Build manifests', exact: true }).first();
@@ -457,17 +463,24 @@ test.describe('operational spine', () => {
       kitchen.getByRole('button', { name: 'Start production', exact: true }).first(),
     ).toBeVisible({ timeout: 20_000 });
 
+    // One sitting at a time, four sittings, four steps — and each click waits
+    // for the number of remaining buttons to drop by one rather than for a
+    // fixed 400ms. A sleep is a guess about how fast a machine is; this is a
+    // statement about what the Kitchen has actually done.
     for (const action of [
       'Start production',
       'Mark production complete',
       'Start packing',
       'Mark packing complete',
     ]) {
-      for (let i = 0; i < 4; i++) {
+      for (let remaining = 4; remaining >= 1; remaining--) {
         const btn = kitchen.getByRole('button', { name: action, exact: true }).first();
-        if (!(await btn.count())) break;
+        await expect(btn).toBeVisible({ timeout: 20_000 });
         await btn.click();
-        await kitchen.waitForTimeout(400);
+        await expect(kitchen.getByRole('button', { name: action, exact: true })).toHaveCount(
+          remaining - 1,
+          { timeout: 20_000 },
+        );
       }
     }
     await expect(kitchen.getByText('PACKED', { exact: false }).first()).toBeVisible({
