@@ -548,10 +548,12 @@ test.describe('operational spine', () => {
       .first();
     await expect(confirm).toBeVisible({ timeout: 20_000 });
     await confirm.click();
-    // The state pill turns HANDED OVER and the banner says when. Assert both,
-    // rather than a bare /Received/ that would also match the word inside the
-    // state label.
-    await expect(rp.locator('.banner.ok')).toContainText('Received', { timeout: 20_000 });
+    // Two success banners appear, not one: the action's own acknowledgement and
+    // the standing record of when custody passed. Name each, and the state pill
+    // as well — scoping to `.banner.ok` was only a different way of matching two
+    // things at once.
+    await expect(rp.getByText('Delivery received. Thank you.')).toBeVisible({ timeout: 20_000 });
+    await expect(rp.getByText(/Received at \d\d:\d\d/)).toBeVisible({ timeout: 20_000 });
     await expect(rp.getByText('HANDED OVER').first()).toBeVisible({ timeout: 20_000 });
     await recvCtx.close();
   });
