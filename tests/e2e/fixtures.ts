@@ -40,8 +40,12 @@ export function adminDb() {
 
 // Every role lands on its own first page. Routes reflect the CURRENT app:
 // no /menu (retired); kitchen → /kitchen, ops → /ops, reports → /reports.
+// The Driver's landing route moved from the /deliveries shell to the real
+// /my-deliveries screen when that screen stopped being a placeholder, so the
+// operational-spine routes belong here too — otherwise login() waits out its
+// whole timeout for any role whose first page this pattern does not know.
 const FIRST_PAGE =
-  /^\/(dashboard|today|parent|classes|staff|students|status|kitchen|reports|ops|deliveries|meals|menu-builder|analytics|users|institutions)/;
+  /^\/(dashboard|today|parent|classes|staff|students|status|kitchen|reports|ops|deliveries|meals|menu-builder|analytics|users|institutions|meal-plans|dietary|operations|delivery|my-deliveries|handover)/;
 
 export async function login(page: Page, email: string): Promise<void> {
   await page.goto('/login');
