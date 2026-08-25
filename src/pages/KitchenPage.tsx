@@ -1,17 +1,44 @@
-import { useEffect, useMemo, useState } from 'react';
-import { mealProductionDemand, type MealDemandRow } from '../lib/api';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  completePacking,
+  completeProduction,
+  confirmSpecialPacked,
+  confirmSpecialProduced,
+  finalDemandForDate,
+  kitchenSpecialMeals,
+  manifestLines,
+  manifestsForDate,
+  mealProductionDemand,
+  productionRuns,
+  releaseManifest,
+  reportIssue,
+  specialLines,
+  startPacking,
+  startProduction,
+  type MealDemandRow,
+} from '../lib/api';
 import { groupDemandByRevision } from '../lib/kitchen';
 import type { AppPeriod } from '../lib/types';
 import {
   Banner,
+  Btn,
   Card,
   EmptyState,
   Field,
+  Modal,
   PageHead,
   Pill,
   Spinner,
   StatCard,
 } from '../components/ui';
+import type {
+  DeliveryManifest,
+  FinalDemand,
+  KitchenSpecialMeal,
+  ManifestLine,
+  ProductionRun,
+  SpecialLine,
+} from '../lib/types';
 import { Icon, type IconName } from '../components/icons';
 import { todayISO } from '../lib/format';
 
@@ -61,10 +88,10 @@ export default function KitchenPage() {
       <PageHead title="Kitchen production" hint="what to make, per meal, for a chosen day" />
 
       <Banner kind="info">
-        These counts come from the children who are eligible to be served, against the{' '}
-        <b>published</b> schedule. Kitchen staff never see who the children are — counts only.
-        Whether a day has service is decided by what is published for it, not by the day of the
-        week. Packing, dispatch and delivery are not available yet.
+        These counts come from the children entitled to be served against the <b>published</b>{' '}
+        schedule. Kitchen staff never see who the children are — counts only, and for a special
+        meal the minimum needed to hand the right tray to the right child. Whether a day has
+        service is decided by what is published for it, not by the day of the week.
       </Banner>
 
       {error && <Banner kind="err">{error}</Banner>}
@@ -138,6 +165,465 @@ export default function KitchenPage() {
           </table>
         )}
       </Card>
+
+      <ProductionWorkflow date={date} />
     </div>
+  );
+}
+
+/**
+ * PRODUCTION → PACKING → RELEASE.
+ *
+ * The normal path is confirmation, not data entry: the quantity is already
+ * known, so `Mark production complete` MEANS "the exact Final Demand was
+ * produced" and asks for no number. Reporting a problem is a secondary button,
+ * because a shortage is an abnormal event here rather than a daily reconciliation.
+ *
+ * Special meals are confirmed one at a time by reference. "We made the three
+ * specials" is a weaker assurance than "this child's meal was made", and the
+ * difference is exactly the child who gets the wrong tray — so the database
+ * refuses to complete either stage while any single line is unconfirmed.
+ */
+function ProductionWorkflow({ date }: { date: string }) {
+  const [final, setFinal] = useState<FinalDemand[] | null>(null);
+  const [runs, setRuns] = useState<ProductionRun[]>([]);
+  const [lines, setLines] = useState<SpecialLine[]>([]);
+  const [specials, setSpecials] = useState<KitchenSpecialMeal[]>([]);
+  const [manifests, setManifests] = useState<DeliveryManifest[]>([]);
+  const [mLines, setMLines] = useState<Record<string, ManifestLine[]>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [issueFor, setIssueFor] = useState<{ id: string; stage: 'PRODUCTION' | 'PACKING' } | null>(
+    null,
+  );
+  const [labelsFor, setLabelsFor] = useState<DeliveryManifest | null>(null);
+
+  const load = useCallback(async () => {
+    const f = await finalDemandForDate(date);
+    if (f.error) {
+      setError(f.error);
+      setFinal([]);
+      return;
+    }
+    const fd = f.data ?? [];
+    setFinal(fd);
+    const ids = fd.map((x) => x.id);
+    const [r, l, sp, m] = await Promise.all([
+      productionRuns(ids),
+      specialLines(ids),
+      kitchenSpecialMeals(date),
+      manifestsForDate(date),
+    ]);
+    setRuns(r.data ?? []);
+    setLines(l.data ?? []);
+    setSpecials(sp.data ?? []);
+    setManifests(m.data ?? []);
+    const map: Record<string, ManifestLine[]> = {};
+    await Promise.all(
+      (m.data ?? []).map(async (x) => {
+        const ml = await manifestLines(x.id);
+        map[x.id] = ml.data ?? [];
+      }),
+    );
+    setMLines(map);
+  }, [date]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function run(fn: () => Promise<{ error: string | null }>, done: string) {
+    setBusy(true);
+    setError(null);
+    setOk(null);
+    const res = await fn();
+    setBusy(false);
+    if (res.error) {
+      setError(res.error);
+      return false;
+    }
+    setOk(done);
+    setIssueFor(null);
+    await load();
+    return true;
+  }
+
+  if (final === null) return <Spinner />;
+
+  return (
+    <>
+      {error && <Banner kind="err">{error}</Banner>}
+      {ok && <Banner kind="ok">{ok}</Banner>}
+
+      <Card title="Production and packing" hint="exact Final Demand — no quantity to re-enter">
+        {final.length === 0 ? (
+          <EmptyState text="Nothing is finalised for this date yet. Production begins once LunchBox finalises demand." />
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Sitting</th>
+                <th>Required</th>
+                <th>Production</th>
+                <th>Packing</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {final.map((f) => {
+                const r = runs.find((x) => x.final_demand_id === f.id);
+                const prod = r?.production_state ?? 'READY';
+                const pack = r?.packing_state ?? 'WAITING_FOR_PRODUCTION';
+                return (
+                  <tr key={f.id}>
+                    <td>{PERIOD_META[f.period].label}</td>
+                    <td className="mono">
+                      <b>{f.total_quantity}</b>{' '}
+                      <span className="cell-sub">
+                        {f.standard_quantity} standard + {f.special_quantity} special
+                      </span>
+                    </td>
+                    <td>{prod.replace(/_/g, ' ')}</td>
+                    <td>{pack.replace(/_/g, ' ')}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      {prod === 'READY' && (
+                        <Btn
+                          variant="brand"
+                          disabled={busy}
+                          onClick={() => void run(() => startProduction(f.id), 'Production started.')}
+                        >
+                          Start production
+                        </Btn>
+                      )}
+                      {prod === 'IN_PRODUCTION' && (
+                        <Btn
+                          variant="brand"
+                          disabled={busy}
+                          onClick={() =>
+                            void run(
+                              () => completeProduction(f.id),
+                              'Production complete — the exact required quantity was produced.',
+                            )
+                          }
+                        >
+                          Mark production complete
+                        </Btn>
+                      )}
+                      {prod === 'COMPLETE' && pack === 'WAITING_FOR_PRODUCTION' && (
+                        <Btn
+                          variant="brand"
+                          disabled={busy}
+                          onClick={() => void run(() => startPacking(f.id), 'Packing started.')}
+                        >
+                          Start packing
+                        </Btn>
+                      )}
+                      {pack === 'PACKING' && (
+                        <Btn
+                          variant="brand"
+                          disabled={busy}
+                          onClick={() =>
+                            void run(
+                              () => completePacking(f.id),
+                              'Packing complete — the exact required packs are ready.',
+                            )
+                          }
+                        >
+                          Mark packing complete
+                        </Btn>
+                      )}{' '}
+                      <Btn
+                        variant="ghost"
+                        onClick={() =>
+                          setIssueFor({
+                            id: f.id,
+                            stage: prod === 'COMPLETE' ? 'PACKING' : 'PRODUCTION',
+                          })
+                        }
+                      >
+                        Report issue
+                      </Btn>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </Card>
+
+      {lines.length > 0 && (
+        <Card
+          title="Special meals"
+          hint="each one confirmed individually — by reference, not by count"
+        >
+          <table>
+            <thead>
+              <tr>
+                <th>Reference</th>
+                <th>For</th>
+                <th>Meal</th>
+                <th>Preparation</th>
+                <th style={{ textAlign: 'right' }}>Confirm</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((l) => {
+                const meta = specials.find((s) => s.reference === l.reference);
+                return (
+                  <tr key={l.id}>
+                    <td className="mono">
+                      <b>{l.reference}</b>
+                    </td>
+                    <td>
+                      {meta ? (
+                        <>
+                          {meta.child_label}{' '}
+                          <span className="cell-sub">
+                            {meta.institution_name}
+                            {meta.class_name ? ` · ${meta.class_name}` : ''}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="cell-sub">—</span>
+                      )}
+                    </td>
+                    <td>{meta?.meal_name ?? '—'}</td>
+                    <td>{l.prep_note ?? meta?.prep_note ?? '—'}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      {!l.produced_at ? (
+                        <Btn
+                          variant="brand"
+                          disabled={busy}
+                          onClick={() =>
+                            void run(
+                              () => confirmSpecialProduced(l.id),
+                              `${l.reference} confirmed as made.`,
+                            )
+                          }
+                        >
+                          Confirm made
+                        </Btn>
+                      ) : !l.packed_at ? (
+                        <Btn
+                          variant="brand"
+                          disabled={busy}
+                          onClick={() =>
+                            void run(
+                              () => confirmSpecialPacked(l.id),
+                              `${l.reference} confirmed as packed.`,
+                            )
+                          }
+                        >
+                          Confirm packed
+                        </Btn>
+                      ) : (
+                        <Pill variant="green">Packed</Pill>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {manifests.length > 0 && (
+        <Card title="Dispatch" hint="release to the driver once everything on the run is packed">
+          <table>
+            <thead>
+              <tr>
+                <th>Institution</th>
+                <th>Run</th>
+                <th>Window</th>
+                <th>State</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {manifests.map((m) => (
+                <tr key={m.id}>
+                  <td>{m.institution_name}</td>
+                  <td>{m.run_number}</td>
+                  <td className="cell-sub">
+                    {m.window_from
+                      ? `${m.window_from.slice(0, 5)}–${(m.window_to ?? '').slice(0, 5)}`
+                      : '—'}
+                  </td>
+                  <td>{m.state.replace(/_/g, ' ')}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    <Btn variant="ghost" onClick={() => setLabelsFor(m)}>
+                      View / print labels
+                    </Btn>{' '}
+                    {m.state === 'READY_FOR_DISPATCH' && (
+                      <Btn
+                        variant="brand"
+                        disabled={busy}
+                        onClick={() =>
+                          void run(() => releaseManifest(m.id), 'Released to the driver.')
+                        }
+                      >
+                        Release to driver
+                      </Btn>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {issueFor && (
+        <IssueDialog
+          stage={issueFor.stage}
+          busy={busy}
+          onClose={() => setIssueFor(null)}
+          onReport={(category, description) =>
+            run(
+              () =>
+                reportIssue({
+                  stage: issueFor.stage,
+                  category,
+                  description,
+                  date,
+                  finalDemandId: issueFor.id,
+                }),
+              'Issue recorded.',
+            )
+          }
+        />
+      )}
+
+      {labelsFor && (
+        <LabelsDialog
+          manifest={labelsFor}
+          lines={mLines[labelsFor.id] ?? []}
+          specials={specials.filter((s) => s.institution_name === labelsFor.institution_name)}
+          onClose={() => setLabelsFor(null)}
+        />
+      )}
+    </>
+  );
+}
+
+const PRODUCTION_CATEGORIES = ['Operational / Equipment', 'Ingredient / Supply', 'Special Meal', 'Other'];
+
+function IssueDialog({
+  stage,
+  busy,
+  onClose,
+  onReport,
+}: {
+  stage: string;
+  busy: boolean;
+  onClose: () => void;
+  onReport: (category: string, description: string) => Promise<boolean>;
+}) {
+  const [category, setCategory] = useState(PRODUCTION_CATEGORIES[0]);
+  const [description, setDescription] = useState('');
+  return (
+    <Modal
+      title={`Report a ${stage.toLowerCase()} issue`}
+      onClose={onClose}
+      footer={
+        <>
+          <Btn variant="ghost" onClick={onClose}>
+            Cancel
+          </Btn>
+          <Btn
+            variant="brand"
+            disabled={busy || !description.trim()}
+            onClick={() => void onReport(category, description)}
+          >
+            {busy ? 'Saving…' : 'Report issue'}
+          </Btn>
+        </>
+      }
+    >
+      <Banner kind="info">
+        This is the exception path. Normal service is the exact required quantity, so an issue here
+        is a real event rather than a daily adjustment.
+      </Banner>
+      <Field label="Category">
+        <select value={category} onChange={(e) => setCategory(e.target.value)}>
+          {PRODUCTION_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="What happened">
+        <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+      </Field>
+    </Modal>
+  );
+}
+
+/**
+ * Labels are generated FROM the authoritative records — never retyped. The
+ * special label carries the minimum needed to hand the right tray to the right
+ * child: first name and last initial plus a unique reference, and the factual
+ * preparation restriction. No guardian data, no diagnosis, no severity.
+ */
+function LabelsDialog({
+  manifest,
+  lines,
+  specials,
+  onClose,
+}: {
+  manifest: DeliveryManifest;
+  lines: ManifestLine[];
+  specials: KitchenSpecialMeal[];
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      title={`Labels — ${manifest.institution_name}, run ${manifest.run_number}`}
+      onClose={onClose}
+      footer={
+        <>
+          <Btn variant="ghost" onClick={onClose}>
+            Close
+          </Btn>
+          <Btn variant="brand" onClick={() => window.print()}>
+            Print
+          </Btn>
+        </>
+      }
+    >
+      <div className="label-sheet">
+        {lines.map((l) => (
+          <div key={l.id} className="label">
+            <div className="label-brand">LunchBox Connect</div>
+            <div className="label-main">{manifest.institution_name}</div>
+            <div>{PERIOD_META[l.period].label}</div>
+            <div className="cell-sub">
+              {manifest.service_date} · run {manifest.run_number}
+            </div>
+            <div className="label-qty">{l.standard_quantity} standard</div>
+          </div>
+        ))}
+        {specials.map((s) => (
+          <div key={s.reference} className="label label-special">
+            <div className="label-brand">SPECIAL MEAL</div>
+            <div className="label-main">{s.child_label}</div>
+            <div>
+              {s.institution_name}
+              {s.class_name ? ` · ${s.class_name}` : ''}
+            </div>
+            <div>{s.meal_name}</div>
+            {s.prep_note && <div className="label-prep">{s.prep_note}</div>}
+            <div className="cell-sub">
+              {manifest.service_date} · {PERIOD_META[s.period].label}
+            </div>
+            <div className="label-qty mono">{s.reference}</div>
+          </div>
+        ))}
+      </div>
+    </Modal>
   );
 }

@@ -6,6 +6,7 @@ import {
   notesForServing,
   recordServing,
   rosterForClass,
+  serviceRoster,
   servingForDay,
   studentPhotoUrl,
   setConcernObserved,
@@ -78,6 +79,17 @@ export default function TodayPage() {
 
   const [classes, setClasses] = useState<ClassWithMeta[]>([]);
   const [roster, setRoster] = useState<Student[] | null>(null);
+  /**
+   * Which children on this roster are entitled to the CURRENT sitting, and
+   * what each one actually receives. A child whose Meal Plan excludes this
+   * period is not recorded here at all — they are not absent, not 0%, and not
+   * an incomplete entry. `null` while unknown, so the register never briefly
+   * renders a child it is about to remove.
+   */
+  const [entitlement, setEntitlement] = useState<Record<
+    string,
+    { entitled: boolean; mealName: string | null; specialRef: string | null; pending: boolean }
+  > | null>(null);
   const [records, setRecords] = useState<ServingRecord[]>([]);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string | null>>({});
   const [notes, setNotes] = useState<Record<string, ServingNote>>({});
@@ -171,9 +183,60 @@ export default function TodayPage() {
     }
   }, [dayServices, availablePeriods, period]);
 
+  // service_roster() is the single source for "who is on this service and what
+  // do they get" — the same function the Parent view resolves through, so the
+  // two cannot disagree about a child's entitlement.
+  useEffect(() => {
+    let active = true;
+    if (!mealServiceId) {
+      setEntitlement(null);
+      return;
+    }
+    void serviceRoster(mealServiceId).then((res) => {
+      if (!active) return;
+      const map: Record<
+        string,
+        { entitled: boolean; mealName: string | null; specialRef: string | null; pending: boolean }
+      > = {};
+      (res.data ?? []).forEach((r) => {
+        map[r.student_id] = {
+          entitled: r.entitled,
+          mealName: r.actual_meal_name,
+          specialRef: r.special_reference,
+          pending: r.decision_pending,
+        };
+      });
+      setEntitlement(map);
+    });
+    return () => {
+      active = false;
+    };
+  }, [mealServiceId]);
+
   const classLabel = classes.find((c) => c.id === classId)?.name ?? classId;
-  const recordedCount = roster?.filter((s) => byStudent[s.id]).length ?? 0;
-  const student = roster?.[index] ?? null;
+
+  /**
+   * THE REGISTER'S ROSTER. Entitlement-filtered, and everything below counts
+   * from this rather than from the class list: the strip, the completion
+   * count, the next/previous navigation and the current child.
+   *
+   * Before entitlement is known this is empty rather than the full class, so
+   * the register never shows a child for one frame and then removes them.
+   */
+  const servingRoster = useMemo(() => {
+    if (!roster) return null;
+    if (!entitlement) return [];
+    return roster.filter((s) => entitlement[s.id]?.entitled);
+  }, [roster, entitlement]);
+
+  /** Children on the class list who are simply not on this sitting. */
+  const notOnThisSitting = useMemo(() => {
+    if (!roster || !entitlement) return [];
+    return roster.filter((s) => entitlement[s.id] && !entitlement[s.id].entitled);
+  }, [roster, entitlement]);
+
+  const recordedCount = servingRoster?.filter((s) => byStudent[s.id]).length ?? 0;
+  const student = servingRoster?.[index] ?? null;
   const noServiceToday = dayServices !== null && availablePeriods.length === 0;
 
   useEffect(() => {
@@ -215,21 +278,21 @@ export default function TodayPage() {
   }
 
   function goToNextUnrecorded(fromIndex: number) {
-    if (!roster) return;
-    for (let i = fromIndex + 1; i < roster.length; i++) {
-      if (!byStudent[roster[i].id]) {
+    if (!servingRoster) return;
+    for (let i = fromIndex + 1; i < servingRoster.length; i++) {
+      if (!byStudent[servingRoster[i].id]) {
         setIndex(i);
         return;
       }
     }
-    for (let i = 0; i < roster.length; i++) {
-      if (!byStudent[roster[i].id]) {
+    for (let i = 0; i < servingRoster.length; i++) {
+      if (!byStudent[servingRoster[i].id]) {
         setIndex(i);
         return;
       }
     }
     // everyone recorded — just move forward if possible
-    if (fromIndex + 1 < roster.length) setIndex(fromIndex + 1);
+    if (fromIndex + 1 < servingRoster.length) setIndex(fromIndex + 1);
   }
 
   async function selectPct(pct: ConsumptionPct) {
@@ -399,7 +462,7 @@ export default function TodayPage() {
           <>
             <span className="today-progress">
               {PERIOD_META.find((p) => p.period === period)?.label} — {recordedCount} /{' '}
-              {roster?.length ?? 0} completed
+              {servingRoster?.length ?? 0} completed
             </span>
             <Btn variant="ghost" size="sm" onClick={() => setParams({})}>
               Switch class
@@ -442,14 +505,14 @@ export default function TodayPage() {
         <EmptyState
           text={`No published Meal is available for ${todayISO()} — there is nothing to record for this class today. Contact your LunchBox Connect administrator.`}
         />
-      ) : !roster ? (
+      ) : !servingRoster ? (
         <Spinner />
-      ) : roster.length === 0 ? (
+      ) : servingRoster.length === 0 ? (
         <EmptyState text="No eligible students in this class right now." />
       ) : !student ? null : (
         <>
           <div className="roster-strip">
-            {roster.map((s, i) => {
+            {servingRoster.map((s, i) => {
               const r = byStudent[s.id];
               // An ABSENT/UNWELL/SLEEPING child is stored as served_status
               // 'served' — the meal WAS available — with the reason carrying the
@@ -496,6 +559,41 @@ export default function TodayPage() {
             })}
           </div>
 
+          {/* What this child actually receives. A special meal REPLACES the
+              standard one, so the register must name it — serving the standard
+              meal to a child with an approved alternative is the failure this
+              indicator exists to prevent. */}
+          {student && entitlement?.[student.id]?.specialRef && (
+            <Banner kind="warn">
+              <b>SPECIAL MEAL — DO NOT SERVE THE STANDARD MEAL.</b>{' '}
+              {student.given_name} receives{' '}
+              <b>{entitlement[student.id].mealName ?? 'an alternative meal'}</b> (
+              {entitlement[student.id].specialRef}).
+            </Banner>
+          )}
+
+          {student && entitlement?.[student.id]?.pending && (
+            <Banner kind="warn">
+              A meal decision for {student.given_name} has not been confirmed by LunchBox yet.
+              Do not serve the standard meal until it is.
+            </Banner>
+          )}
+
+          {notOnThisSitting.length > 0 && (
+            <Card
+              title="Not included in this meal plan"
+              hint="these children are not part of this sitting — nothing to record"
+            >
+              <p className="cell-sub">
+                {notOnThisSitting.map((s) => `${s.given_name} ${s.family_name}`).join(', ')}
+              </p>
+              <p className="hint">
+                This is not an absence and not a missed meal. Their Meal Plan does not include this
+                sitting, so they are not counted in completion or in production.
+              </p>
+            </Card>
+          )}
+
           <div className="focus-nav">
             <button
               className="focus-nav-btn"
@@ -509,7 +607,7 @@ export default function TodayPage() {
             </Btn>
             <button
               className="focus-nav-btn"
-              disabled={index === roster.length - 1}
+              disabled={index === servingRoster.length - 1}
               onClick={() => setIndex((i) => i + 1)}
             >
               →

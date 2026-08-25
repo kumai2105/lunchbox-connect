@@ -1,5 +1,5 @@
 import type { AppPeriod, ServingRecord } from '../../lib/types';
-import type { DayMeal } from '../../lib/api';
+import { serviceRoster, type DayMeal } from '../../lib/api';
 import type { IconName } from '../../components/icons';
 import { formatOperationalTime } from '../../lib/format';
 
@@ -119,4 +119,40 @@ export function childDataReady(
   selectedChildId: string | undefined,
 ): boolean {
   return !!selectedChildId && loadedChildId === selectedChildId;
+}
+
+/**
+ * WHICH SITTINGS THIS CHILD ACTUALLY RECEIVES, and what they get for each.
+ *
+ * Resolved through `service_roster()` — the SAME function the Classroom
+ * register uses — so the two views cannot disagree about a child's
+ * entitlement. It is SECURITY DEFINER and filtered by the existing
+ * `app_can_see_student()` rule, so a Parent gets their own child and nobody
+ * else's without any new visibility being invented.
+ *
+ * A sitting the child's Meal Plan does not include is simply absent from the
+ * result. It must never be rendered as a missed or pending meal: the child was
+ * never due that meal, and showing it as a gap would be telling a parent
+ * something untrue about their own child's day.
+ */
+export async function entitlementForDay(
+  childId: string,
+  meals: DayMeal[],
+  date: string,
+): Promise<Record<string, { mealName: string | null; specialRef: string | null }>> {
+  const forDate = meals.filter((m) => m.service_date === date);
+  const out: Record<string, { mealName: string | null; specialRef: string | null }> = {};
+  await Promise.all(
+    forDate.map(async (m) => {
+      const res = await serviceRoster(m.service_id);
+      const mine = (res.data ?? []).find((r) => r.student_id === childId);
+      if (mine?.entitled) {
+        out[m.period] = {
+          mealName: mine.actual_meal_name,
+          specialRef: mine.special_reference,
+        };
+      }
+    }),
+  );
+  return out;
 }

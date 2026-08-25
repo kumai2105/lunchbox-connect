@@ -2330,3 +2330,44 @@ tbody tr:last-child td {
   font-size: 10.5px;
   padding: 2px 7px;
 }
+
+/* =====================================================================
+   OPERATIONAL SPINE — small additions only.
+   No redesign: these reuse the existing tokens and add the few shapes the
+   new screens genuinely need (checkbox rows, a two-field row, printable
+   labels). Nothing existing is restyled.
+   ===================================================================== */
+.check-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.check-col { display: flex; flex-direction: column; gap: 8px; }
+.check {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 14px; min-height: 32px; cursor: pointer;
+}
+.check input[type='checkbox'] { width: 16px; height: 16px; }
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.label-sheet {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;
+}
+.label {
+  border: 1px solid var(--line); border-radius: 6px; padding: 10px;
+  background: #fff; color: #111; font-size: 12px; line-height: 1.35;
+}
+.label-brand {
+  font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--brand); font-weight: 700;
+}
+.label-special .label-brand { color: #8a5a00; }
+.label-special { border-width: 2px; border-color: #8a5a00; }
+.label-main { font-weight: 700; font-size: 14px; margin: 2px 0; }
+.label-prep { margin-top: 4px; font-weight: 600; }
+.label-qty { margin-top: 6px; font-weight: 700; }
+
+/* Printing a label sheet should print the labels, not the application chrome. */
+@media print {
+  .sidebar, .topbar, .page-head, .btn, .modal-head, .modal-foot { display: none !important; }
+  .modal-backdrop { position: static; background: none; }
+  .modal { box-shadow: none; max-height: none; width: 100%; }
+  .label-sheet { grid-template-columns: repeat(3, 1fr); }
+  .label { break-inside: avoid; }
+}

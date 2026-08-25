@@ -28,6 +28,7 @@ import {
   StatCard,
 } from '../components/ui';
 import { Icon } from '../components/icons';
+import StudentPlanCards from './StudentPlanCards';
 import { initials } from '../lib/format';
 import { statusLabel, statusPillClass } from '../lib/status';
 import {
@@ -399,6 +400,8 @@ export default function StudentProfilePage() {
           </table>
         )}
       </Card>
+
+      <StudentPlanCards student={student} />
 
       <Card title="Meal history" hint="every meal recorded for this child">
         {history.length === 0 ? (

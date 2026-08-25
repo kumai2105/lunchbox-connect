@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useParentData } from './context';
 import { Avatar, Card, Pill } from '../../components/ui';
@@ -19,7 +20,7 @@ import {
   recordsForDate,
   timeOf,
   toneFor,
-} from './shared';
+  entitlementForDay,} from './shared';
 
 /**
  * Parent Home (blueprint Parts 72-75). Everything here is derived from the
@@ -32,9 +33,35 @@ export default function ParentHome() {
   const byPeriod = recordsForDate(records, today);
   const todayMeals = mealsForDate(meals, today);
 
-  // §26: the denominator is the institution's APPLICABLE periods for today
-  // (those with a published meal), never a fixed 4.
-  const applicable = PERIOD_ORDER.filter((p) => todayMeals[p]);
+  // WHAT THIS CHILD RECEIVES — not what the site serves.
+  //
+  // The denominator was the institution's applicable periods (those with a
+  // published meal). That was right when every child on a site received every
+  // sitting. With Meal Plans it would show a morning-only child a Lunch card
+  // and then count it as not-yet-recorded — telling their parent their child
+  // missed a meal they were never due.
+  //
+  // Until the entitlement resolves, fall back to the published sittings so the
+  // screen does not flash empty; `entitled === null` means "not known yet".
+  const [entitled, setEntitled] = useState<Record<
+    string,
+    { mealName: string | null; specialRef: string | null }
+  > | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!child) return;
+    void entitlementForDay(child.id, meals, today).then((e) => {
+      if (active) setEntitled(e);
+    });
+    return () => {
+      active = false;
+    };
+  }, [child, meals, today]);
+
+  const applicable = PERIOD_ORDER.filter((p) =>
+    entitled === null ? todayMeals[p] : entitled[p] !== undefined,
+  );
   const denom = applicable.length;
   const completed = applicable.filter((p) => byPeriod[p]).length;
 
