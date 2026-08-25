@@ -640,3 +640,42 @@ and in a fresh browser context, old password rejected in both, role and scope
 unchanged, and the audit row carrying `{"password_reset": true}` and no value.
 A disposable `classroom_staff` fixture was created by the run and deactivated
 by it; no persona was touched. See the release record for the full table.
+
+## 16. One new advisor warning: `app_special_meal_reference` has no `search_path` — OPEN, NOT BLOCKING
+
+The post-apply advisor run on production (`32912959791`, 25 August 2026) came
+back with **0 errors**, which is the release bar. Three warning counts moved,
+and two of them are the release working as intended:
+
+| Rule | Before | After | Reading |
+| --- | --- | --- | --- |
+| `anon_security_definer_function_executable` | 39 | **39** | Unchanged. Not one of the 47 functions `0048`–`0053` adds is reachable by `anon`. This is the `0047` class of defect proven absent rather than assumed. |
+| `authenticated_security_definer_function_executable` | 56 | 104 | The new definer functions, callable by `authenticated`. That is what they are for. |
+| `function_search_path_mutable` | 3 | **4** | One new function. This finding. |
+
+The new one is `app_special_meal_reference(uuid)` in `0049`:
+
+```sql
+create or replace function app_special_meal_reference(p_id uuid)
+returns text language sql immutable as $$
+  select 'SM-' || upper(substring(replace(p_id::text, '-', '') from 1 for 6));
+$$;
+```
+
+**Why it is not urgent.** It is not `SECURITY DEFINER`. It runs as the caller,
+touches no table, and calls only `upper`, `substring` and `replace`. The
+release rule — every SECURITY DEFINER function carries an intentional
+`search_path` — is not violated, and the other 46 functions this release adds
+all set it. The worst a caller could do by shadowing one of those built-ins in
+their own search path is mislead themselves about a reference string; there is
+no path to another user's data and no privilege to escalate.
+
+**Why it is still recorded.** It is a warning this release introduced, on a
+function that has no reason to lack the setting, and "we knew and said nothing"
+is how the eight anon-executable functions in `0043`–`0046` happened.
+
+**Why it was not fixed in place.** `0049` is applied to production. Editing an
+applied migration is forbidden, and rightly — the file has to keep saying what
+was actually run. The fix is a one-line `create or replace` in a future
+migration, alongside whatever else that migration carries. It did not justify
+opening `0054` on its own at the end of this release.
