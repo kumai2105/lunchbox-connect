@@ -852,3 +852,89 @@ When the user explicitly changes an active decision:
 5. update every affected specification;
 6. update acceptance tests;
 7. do not leave contradictory active rules.
+
+---
+
+## Decision 043 — An Institution's service configuration is not a child's entitlement
+
+`institution_service_plans.periods` answers "what can LunchBox provide at this
+SITE". It has never answered "what does THIS CHILD receive", and it is not made
+to. Student Meal Plans are a separate child-level layer added by `0048`.
+
+Two children in the same Class, eating from the same Menu, may hold different
+entitlements. Collapsing the two concepts would make a morning-only child appear
+as a 0% Lunch, a missed Lunch, or an absence — none of which is true.
+
+**Superseded:** any earlier reading in which the institution service plan alone
+determined who is produced for.
+
+## Decision 044 — A Meal Plan is a service entitlement, not a commercial package
+
+Plans carry a name and a set of existing Meal Periods. No price, no package
+name, no billing. Commercial agreements are versioned business documents;
+hard-coding one into the schema would outlive it, and the Founder has confirmed
+that one Institution may hold children on several different Plans at once.
+
+## Decision 045 — Entitlement is switched on per Institution, and never guessed
+
+Production children have no Plan because the concept did not exist. Copying the
+site's periods onto everyone, inferring from serving history, or defaulting to
+"everything" would each be a guess about what a family is paying for and a child
+is fed.
+
+`institutions.student_plan_enforced_from` is NULL until a Super Admin activates
+it, and before that date demand keeps its exact prior meaning. Activation
+refuses while any served child lacks a valid Plan, and names them all.
+
+## Decision 046 — Free text is never converted into a safety decision
+
+`students.medical_notes` is not parsed, string-matched, migrated or treated as
+authoritative. There is no severity scale, no diagnosis field, and no automatic
+allergen-versus-ingredient engine.
+
+A dietary requirement is a controlled record that a person reviews, and each
+individual meal is a decision a named person makes and the system records. No
+screen claims a meal is "safe".
+
+## Decision 047 — A special Meal replaces the standard Meal, one for one
+
+80 entitled children with 3 alternatives is 77 + 3 = 80, never 83. Enforced
+arithmetically in the demand function and by CHECK on the snapshot, rather than
+left as a convention a later query could forget.
+
+## Decision 048 — Delivery frequency changes transport, never entitlement
+
+One run or two is an Institution logistics choice. It changes no child's Plan,
+no Menu, and not one Meal of total demand. Every serviced period belongs to
+exactly one run — the composite primary key makes double-shipping impossible,
+and the setter refuses to leave a period unassigned.
+
+No existing Institution receives a guessed configuration. No configuration means
+no manifest and a screen that says so.
+
+## Decision 049 — The Driver carries; the Institution receives
+
+Custody transfer is the Institution's own act. A Driver records collection and
+arrival and cannot complete handover.
+
+AUTHORIZED DELIVERY RECEIVER is a capability assignment, deliberately not a new
+`app_role`: it grants the handover action for one Institution and widens nothing
+else. Only that site's own active Admin or Classroom Staff are eligible; Parents
+never are.
+
+## Decision 050 — Exact fulfilment is the normal case, and the UI says so
+
+REQUIRED = PRODUCED = PACKED = DISPATCHED = HANDED OVER. Confirmations do not
+ask for a quantity the system already knows. Exceptions exist and are secondary;
+they do not shape the normal flow.
+
+Special Meals are confirmed individually by reference, because "we made the
+three specials" is a weaker assurance than "this child's Meal was made".
+
+## Decision 051 — Temperature and formal batch traceability remain deferred
+
+No temperature ranges, checkpoints or acceptance thresholds are encoded, and
+internal Production Run / Manifest identifiers are not modelled or presented as
+regulated lot traceability. The applicable official requirements are not
+confirmed for this software state, and inventing them would be manufacturing
+compliance rather than implementing it.
