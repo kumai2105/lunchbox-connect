@@ -38,6 +38,31 @@ export function adminDb() {
   return createClient(url, serviceKey, { auth: { persistSession: false } });
 }
 
+/**
+ * A PostgREST client signed in as a real person.
+ *
+ * `adminDb()` holds the service key, and service_role is NOT a user: `auth.uid()`
+ * is null behind it, so `app_current_role()` resolves to null and every
+ * `app_is_super_admin()` gate in the schema refuses. That is correct — the
+ * service key exists to bypass RLS on TABLES, not to impersonate an
+ * administrator — but it means a fixture cannot set up state by calling the
+ * product's own gated RPCs through it. Attempts to do so raise, and because
+ * PostgREST returns the error in `error` rather than throwing, the damage shows
+ * up later as a null id somewhere else.
+ *
+ * This signs in with a seeded account instead, so fixture setup goes through
+ * exactly the authorization the product goes through.
+ */
+export async function signedInDb(email: string) {
+  const url = process.env.E2E_SUPABASE_URL;
+  const anon = process.env.E2E_SUPABASE_ANON_KEY;
+  if (!url || !anon) throw new Error('E2E env incomplete');
+  const db = createClient(url, anon, { auth: { persistSession: false } });
+  const { error } = await db.auth.signInWithPassword({ email, password: PASS });
+  if (error) throw new Error(`fixture: could not sign in as ${email} — ${error.message}`);
+  return db;
+}
+
 // Every role lands on its own first page. Routes reflect the CURRENT app:
 // no /menu (retired); kitchen → /kitchen, ops → /ops, reports → /reports.
 // The Driver's landing route moved from the /deliveries shell to the real

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from 'playwright/test';
-import { adminDb, e2eReady, login, seeded } from './fixtures';
+import { adminDb, e2eReady, login, seeded, signedInDb } from './fixtures';
 
 /**
  * THE OPERATIONAL SPINE, DRIVEN BY PEOPLE.
@@ -60,6 +60,7 @@ test.describe('operational spine', () => {
 
   test.beforeAll(async () => {
     const db = adminDb();
+    const sa = await signedInDb(seeded().superAdminEmail);
 
     const instId = must<{ id: string }>(
       'create institution',
@@ -102,35 +103,29 @@ test.describe('operational spine', () => {
 
     // Meals, then a published service for each of the four sittings.
     //
-    // Written straight to the tables rather than through save_meal(). That RPC
-    // is gated on app_is_super_admin(), which is false for service_role — there
-    // is no signed-in person behind a service key — so a fixture that called it
-    // would get an exception, not a Meal. The Meal Library's own product path is
-    // proved by the specs that drive it through the browser; this only puts the
-    // day's starting facts in place.
+    // save_meal() is gated on app_is_super_admin(), so it is called as one —
+    // see signedInDb(). Called through adminDb() it would raise, PostgREST
+    // would hand the error back in `error` rather than throw, and the null id
+    // would surface two calls later as "cannot read properties of null".
     const makeMeal = async (name: string) => {
-      const mealId = must<{ id: string }>(
+      const mealId = must<string>(
         `create meal ${name}`,
-        await db.from('meals').insert({ name, active: true }).select('id').single(),
-      ).id;
-      const revId = must<{ id: string }>(
-        `create revision for ${name}`,
-        await db
-          .from('meal_revisions')
-          .insert({ meal_id: mealId, revision_no: 1, name })
-          .select('id')
-          .single(),
-      ).id;
-      must<{ id: string }>(
-        `point ${name} at its revision`,
-        await db
-          .from('meals')
-          .update({ current_revision_id: revId })
-          .eq('id', mealId)
-          .select('id')
-          .single(),
+        await sa.rpc('save_meal', {
+          p_meal_id: null,
+          p_name: name,
+          p_ingredients: null,
+          p_allergens: null,
+          p_nutrition: null,
+          p_portion: null,
+          p_image_path: null,
+          p_nutrition_status: 'NOT_APPROVED',
+          p_periods: null,
+        }),
       );
-      return revId;
+      return must<{ current_revision_id: string | null }>(
+        `read the revision of ${name}`,
+        await db.from('meals').select('current_revision_id').eq('id', mealId).single(),
+      ).current_revision_id as string;
     };
     const stdRev = await makeMeal(STD_MEAL);
     await makeMeal(ALT_MEAL);
@@ -224,25 +219,30 @@ test.describe('operational spine', () => {
 
   test('mixed Plans are assigned, and activation then succeeds', async ({ page }) => {
     const db = adminDb();
-    const plan = async (name: string) => {
-      const { data } = await db.from('meal_plans').select('id').eq('name', name).single();
-      return (data as { id: string }).id;
-    };
-    // Assignment itself is proven at the database boundary and through the
-    // Student profile below; bulk-seeding it here keeps this spec about the
-    // ACTIVATION decision rather than about six identical dialogs.
-    await db.rpc('bulk_assign_student_meal_plan', {
-      p_students: ids.morningIds,
-      p_plan: await plan(MORNING_PLAN),
-      p_from: today(),
-      p_note: null,
-    });
-    await db.rpc('bulk_assign_student_meal_plan', {
-      p_students: ids.fullIds,
-      p_plan: await plan(FULL_PLAN),
-      p_from: today(),
-      p_note: null,
-    });
+    const sa = await signedInDb(seeded().superAdminEmail);
+    const plan = async (name: string) =>
+      must<{ id: string }>(
+        `find plan ${name}`,
+        await db.from('meal_plans').select('id').eq('name', name).single(),
+      ).id;
+    // Assigning six children one at a time through six identical dialogs would
+    // make this test about the dialog. It is about the ACTIVATION decision, so
+    // the assignment is done in bulk — but through the product's own RPC, as a
+    // signed-in Super Admin, so the periods-subset rule, the availability rule
+    // and the one-Plan-per-date exclusion constraint all still apply. The
+    // single-child dialog is driven on the Student profile below.
+    const assign = async (studentIds: string[], planName: string) =>
+      must<number>(
+        `assign ${planName}`,
+        await sa.rpc('bulk_assign_student_meal_plan', {
+          p_students: studentIds,
+          p_plan: await plan(planName),
+          p_from: today(),
+          p_note: null,
+        }),
+      );
+    await assign(ids.morningIds, MORNING_PLAN);
+    await assign(ids.fullIds, FULL_PLAN);
 
     await login(page, seeded().superAdminEmail);
     await page.goto('/meal-plans');
@@ -279,19 +279,25 @@ test.describe('operational spine', () => {
   });
 
   test('an approved requirement blocks finalisation until a meal is decided', async ({ page }) => {
-    const db = adminDb();
-    const { data: req } = await db.rpc('submit_dietary_requirement', {
-      p_student: ids.fullIds[0],
-      p_type: 'ALLERGY',
-      p_text: 'No sesame in any meal.',
-      p_source: 'e2e',
-      p_from: today(),
-    });
-    await db.rpc('review_dietary_requirement', {
-      p_id: req as string,
+    // Both of these are gated — submission on managing the institution, review
+    // on being a Super Admin — so both go through a signed-in account.
+    const sa = await signedInDb(seeded().superAdminEmail);
+    const req = must<string>(
+      'submit the dietary requirement',
+      await sa.rpc('submit_dietary_requirement', {
+        p_student: ids.fullIds[0],
+        p_type: 'ALLERGY',
+        p_text: 'No sesame in any meal.',
+        p_source: 'e2e',
+        p_from: today(),
+      }),
+    );
+    const review = await sa.rpc('review_dietary_requirement', {
+      p_id: req,
       p_status: 'APPROVED',
       p_note: null,
     });
+    if (review.error) throw new Error(`fixture: approve the requirement — ${review.error.message}`);
 
     await login(page, seeded().superAdminEmail);
     await page.goto('/operations');
@@ -369,21 +375,27 @@ test.describe('operational spine', () => {
 
     // ---- assign a driver, then release
     const db = adminDb();
-    const { data: manifest } = await db
-      .from('delivery_manifests')
-      .select('id')
-      .eq('institution_id', ids.instId)
-      .eq('service_date', today())
-      .single();
-    const { data: driver } = await db
-      .from('app_users')
-      .select('user_id')
-      .eq('email', seeded().driverEmail)
-      .single();
-    await db.rpc('assign_manifest_driver', {
-      p_manifest: (manifest as { id: string }).id,
-      p_driver: (driver as { user_id: string }).user_id,
+    const manifest = must<{ id: string }>(
+      'find the manifest',
+      await db
+        .from('delivery_manifests')
+        .select('id')
+        .eq('institution_id', ids.instId)
+        .eq('service_date', today())
+        .single(),
+    );
+    const driver = must<{ user_id: string }>(
+      'find the seeded Driver',
+      await db.from('app_users').select('user_id').eq('email', seeded().driverEmail).single(),
+    );
+    // Only the Kitchen or a Super Admin may assign a Driver, so this is done as
+    // one rather than with the service key, which is nobody.
+    const sa = await signedInDb(seeded().superAdminEmail);
+    const assigned = await sa.rpc('assign_manifest_driver', {
+      p_manifest: manifest.id,
+      p_driver: driver.user_id,
     });
+    if (assigned.error) throw new Error(`fixture: assign the Driver — ${assigned.error.message}`);
 
     await kitchen.reload();
     await kitchen.getByRole('button', { name: 'Release to driver', exact: true }).first().click();
