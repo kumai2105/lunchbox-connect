@@ -38,7 +38,8 @@ test.describe('login matrix — nine roles', () => {
     { role: 'parent', key: 'parentEmail', href: '/parent', nav: /Home/ },
     { role: 'classroom_staff', key: 'classroomEmail', href: '/today', nav: /Today/ },
     { role: 'kitchen', key: 'kitchenEmail', href: '/kitchen', nav: /Production/ },
-    { role: 'driver', key: 'driverEmail', href: '/deliveries', nav: /My deliveries/ },
+    // Not /deliveries — that shell was replaced by the real screen in 0052.
+    { role: 'driver', key: 'driverEmail', href: '/my-deliveries', nav: /My deliveries/ },
   ];
 
   for (const c of cases) {
@@ -93,21 +94,26 @@ test.describe('login matrix — nine roles', () => {
     // Readable labels, not the database's enum values — this list is read by a
     // person choosing a role, and the stored value is unchanged behind it.
     //
-    // FOUR OF THE NINE ARE DELIBERATELY ABSENT. Operations Manager, Finance /
-    // Owner, Viewer and Driver have no built screen between them: every page
-    // in their navigation is a shell that says the module is not available.
-    // Creating one of those accounts hands somebody a working sign-in that
-    // leads nowhere, so the offer is withdrawn until the screens exist. The
-    // roles themselves are untouched — still in the database enum, still in
-    // the RBAC matrix, still in the spec — and the picker is derived from
-    // which navigations contain a real page, so each one reappears here by
-    // itself on the day its module is built.
+    // THREE OF THE NINE ARE DELIBERATELY ABSENT. Operations Manager, Finance /
+    // Owner and Viewer have no built screen between them: every page in their
+    // navigation is a shell that says the module is not available. Creating one
+    // of those accounts hands somebody a working sign-in that leads nowhere, so
+    // the offer is withdrawn until the screens exist. The roles themselves are
+    // untouched — still in the database enum, still in the RBAC matrix, still in
+    // the spec — and the picker is derived from which navigations contain a real
+    // page, so each one reappears here by itself on the day its module is built.
+    //
+    // Driver has just done exactly that. The rule did not change; the product
+    // did. My deliveries is a real screen as of 0052, so a Driver account now
+    // leads somewhere and the picker offers it again — which is the mechanism
+    // working, not an exception to it.
     expect(roleOptions).toEqual([
       'Super Admin',
       'Institution Admin',
       'Parent',
       'Classroom staff',
       'Kitchen',
+      'Driver',
     ]);
   });
 });

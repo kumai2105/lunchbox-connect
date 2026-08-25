@@ -114,10 +114,11 @@ const ACCOUNT_ITEM: NavItem = {
  *
  * DERIVED, not listed by hand: a role is offerable only if at least one page
  * in its navigation is a REAL screen rather than a `shell: true` placeholder.
- * Today that removes Operations Manager, Finance / Owner, Viewer and Driver —
- * every one of those roles' entire product is a screen that says the module is
- * not built, so creating such an account hands somebody a sign-in that leads
- * nowhere. Those role values stay in the database enum, in the RBAC matrix and
+ * Today that removes Operations Manager, Finance / Owner and Viewer — every
+ * one of those roles' entire product is a screen that says the module is not
+ * built, so creating such an account hands somebody a sign-in that leads
+ * nowhere. Driver was on that list until My deliveries stopped being a
+ * placeholder, and came back off it without anyone editing this function. Those role values stay in the database enum, in the RBAC matrix and
  * in the spec, because the roles are real and their screens are planned; what
  * is withdrawn is the offer to provision a person into one today.
  *

@@ -42,6 +42,17 @@ type Ids = {
 
 let ids: Ids;
 
+/**
+ * Every fixture insert is checked. An unchecked one fails silently and the
+ * symptom surfaces later, in another test, as "cannot read properties of
+ * null" — cause and evidence end up in different files.
+ */
+function must<T>(what: string, res: { data: T | null; error: { message: string } | null }): T {
+  if (res.error) throw new Error(`fixture: ${what} failed — ${res.error.message}`);
+  if (res.data === null) throw new Error(`fixture: ${what} returned no row`);
+  return res.data;
+}
+
 test.describe('operational spine', () => {
   test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
   test.setTimeout(180_000);
@@ -50,19 +61,19 @@ test.describe('operational spine', () => {
   test.beforeAll(async () => {
     const db = adminDb();
 
-    const { data: inst } = await db
-      .from('institutions')
-      .insert({ name: INST, kind: 'nursery' })
-      .select('id')
-      .single();
-    const instId = (inst as { id: string }).id;
+    const instId = must<{ id: string }>(
+      'create institution',
+      await db.from('institutions').insert({ name: INST, kind: 'nursery' }).select('id').single(),
+    ).id;
 
-    const { data: cls } = await db
-      .from('classes')
-      .insert({ institution_id: instId, name: CLASS, grade: 'KG1' })
-      .select('id')
-      .single();
-    const classId = (cls as { id: string }).id;
+    const classId = must<{ id: string }>(
+      'create class',
+      await db
+        .from('classes')
+        .insert({ institution_id: instId, name: CLASS, grade: 'KG1' })
+        .select('id')
+        .single(),
+    ).id;
 
     await db.from('institution_service_plans').insert({
       institution_id: instId,
@@ -84,54 +95,63 @@ test.describe('operational spine', () => {
       enrollment_status: 'enrolled',
       operational_status: 'ACTIVE_BILLABLE_TO_NURSERY',
     }));
-    const { data: students } = await db.from('students').insert(rows).select('id, given_name');
-    const all = (students ?? []) as Array<{ id: string; given_name: string }>;
+    const all = must<Array<{ id: string; given_name: string }>>(
+      'create children',
+      await db.from('students').insert(rows).select('id, given_name'),
+    );
 
     // Meals, then a published service for each of the four sittings.
-    const { data: stdId } = await db.rpc('save_meal', {
-      p_meal_id: null,
-      p_name: STD_MEAL,
-      p_ingredients: null,
-      p_allergens: null,
-      p_nutrition: null,
-      p_portion: null,
-      p_image_path: null,
-    });
-    const { data: altId } = await db.rpc('save_meal', {
-      p_meal_id: null,
-      p_name: ALT_MEAL,
-      p_ingredients: null,
-      p_allergens: null,
-      p_nutrition: null,
-      p_portion: null,
-      p_image_path: null,
-    });
-    const rev = async (mealId: string) => {
-      const { data } = await db
-        .from('meals')
-        .select('current_revision_id')
-        .eq('id', mealId)
-        .single();
-      return (data as { current_revision_id: string }).current_revision_id;
+    //
+    // Written straight to the tables rather than through save_meal(). That RPC
+    // is gated on app_is_super_admin(), which is false for service_role — there
+    // is no signed-in person behind a service key — so a fixture that called it
+    // would get an exception, not a Meal. The Meal Library's own product path is
+    // proved by the specs that drive it through the browser; this only puts the
+    // day's starting facts in place.
+    const makeMeal = async (name: string) => {
+      const mealId = must<{ id: string }>(
+        `create meal ${name}`,
+        await db.from('meals').insert({ name, active: true }).select('id').single(),
+      ).id;
+      const revId = must<{ id: string }>(
+        `create revision for ${name}`,
+        await db
+          .from('meal_revisions')
+          .insert({ meal_id: mealId, revision_no: 1, name })
+          .select('id')
+          .single(),
+      ).id;
+      must<{ id: string }>(
+        `point ${name} at its revision`,
+        await db
+          .from('meals')
+          .update({ current_revision_id: revId })
+          .eq('id', mealId)
+          .select('id')
+          .single(),
+      );
+      return revId;
     };
-    const stdRev = await rev(stdId as string);
-    await rev(altId as string);
+    const stdRev = await makeMeal(STD_MEAL);
+    await makeMeal(ALT_MEAL);
 
     const serviceIds: Record<string, string> = {};
     for (const period of ['breakfast', 'snack', 'lunch', 'afternoon_snack']) {
-      const { data } = await db
-        .from('meal_services')
-        .insert({
-          institution_id: instId,
-          service_date: today(),
-          period,
-          meal_revision_id: stdRev,
-          published: true,
-          published_at: new Date().toISOString(),
-        })
-        .select('id')
-        .single();
-      serviceIds[period] = (data as { id: string }).id;
+      serviceIds[period] = must<{ id: string }>(
+        `publish ${period} service`,
+        await db
+          .from('meal_services')
+          .insert({
+            institution_id: instId,
+            service_date: today(),
+            period,
+            meal_revision_id: stdRev,
+            published: true,
+            published_at: new Date().toISOString(),
+          })
+          .select('id')
+          .single(),
+      ).id;
     }
 
     ids = {
@@ -145,6 +165,10 @@ test.describe('operational spine', () => {
 
   test.afterAll(async () => {
     const db = adminDb();
+    // Cleanup must not mask a setup failure: if beforeAll threw, `ids` was
+    // never assigned, and the only thing an unguarded teardown adds is a
+    // second, unrelated error on top of the real one.
+    if (!ids) return;
     // Reverse order of creation so nothing is left referencing a deleted row.
     await db.from('students').delete().eq('institution_id', ids.instId);
     await db.from('meal_services').delete().eq('institution_id', ids.instId);
