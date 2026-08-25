@@ -20,7 +20,8 @@ import {
   recordsForDate,
   timeOf,
   toneFor,
-  entitlementForDay,} from './shared';
+  entitlementForDay,
+} from './shared';
 
 /**
  * Parent Home (blueprint Parts 72-75). Everything here is derived from the

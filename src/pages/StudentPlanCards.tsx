@@ -66,10 +66,7 @@ export default function StudentPlanCards({ student }: { student: Student }) {
   >(null);
 
   const load = useCallback(async () => {
-    const [a, d] = await Promise.all([
-      studentMealPlans(student.id),
-      dietaryForStudent(student.id),
-    ]);
+    const [a, d] = await Promise.all([studentMealPlans(student.id), dietaryForStudent(student.id)]);
     if (a.error) setError(a.error);
     setAssignments(a.data ?? []);
     setDietary(d.data ?? []);
@@ -254,8 +251,8 @@ export default function StudentPlanCards({ student }: { student: Student }) {
           </div>
         )}
         <p className="hint">
-          A requirement is a factual operational statement. It carries no severity and no
-          diagnosis, and the software draws no conclusion from it — a person decides each meal.
+          A requirement is a factual operational statement. It carries no severity and no diagnosis,
+          and the software draws no conclusion from it — a person decides each meal.
         </p>
       </Card>
 
@@ -419,11 +416,7 @@ function DietaryDialog({
 }: {
   busy: boolean;
   onClose: () => void;
-  onSubmit: (
-    type: DietaryRequirementType,
-    text: string,
-    source: string | null,
-  ) => Promise<boolean>;
+  onSubmit: (type: DietaryRequirementType, text: string, source: string | null) => Promise<boolean>;
 }) {
   const [type, setType] = useState<DietaryRequirementType>('ALLERGY');
   const [text, setText] = useState('');

@@ -89,9 +89,9 @@ export default function KitchenPage() {
 
       <Banner kind="info">
         These counts come from the children entitled to be served against the <b>published</b>{' '}
-        schedule. Kitchen staff never see who the children are — counts only, and for a special
-        meal the minimum needed to hand the right tray to the right child. Whether a day has
-        service is decided by what is published for it, not by the day of the week.
+        schedule. Kitchen staff never see who the children are — counts only, and for a special meal
+        the minimum needed to hand the right tray to the right child. Whether a day has service is
+        decided by what is published for it, not by the day of the week.
       </Banner>
 
       {error && <Banner kind="err">{error}</Banner>}
@@ -291,7 +291,9 @@ function ProductionWorkflow({ date }: { date: string }) {
                         <Btn
                           variant="brand"
                           disabled={busy}
-                          onClick={() => void run(() => startProduction(f.id), 'Production started.')}
+                          onClick={() =>
+                            void run(() => startProduction(f.id), 'Production started.')
+                          }
                         >
                           Start production
                         </Btn>
@@ -509,7 +511,12 @@ function ProductionWorkflow({ date }: { date: string }) {
   );
 }
 
-const PRODUCTION_CATEGORIES = ['Operational / Equipment', 'Ingredient / Supply', 'Special Meal', 'Other'];
+const PRODUCTION_CATEGORIES = [
+  'Operational / Equipment',
+  'Ingredient / Supply',
+  'Special Meal',
+  'Other',
+];
 
 function IssueDialog({
   stage,

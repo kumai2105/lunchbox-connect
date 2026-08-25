@@ -92,7 +92,9 @@ export default function DriverPage() {
             key={m.id}
             title={`${m.institution_name ?? 'Institution'} — run ${m.run_number}`}
             hint={`${m.service_date}${
-              m.window_from ? ` · ${m.window_from.slice(0, 5)}–${(m.window_to ?? '').slice(0, 5)}` : ''
+              m.window_from
+                ? ` · ${m.window_from.slice(0, 5)}–${(m.window_to ?? '').slice(0, 5)}`
+                : ''
             }`}
           >
             <p>

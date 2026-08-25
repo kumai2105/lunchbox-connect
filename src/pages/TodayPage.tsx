@@ -565,8 +565,7 @@ export default function TodayPage() {
               indicator exists to prevent. */}
           {student && entitlement?.[student.id]?.specialRef && (
             <Banner kind="warn">
-              <b>SPECIAL MEAL — DO NOT SERVE THE STANDARD MEAL.</b>{' '}
-              {student.given_name} receives{' '}
+              <b>SPECIAL MEAL — DO NOT SERVE THE STANDARD MEAL.</b> {student.given_name} receives{' '}
               <b>{entitlement[student.id].mealName ?? 'an alternative meal'}</b> (
               {entitlement[student.id].specialRef}).
             </Banner>
@@ -574,8 +573,8 @@ export default function TodayPage() {
 
           {student && entitlement?.[student.id]?.pending && (
             <Banner kind="warn">
-              A meal decision for {student.given_name} has not been confirmed by LunchBox yet.
-              Do not serve the standard meal until it is.
+              A meal decision for {student.given_name} has not been confirmed by LunchBox yet. Do
+              not serve the standard meal until it is.
             </Banner>
           )}
 

@@ -11,7 +11,18 @@ import {
 } from '../lib/api';
 import { PERIOD_LABEL, PERIOD_ORDER } from '../lib/periods';
 import type { AppPeriod, Institution, MealPlan, PlanReadinessRow } from '../lib/types';
-import { Banner, Btn, Card, EmptyState, Field, Modal, PageHead, Pill, Spinner } from '../components/ui';
+import { operationalToday } from '../lib/format';
+import {
+  Banner,
+  Btn,
+  Card,
+  EmptyState,
+  Field,
+  Modal,
+  PageHead,
+  Pill,
+  Spinner,
+} from '../components/ui';
 
 /**
  * MEAL PLANS — what a child receives, as distinct from what the site offers.
@@ -284,9 +295,7 @@ function PlanDialog({
                 type="checkbox"
                 checked={periods.includes(p)}
                 onChange={(e) =>
-                  setPeriods(
-                    e.target.checked ? [...periods, p] : periods.filter((x) => x !== p),
-                  )
+                  setPeriods(e.target.checked ? [...periods, p] : periods.filter((x) => x !== p))
                 }
               />
               {PERIOD_LABEL[p]}
@@ -356,16 +365,17 @@ function AvailabilityDialog({
                   checked={selected.includes(p.id)}
                   onChange={(e) =>
                     setSelected(
-                      e.target.checked
-                        ? [...selected, p.id]
-                        : selected.filter((x) => x !== p.id),
+                      e.target.checked ? [...selected, p.id] : selected.filter((x) => x !== p.id),
                     )
                   }
                 />
                 {p.name}
                 <span className="muted">
                   {' '}
-                  — {PERIOD_ORDER.filter((x) => p.periods.includes(x)).map((x) => PERIOD_LABEL[x]).join(', ')}
+                  —{' '}
+                  {PERIOD_ORDER.filter((x) => p.periods.includes(x))
+                    .map((x) => PERIOD_LABEL[x])
+                    .join(', ')}
                 </span>
               </label>
             ))}
@@ -391,7 +401,7 @@ function ActivateDialog({
   onClose: () => void;
   onActivate: (from: string) => Promise<boolean>;
 }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = operationalToday();
   const [from, setFrom] = useState(today);
   const [rows, setRows] = useState<PlanReadinessRow[] | null>(null);
   const [checking, setChecking] = useState(false);

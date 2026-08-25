@@ -1750,7 +1750,10 @@ export async function institutionMealPlans(institutionId: string): Promise<ApiRe
     .select('meal_plan_id')
     .eq('institution_id', institutionId);
   if (error) return err(error);
-  return { data: (data ?? []).map((r) => (r as { meal_plan_id: string }).meal_plan_id), error: null };
+  return {
+    data: (data ?? []).map((r) => (r as { meal_plan_id: string }).meal_plan_id),
+    error: null,
+  };
 }
 
 export async function setInstitutionMealPlans(
@@ -1792,7 +1795,9 @@ export async function currentPlansForInstitution(
 ): Promise<ApiResult<Record<string, { planId: string; planName: string }>>> {
   const { data, error } = await supabase
     .from('student_meal_plans')
-    .select('student_id, meal_plan_id, effective_from, effective_until, meal_plans(name), students!inner(institution_id)')
+    .select(
+      'student_id, meal_plan_id, effective_from, effective_until, meal_plans(name), students!inner(institution_id)',
+    )
     .eq('students.institution_id', institutionId)
     .lte('effective_from', onDate);
   if (error) return err(error);
@@ -2070,9 +2075,7 @@ export async function kitchenSpecialMeals(date: string): Promise<ApiResult<Kitch
 }
 
 // ------------------------------------------------------------ delivery
-export async function deliveryConfigs(
-  institutionId: string,
-): Promise<ApiResult<DeliveryConfig[]>> {
+export async function deliveryConfigs(institutionId: string): Promise<ApiResult<DeliveryConfig[]>> {
   const { data, error } = await supabase
     .from('institution_delivery_configs')
     .select('*')
@@ -2249,7 +2252,15 @@ export async function reconciliation(date: string): Promise<ApiResult<Reconcilia
 }
 
 export async function classroomCompletion(date: string): Promise<
-  ApiResult<Array<{ institution_id: string; institution_name: string; period: AppPeriod; entitled: number; recorded: number }>>
+  ApiResult<
+    Array<{
+      institution_id: string;
+      institution_name: string;
+      period: AppPeriod;
+      entitled: number;
+      recorded: number;
+    }>
+  >
 > {
   const { data, error } = await supabase.rpc('classroom_completion', { p_date: date });
   if (error) return err(error);

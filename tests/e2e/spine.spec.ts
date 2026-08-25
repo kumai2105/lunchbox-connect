@@ -361,7 +361,12 @@ test.describe('operational spine', () => {
     await login(kitchen, seeded().kitchenEmail);
     await kitchen.goto('/kitchen');
 
-    for (const action of ['Start production', 'Mark production complete', 'Start packing', 'Mark packing complete']) {
+    for (const action of [
+      'Start production',
+      'Mark production complete',
+      'Start packing',
+      'Mark packing complete',
+    ]) {
       for (let i = 0; i < 4; i++) {
         const btn = kitchen.getByRole('button', { name: action, exact: true }).first();
         if (!(await btn.count())) break;
@@ -433,21 +438,22 @@ test.describe('operational spine', () => {
     page,
   }) => {
     const db = adminDb();
-    await db
-      .from('class_staff')
-      .upsert(
-        {
-          class_id: ids.classId,
-          user_id: (
-            await db.from('app_users').select('user_id').eq('email', seeded().classroomEmail).single()
-          ).data!.user_id as string,
-        },
-        { onConflict: 'class_id,user_id' },
-      );
+    await db.from('class_staff').upsert(
+      {
+        class_id: ids.classId,
+        user_id: (
+          await db.from('app_users').select('user_id').eq('email', seeded().classroomEmail).single()
+        ).data!.user_id as string,
+      },
+      { onConflict: 'class_id,user_id' },
+    );
 
     await login(page, seeded().classroomEmail);
     await page.goto('/today');
-    await page.getByLabel(/Class/).selectOption({ label: CLASS }).catch(() => undefined);
+    await page
+      .getByLabel(/Class/)
+      .selectOption({ label: CLASS })
+      .catch(() => undefined);
 
     // Lunch: the four full-plan children are on the register…
     await selectPeriod(page, 'Lunch');

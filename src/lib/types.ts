@@ -369,17 +369,10 @@ export interface PlanReadinessRow {
   problem: string;
 }
 
-export type DietaryRequirementType =
-  | 'ALLERGY'
-  | 'DIETARY_RESTRICTION'
-  | 'OTHER_MEAL_REQUIREMENT';
+export type DietaryRequirementType = 'ALLERGY' | 'DIETARY_RESTRICTION' | 'OTHER_MEAL_REQUIREMENT';
 
 export type DietaryReviewStatus =
-  | 'SUBMITTED'
-  | 'APPROVED'
-  | 'NEEDS_CLARIFICATION'
-  | 'REJECTED'
-  | 'ENDED';
+  'SUBMITTED' | 'APPROVED' | 'NEEDS_CLARIFICATION' | 'REJECTED' | 'ENDED';
 
 export interface DietaryRequirement {
   id: string;
@@ -476,12 +469,7 @@ export interface ProductionRun {
 }
 
 export type DispatchState =
-  | 'PREPARING'
-  | 'READY_FOR_DISPATCH'
-  | 'RELEASED'
-  | 'IN_TRANSIT'
-  | 'ARRIVED'
-  | 'HANDED_OVER';
+  'PREPARING' | 'READY_FOR_DISPATCH' | 'RELEASED' | 'IN_TRANSIT' | 'ARRIVED' | 'HANDED_OVER';
 
 export interface DeliveryManifest {
   id: string;

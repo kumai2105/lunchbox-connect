@@ -21,7 +21,17 @@ import type {
   OperationalIssue,
   ReconciliationRow,
 } from '../lib/types';
-import { Banner, Btn, Card, EmptyState, Field, Modal, PageHead, Pill, Spinner } from '../components/ui';
+import {
+  Banner,
+  Btn,
+  Card,
+  EmptyState,
+  Field,
+  Modal,
+  PageHead,
+  Pill,
+  Spinner,
+} from '../components/ui';
 
 /**
  * OPERATIONS — the day, from calculated demand to a closed logistics day.
@@ -136,7 +146,8 @@ export default function OperationsPage() {
                     </td>
                     <td>
                       <b>
-                        {r.recalculated_total} ({r.recalculated_standard} + {r.recalculated_special})
+                        {r.recalculated_total} ({r.recalculated_standard} + {r.recalculated_special}
+                        )
                       </b>
                     </td>
                     <td style={{ textAlign: 'right' }}>
@@ -295,10 +306,7 @@ export default function OperationsPage() {
         )}
       </Card>
 
-      <Card
-        title="Classroom recording"
-        hint="Reported separately — logistics does not wait on it"
-      >
+      <Card title="Classroom recording" hint="Reported separately — logistics does not wait on it">
         {completion.length === 0 ? (
           <EmptyState text="No published service for this date." />
         ) : (
@@ -434,7 +442,11 @@ function DriftDialog({
           <Btn variant="ghost" onClick={onClose}>
             Cancel
           </Btn>
-          <Btn variant="ghost" disabled={busy || !reason.trim()} onClick={() => void onKeep(reason)}>
+          <Btn
+            variant="ghost"
+            disabled={busy || !reason.trim()}
+            onClick={() => void onKeep(reason)}
+          >
             Keep finalised demand
           </Btn>
           <Btn

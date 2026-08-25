@@ -9,7 +9,18 @@ import {
 } from '../lib/api';
 import { PERIOD_LABEL, PERIOD_ORDER } from '../lib/periods';
 import type { AppPeriod, AppUser, DeliveryConfig, Institution } from '../lib/types';
-import { Banner, Btn, Card, EmptyState, Field, Modal, PageHead, Pill, Spinner } from '../components/ui';
+import { operationalToday } from '../lib/format';
+import {
+  Banner,
+  Btn,
+  Card,
+  EmptyState,
+  Field,
+  Modal,
+  PageHead,
+  Pill,
+  Spinner,
+} from '../components/ui';
 
 /**
  * DELIVERY SETUP.
@@ -79,7 +90,7 @@ export default function DeliverySetupPage() {
     return true;
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = operationalToday();
   const current = configs.find(
     (c) => c.effective_from <= today && (!c.effective_until || c.effective_until >= today),
   );
@@ -209,12 +220,7 @@ export default function DeliverySetupPage() {
                                 disabled={busy || !selected}
                                 onClick={() =>
                                   void run(
-                                    () =>
-                                      setDeliveryReceiver(
-                                        selected!.id,
-                                        u.user_id,
-                                        !isReceiver,
-                                      ),
+                                    () => setDeliveryReceiver(selected!.id, u.user_id, !isReceiver),
                                     isReceiver
                                       ? 'Receiver authorisation removed.'
                                       : 'Authorised to receive deliveries.',
@@ -269,7 +275,7 @@ function ConfigDialog({
     periodRuns: Record<string, number>;
   }) => Promise<boolean>;
 }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = operationalToday();
   const [from, setFrom] = useState(today);
   const [runCount, setRunCount] = useState(1);
   const [point, setPoint] = useState('');
@@ -361,9 +367,7 @@ function ConfigDialog({
                   <select
                     value={periodRuns[p]}
                     aria-label={`${PERIOD_LABEL[p]} run`}
-                    onChange={(e) =>
-                      setPeriodRuns({ ...periodRuns, [p]: Number(e.target.value) })
-                    }
+                    onChange={(e) => setPeriodRuns({ ...periodRuns, [p]: Number(e.target.value) })}
                   >
                     <option value={1}>Run 1</option>
                     <option value={2}>Run 2</option>

@@ -17,7 +17,17 @@ import type {
   MealLibraryItem,
   UnresolvedDecision,
 } from '../lib/types';
-import { Banner, Btn, Card, EmptyState, Field, Modal, PageHead, Pill, Spinner } from '../components/ui';
+import {
+  Banner,
+  Btn,
+  Card,
+  EmptyState,
+  Field,
+  Modal,
+  PageHead,
+  Pill,
+  Spinner,
+} from '../components/ui';
 
 const TYPE_LABEL: Record<string, string> = {
   ALLERGY: 'Allergy',
@@ -134,17 +144,15 @@ export default function DietaryPage() {
       {ok && <Banner kind="ok">{ok}</Banner>}
 
       <Banner kind="info">
-        This record is deliberately factual: <b>no severity, no diagnosis, no automatic
-        conclusion</b> from ingredient text. A meal is decided by a person, and this screen records
-        who decided and when.
+        This record is deliberately factual:{' '}
+        <b>no severity, no diagnosis, no automatic conclusion</b> from ingredient text. A meal is
+        decided by a person, and this screen records who decided and when.
       </Banner>
 
       <Card
         title="Meal decisions blocking production"
         hint={`Service date ${date}`}
-        actions={
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        }
+        actions={<input type="date" value={date} onChange={(e) => setDate(e.target.value)} />}
       >
         {blocking.length === 0 ? (
           <EmptyState text="Every child with an approved requirement has a recorded meal decision for this date." />
@@ -329,7 +337,11 @@ function ReviewDialog({
           >
             Needs clarification
           </Btn>
-          <Btn variant="brand" disabled={busy} onClick={() => void onDecide('APPROVED', note || null)}>
+          <Btn
+            variant="brand"
+            disabled={busy}
+            onClick={() => void onDecide('APPROVED', note || null)}
+          >
             {busy ? 'Saving…' : 'Approve'}
           </Btn>
         </>
@@ -342,8 +354,8 @@ function ReviewDialog({
       {req.source && <p className="hint">Source: {req.source}</p>}
       <p className="hint">In force from {req.effective_from}</p>
       <Banner kind="info">
-        Approving means LunchBox accepts this as an operational requirement. It does <b>not</b>
-        {' '}decide any individual meal — that is the next decision, per service.
+        Approving means LunchBox accepts this as an operational requirement. It does <b>not</b>{' '}
+        decide any individual meal — that is the next decision, per service.
       </Banner>
       <Field label="Note (recorded with the decision)">
         <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
