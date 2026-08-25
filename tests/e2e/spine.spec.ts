@@ -524,7 +524,15 @@ test.describe('operational spine', () => {
     await expect(dp.getByText(INST)).toBeVisible({ timeout: 20_000 });
     await dp.getByRole('button', { name: 'Confirm collection', exact: true }).click();
     await dp.getByRole('button', { name: 'Arrived at institution', exact: true }).click();
-    await expect(dp.getByText('Arrival recorded')).toBeVisible({ timeout: 20_000 });
+    // Two banners say "Arrival recorded" — the success message and the standing
+    // note about who completes the handover — so a bare text match is
+    // ambiguous. Assert each one, which also proves the Driver is TOLD that
+    // custody is not theirs to transfer.
+    await expect(dp.locator('.banner.ok')).toHaveText('Arrival recorded.', { timeout: 20_000 });
+    await expect(dp.locator('.banner.info')).toContainText(
+      'The institution completes the handover',
+      { timeout: 20_000 },
+    );
     // There is no handover control on the Driver's screen at all.
     await expect(dp.getByRole('button', { name: /Confirm full delivery received/ })).toHaveCount(0);
     await driverCtx.close();
@@ -540,7 +548,11 @@ test.describe('operational spine', () => {
       .first();
     await expect(confirm).toBeVisible({ timeout: 20_000 });
     await confirm.click();
-    await expect(rp.getByText(/Received/)).toBeVisible({ timeout: 20_000 });
+    // The state pill turns HANDED OVER and the banner says when. Assert both,
+    // rather than a bare /Received/ that would also match the word inside the
+    // state label.
+    await expect(rp.locator('.banner.ok')).toContainText('Received', { timeout: 20_000 });
+    await expect(rp.getByText('HANDED OVER').first()).toBeVisible({ timeout: 20_000 });
     await recvCtx.close();
   });
 
@@ -561,10 +573,12 @@ test.describe('operational spine', () => {
 
     await login(page, seeded().classroomEmail);
     await page.goto('/today');
-    await page
-      .getByLabel(/Class/)
-      .selectOption({ label: CLASS })
-      .catch(() => undefined);
+    await settled(page);
+    // This account may hold more than one class — it keeps whatever the shared
+    // fixture gave it — so pick ours when a picker is offered. The counts below
+    // are what prove the right register is on screen.
+    const classPicker = page.getByLabel(/Class/);
+    if (await classPicker.count()) await classPicker.selectOption({ label: CLASS });
 
     // Lunch: the four full-plan children are on the register…
     await selectPeriod(page, 'Lunch');
@@ -594,6 +608,7 @@ test.describe('operational spine', () => {
 
     await login(page, seeded().parentEmail);
     await page.goto('/parent');
+    await settled(page);
     await expect(page.getByText('Breakfast').first()).toBeVisible({ timeout: 20_000 });
     // Lunch is not theirs — and must not be rendered as a missed or pending meal.
     await expect(page.getByText('Lunch')).toHaveCount(0);
