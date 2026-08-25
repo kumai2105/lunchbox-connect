@@ -40,6 +40,7 @@ type Ids = {
   serviceIds: Record<string, string>;
   receiverId: string;
   staffId: string;
+  guardianId: string;
 };
 
 /**
@@ -62,6 +63,18 @@ const RECEIVER_NAME = `ZZ Spine Receiver ${stamp}`;
  */
 const STAFF_EMAIL = `zz.spine.staff.${stamp}@lunchboxconnect.com`;
 const STAFF_NAME = `ZZ Spine Staff ${stamp}`;
+
+/**
+ * A guardian of THIS spec's morning-only child, and of nobody else.
+ *
+ * The shared fixture's Parent already has a child at another institution, so
+ * linking a second one made the portal show a child switcher and open on the
+ * wrong child — the screen was right about a child this test was not asking
+ * about. A guardian account exists because there is a child; this one has
+ * exactly the child whose entitlement is the subject.
+ */
+const GUARDIAN_EMAIL = `zz.spine.guardian.${stamp}@lunchboxconnect.com`;
+const GUARDIAN_NAME = `ZZ Spine Guardian ${stamp}`;
 
 let ids: Ids;
 
@@ -237,6 +250,38 @@ test.describe('operational spine', () => {
         .select('class_id'),
     );
 
+    const guardian = await db.auth.admin.createUser({
+      email: GUARDIAN_EMAIL,
+      password: PASS,
+      email_confirm: true,
+    });
+    if (guardian.error || !guardian.data.user) {
+      throw new Error(
+        `fixture: create the guardian account — ${guardian.error?.message ?? 'no user returned'}`,
+      );
+    }
+    const guardianId = guardian.data.user.id;
+    must<Array<{ user_id: string }>>(
+      'create the guardian app_users row',
+      await db
+        .from('app_users')
+        .insert({
+          user_id: guardianId,
+          role: 'parent',
+          full_name: GUARDIAN_NAME,
+          email: GUARDIAN_EMAIL,
+        })
+        .select('user_id'),
+    );
+    const morningFirst = all.filter((s) => s.given_name === 'Morning')[0];
+    must<Array<{ student_id: string }>>(
+      'link the guardian to the morning-only child',
+      await db
+        .from('student_parents')
+        .insert({ student_id: morningFirst.id, user_id: guardianId })
+        .select('student_id'),
+    );
+
     ids = {
       instId,
       classId,
@@ -245,6 +290,7 @@ test.describe('operational spine', () => {
       serviceIds,
       receiverId,
       staffId,
+      guardianId,
     };
   });
 
@@ -261,9 +307,13 @@ test.describe('operational spine', () => {
     await db.from('institutions').delete().eq('id', ids.instId);
     await db.from('meals').delete().in('name', [STD_MEAL, ALT_MEAL]);
     await db.from('meal_plans').delete().in('name', [MORNING_PLAN, FULL_PLAN]);
-    await db.from('app_users').delete().in('user_id', [ids.receiverId, ids.staffId]);
+    await db
+      .from('app_users')
+      .delete()
+      .in('user_id', [ids.receiverId, ids.staffId, ids.guardianId]);
     await db.auth.admin.deleteUser(ids.receiverId);
     await db.auth.admin.deleteUser(ids.staffId);
+    await db.auth.admin.deleteUser(ids.guardianId);
   });
 
   // ------------------------------------------------------------------ plans
@@ -629,19 +679,11 @@ test.describe('operational spine', () => {
   });
 
   test('a Parent sees only the sittings their child actually receives', async ({ page }) => {
-    const db = adminDb();
-    const { data: parent } = await db
-      .from('app_users')
-      .select('user_id')
-      .eq('email', seeded().parentEmail)
-      .single();
-    // Link the parent to a MORNING-only child, so lunch must not appear.
-    await db.from('student_parents').insert({
-      student_id: ids.morningIds[0],
-      user_id: (parent as { user_id: string }).user_id,
-    });
-
-    await login(page, seeded().parentEmail);
+    // This spec's own guardian, linked to its morning-only child and to no one
+    // else. Borrowing the shared fixture's Parent added a SECOND child to an
+    // account that already had one elsewhere, so the portal opened on the other
+    // child and reported that child's sittings perfectly correctly.
+    await login(page, GUARDIAN_EMAIL);
     await page.goto('/parent');
     await settled(page);
     // Exactly the two sittings this child receives, named, in order. A bare
@@ -650,12 +692,6 @@ test.describe('operational spine', () => {
     // cards themselves.
     await expect(page.locator('.today-meal-card')).toHaveCount(2, { timeout: 20_000 });
     await expect(page.locator('.tmc-period')).toHaveText(['Breakfast', 'Morning snack']);
-
-    await db
-      .from('student_parents')
-      .delete()
-      .eq('student_id', ids.morningIds[0])
-      .eq('user_id', (parent as { user_id: string }).user_id);
   });
 });
 
