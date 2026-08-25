@@ -1,5 +1,5 @@
 import { expect, test, type Page } from 'playwright/test';
-import { adminDb, e2eReady, login, seeded, signedInDb } from './fixtures';
+import { PASS, adminDb, e2eReady, login, seeded, settled, signedInDb } from './fixtures';
 
 /**
  * THE OPERATIONAL SPINE, DRIVEN BY PEOPLE.
@@ -38,7 +38,20 @@ type Ids = {
   morningIds: string[];
   fullIds: string[];
   serviceIds: Record<string, string>;
+  receiverId: string;
 };
+
+/**
+ * The Authorized Delivery Receiver must be one of THIS institution's own
+ * active Admins or Classroom Staff — that is the rule in 0052, and it is the
+ * point of the capability. The shared fixture's Institution Admin belongs to a
+ * different site and is therefore correctly ineligible here, so this spec
+ * creates an Admin of its own rather than skipping the handover it exists to
+ * prove.
+ */
+const RECEIVER_EMAIL = `zz.spine.receiver.${stamp}@lunchboxconnect.com`;
+// The receivers table shows a person's NAME, not their address.
+const RECEIVER_NAME = `ZZ Spine Receiver ${stamp}`;
 
 let ids: Ids;
 
@@ -149,12 +162,40 @@ test.describe('operational spine', () => {
       ).id;
     }
 
+    // This institution's own Admin — the only kind of person eligible to
+    // receive a delivery here.
+    const receiver = await db.auth.admin.createUser({
+      email: RECEIVER_EMAIL,
+      password: PASS,
+      email_confirm: true,
+    });
+    if (receiver.error || !receiver.data.user) {
+      throw new Error(
+        `fixture: create the receiver account — ${receiver.error?.message ?? 'no user returned'}`,
+      );
+    }
+    const receiverId = receiver.data.user.id;
+    must<Array<{ user_id: string }>>(
+      'create the receiver app_users row',
+      await db
+        .from('app_users')
+        .insert({
+          user_id: receiverId,
+          role: 'school_admin',
+          institution_id: instId,
+          full_name: RECEIVER_NAME,
+          email: RECEIVER_EMAIL,
+        })
+        .select('user_id'),
+    );
+
     ids = {
       instId,
       classId,
       morningIds: all.filter((s) => s.given_name === 'Morning').map((s) => s.id),
       fullIds: all.filter((s) => s.given_name === 'Full').map((s) => s.id),
       serviceIds,
+      receiverId,
     };
   });
 
@@ -171,6 +212,8 @@ test.describe('operational spine', () => {
     await db.from('institutions').delete().eq('id', ids.instId);
     await db.from('meals').delete().in('name', [STD_MEAL, ALT_MEAL]);
     await db.from('meal_plans').delete().in('name', [MORNING_PLAN, FULL_PLAN]);
+    await db.from('app_users').delete().eq('user_id', ids.receiverId);
+    await db.auth.admin.deleteUser(ids.receiverId);
   });
 
   // ------------------------------------------------------------------ plans
@@ -324,22 +367,49 @@ test.describe('operational spine', () => {
 
     // ---- delivery configuration first: no config, no manifest.
     await page.goto('/delivery');
+    await settled(page);
     await page.getByLabel('Institution', { exact: true }).selectOption({ label: INST });
     await page.getByRole('button', { name: /Configure deliveries|Change configuration/ }).click();
     await page.getByLabel('Agreed delivery point', { exact: true }).fill('Main reception');
     await page.getByRole('button', { name: 'Save configuration', exact: true }).click();
     await expect(page.locator('.modal')).toHaveCount(0, { timeout: 20_000 });
 
-    // ---- authorise the institution's own admin to receive
-    const adminRow = page.locator('tr', { hasText: 'e2e' }).first();
-    if (await adminRow.getByRole('button', { name: 'Authorise', exact: true }).count()) {
-      await adminRow.getByRole('button', { name: 'Authorise', exact: true }).click();
+    // ---- authorise this institution's own Admin to receive. Not optional:
+    // without it nobody can take custody, and a conditional click would let
+    // the handover below be skipped rather than proved.
+    const adminRow = page.locator('tr', { hasText: RECEIVER_NAME }).first();
+    await expect(adminRow.getByRole('button', { name: 'Authorise', exact: true })).toBeVisible({
+      timeout: 20_000,
+    });
+    await adminRow.getByRole('button', { name: 'Authorise', exact: true }).click();
+
+    // ---- an approved requirement needs a decision for EVERY entitled sitting,
+    // and this child holds the full Plan, so that is four. The previous test
+    // made the first one; nothing can be finalised until the rest are made.
+    await page.goto('/dietary');
+    await settled(page);
+    for (let i = 0; i < 4; i++) {
+      const decide = page.getByRole('button', { name: 'Decide meal', exact: true }).first();
+      if (!(await decide.count())) break;
+      await decide.click();
+      await page
+        .locator('.modal')
+        .getByRole('button', { name: 'Confirm standard meal', exact: true })
+        .click();
+      await expect(page.locator('.modal')).toHaveCount(0, { timeout: 20_000 });
     }
+    await expect(page.getByRole('button', { name: 'Decide meal' })).toHaveCount(0, {
+      timeout: 20_000,
+    });
 
     // ---- finalise every sitting
     await page.goto('/operations');
+    await settled(page);
+    const required = page.locator('.card').filter({ hasText: 'Required today' });
+    await expect(required.locator('tr', { hasText: INST })).toHaveCount(4, { timeout: 20_000 });
+
     for (let i = 0; i < 4; i++) {
-      const btn = page
+      const btn = required
         .locator('tr', { hasText: INST })
         .getByRole('button', { name: 'Finalise demand', exact: true })
         .first();
@@ -347,12 +417,17 @@ test.describe('operational spine', () => {
       await btn.click();
       await expect(page.locator('.banner.ok')).toBeVisible({ timeout: 20_000 });
     }
+    // Assert what was FINALISED, not that no button remains. An empty table
+    // has no buttons either, and that is exactly how a silent do-nothing loop
+    // passes this line and fails twenty lines later.
     await expect(
-      page.locator('tr', { hasText: INST }).getByRole('button', { name: 'Finalise demand' }),
-    ).toHaveCount(0, { timeout: 20_000 });
+      required.locator('tr', { hasText: INST }).filter({ hasText: 'Finalised' }),
+    ).toHaveCount(4, { timeout: 20_000 });
 
     // ---- build the manifest
-    await page.getByRole('button', { name: 'Build manifests', exact: true }).first().click();
+    const build = page.getByRole('button', { name: 'Build manifests', exact: true }).first();
+    await expect(build).toBeVisible({ timeout: 20_000 });
+    await build.click();
     await expect(page.locator('.banner.ok')).toBeVisible({ timeout: 20_000 });
 
     // ---- the Kitchen produces and packs, without retyping a quantity
@@ -360,6 +435,10 @@ test.describe('operational spine', () => {
     const kitchen = await kitchenCtx.newPage();
     await login(kitchen, seeded().kitchenEmail);
     await kitchen.goto('/kitchen');
+    await settled(kitchen);
+    await expect(
+      kitchen.getByRole('button', { name: 'Start production', exact: true }).first(),
+    ).toBeVisible({ timeout: 20_000 });
 
     for (const action of [
       'Start production',
@@ -423,13 +502,15 @@ test.describe('operational spine', () => {
     // ---- the institution takes custody, with ONE button and no retyping
     const recvCtx = await browser.newContext();
     const rp = await recvCtx.newPage();
-    await login(rp, seeded().schoolAdminEmail);
+    await login(rp, RECEIVER_EMAIL);
     await rp.goto('/handover');
-    const confirm = rp.getByRole('button', { name: 'Confirm full delivery received', exact: true });
-    if (await confirm.count()) {
-      await confirm.click();
-      await expect(rp.getByText(/Received/)).toBeVisible({ timeout: 20_000 });
-    }
+    await settled(rp);
+    const confirm = rp
+      .getByRole('button', { name: 'Confirm full delivery received', exact: true })
+      .first();
+    await expect(confirm).toBeVisible({ timeout: 20_000 });
+    await confirm.click();
+    await expect(rp.getByText(/Received/)).toBeVisible({ timeout: 20_000 });
     await recvCtx.close();
   });
 

@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Page } from 'playwright/test';
+import { expect, type Page } from 'playwright/test';
 
 export const PASS = process.env.E2E_PASSWORD ?? 'E2e-pass!12345';
 
@@ -36,6 +36,24 @@ export function adminDb() {
   const serviceKey = process.env.E2E_SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) throw new Error('E2E env incomplete');
   return createClient(url, serviceKey, { auth: { persistSession: false } });
+}
+
+/**
+ * Wait until a screen has finished its first fetch.
+ *
+ * Every page in this app renders <Spinner/> while its data is still null, so
+ * the first paint already contains one. A bare .count() taken the instant
+ * after goto() therefore reads zero of everything — and a loop guarded by that
+ * count does nothing at all, silently. The failure then surfaces twenty lines
+ * later, on the step that needed the work the loop was supposed to do.
+ *
+ * Waiting for the shell first is what makes the spinner check meaningful: by
+ * the time the navigation is visible, React has painted, so a spinner is in
+ * the DOM if this screen is still loading.
+ */
+export async function settled(page: Page): Promise<void> {
+  await expect(page.locator('.nav, .parent-nav').first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('.spinner')).toHaveCount(0, { timeout: 30_000 });
 }
 
 /**
