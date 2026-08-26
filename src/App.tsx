@@ -4,6 +4,7 @@ import { AuthProvider, useAuth, useRole } from './lib/auth';
 import { canAccessPage, navFor, navPath } from './lib/roles';
 import type { AppRole } from './lib/types';
 import Layout from './components/Layout';
+import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import NoAccessPage from './pages/NoAccessPage';
 import AccountPage from './pages/AccountPage';
@@ -73,7 +74,22 @@ function Guard({ page, children }: { page: string; children: ReactNode }) {
   return <>{children}</>;
 }
 
-function Home() {
+/**
+ * `/` for everyone.
+ *
+ * The ONLY change here is the anonymous branch. An anonymous visitor at the
+ * root now gets the public homepage instead of being bounced to /login;
+ * everything about an AUTHENTICATED visitor — the wait for the profile, the
+ * no-profile case, the role resolution and the redirect to that role's first
+ * page — is untouched, because that is what actually gets people into the
+ * right product.
+ *
+ * `anonymous` is a prop rather than a hard-coded branch because this component
+ * also serves the catch-all `*` route. An unknown URL should keep sending a
+ * signed-out visitor to /login: rendering the marketing page at /whatever
+ * would answer every wrong address with an advertisement.
+ */
+function Home({ anonymous = 'login' }: { anonymous?: 'login' | 'landing' }) {
   const { session, loading, profileLoading } = useAuth();
   const role = useRole();
 
@@ -90,7 +106,9 @@ function Home() {
   // Admin landed in the Parent portal and stayed there, instead of the Command
   // Center. Everyone else took a pointless detour through /parent first.
   if (loading || profileLoading) return null;
-  if (!session) return <Navigate to="/login" replace />;
+  if (!session) {
+    return anonymous === 'landing' ? <LandingPage /> : <Navigate to="/login" replace />;
+  }
 
   // A session with no app_users row means the account cannot act: either it
   // was deactivated (migration 0044 hides an inactive account's own row from
@@ -142,7 +160,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route index element={<Home />} />
+          <Route index element={<Home anonymous="landing" />} />
           <Route element={<Layout />}>
             <Route
               path="/dashboard"
