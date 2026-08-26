@@ -641,7 +641,14 @@ unchanged, and the audit row carrying `{"password_reset": true}` and no value.
 A disposable `classroom_staff` fixture was created by the run and deactivated
 by it; no persona was touched. See the release record for the full table.
 
-## 16. One new advisor warning: `app_special_meal_reference` has no `search_path` — OPEN, NOT BLOCKING
+## 16. One new advisor warning: `app_special_meal_reference` has no `search_path` — CLOSED
+
+**Status:** closed 2026-08-26 · **Fixed in:** `0054_operability_closure.sql`
+
+Closed as described below — a one-line `create or replace` adding
+`set search_path = public`, body unchanged, inside the migration this release
+needed anyway. `0049` was not edited.
+
 
 The post-apply advisor run on production (`32912959791`, 25 August 2026) came
 back with **0 errors**, which is the release bar. Three warning counts moved,
@@ -679,3 +686,29 @@ applied migration is forbidden, and rightly — the file has to keep saying what
 was actually run. The fix is a one-line `create or replace` in a future
 migration, alongside whatever else that migration carries. It did not justify
 opening `0054` on its own at the end of this release.
+
+---
+
+## 17. The Kitchen's production table does not name the site — OPEN, MINOR
+
+`Kitchen production → Production and packing` lists one row per Final Demand,
+with columns Sitting · Required · Production · Packing · Actions. It does not
+say which **institution** each row belongs to.
+
+With one site operating it reads perfectly. With two, a Kitchen operator sees
+two rows both labelled "Lunch" with no way to tell them apart, and the only
+distinguishing information — the quantity — is exactly the thing that could
+legitimately be equal.
+
+Everything above this table is correctly aggregated across sites on purpose:
+the *make list* sums a meal revision over every site that serves it, because
+that is what a kitchen cooks to. The production and packing table is the
+opposite — it is per site and per sitting — so the missing column is a real
+omission rather than a deliberate aggregation.
+
+**Not fixed here.** It was found while making the closure browser test
+deterministic (the test asserts the row count it expects before clicking, so it
+can never advance another site's day), and it is not one of the operability
+gaps this release was asked to close. It changes no rule, no authorization and
+no number — a Kitchen user may already read every one of these rows. It is one
+column on one table whenever this screen is next opened.

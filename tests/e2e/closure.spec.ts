@@ -1,5 +1,14 @@
 import { expect, test, type Page } from 'playwright/test';
-import { PASS, adminDb, e2eReady, login, seeded, settled, signedInDb } from './fixtures';
+import {
+  PASS,
+  adminDb,
+  e2eReady,
+  login,
+  removeInstitutionDay,
+  seeded,
+  settled,
+  signedInDb,
+} from './fixtures';
 
 /**
  * OPERABILITY CLOSURE — the actions a person must be able to TAKE.
@@ -282,10 +291,10 @@ test.describe('operability closure', () => {
   test.afterAll(async () => {
     const db = adminDb();
     if (!ids) return;
-    await db.from('students').delete().eq('institution_id', ids.instId);
-    await db.from('meal_services').delete().eq('institution_id', ids.instId);
-    await db.from('classes').delete().eq('id', ids.classId);
-    await db.from('institutions').delete().in('id', [ids.instId, ids.otherInstId]);
+    // The internal Kitchen issue carries no institution, so it is not reached
+    // by the institution sweep. Removed by its own text.
+    await db.from('operational_issues').delete().ilike('description', 'ZZ closure:%');
+    await removeInstitutionDay(db, [ids.instId, ids.otherInstId]);
     await db.from('meals').delete().eq('name', STD_MEAL);
     await db.from('meal_plans').delete().in('name', [MORNING_PLAN, FULL_PLAN]);
     await db.from('app_users').delete().in('user_id', ids.accountIds);
@@ -575,8 +584,18 @@ test.describe('operability closure', () => {
       }
     }
 
-    // ---- the prerequisite is stated BEFORE the click, not discovered after it
     const dispatch = page.locator('.card').filter({ hasText: 'name a driver, then release' });
+
+    // ---- the run says where it is GOING.
+    //
+    // It did not until 0054. The Kitchen may read every manifest and may not
+    // read `institutions`, and PostgREST returns an unreadable embed as null,
+    // so the site was blank on the Dispatch row and blank on the label the
+    // packing bench prints. Asserted here as a fact about the screen, and
+    // relied on below by the Driver selector's own label.
+    await expect(dispatch.getByText(INST).first()).toBeVisible({ timeout: 20_000 });
+
+    // ---- the prerequisite is stated BEFORE the click, not discovered after it
     await expect(dispatch.getByText('Assign a Driver before releasing').first()).toBeVisible({
       timeout: 20_000,
     });
@@ -605,6 +624,12 @@ test.describe('operability closure', () => {
     await expect(run1).toHaveCount(1, { timeout: 20_000 });
     await run1.getByRole('button', { name: 'Release to driver', exact: true }).click();
     await expect(page.getByText('Released to the driver.')).toBeVisible({ timeout: 20_000 });
+
+    // ---- and the label the bench prints carries the destination
+    await run1.getByRole('button', { name: 'View / print labels', exact: true }).click();
+    await expect(page.locator('.modal')).toContainText(INST, { timeout: 20_000 });
+    await page.locator('.modal').getByRole('button', { name: 'Close' }).click();
+    await expect(page.locator('.modal')).toHaveCount(0, { timeout: 20_000 });
 
     // ---- the named Driver sees the work; the other Driver sees none of it
     const bCtx = await browser.newContext();

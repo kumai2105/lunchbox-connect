@@ -1,5 +1,14 @@
 import { expect, test, type Page } from 'playwright/test';
-import { PASS, adminDb, e2eReady, login, seeded, settled, signedInDb } from './fixtures';
+import {
+  PASS,
+  adminDb,
+  e2eReady,
+  login,
+  removeInstitutionDay,
+  seeded,
+  settled,
+  signedInDb,
+} from './fixtures';
 
 /**
  * THE OPERATIONAL SPINE, DRIVEN BY PEOPLE.
@@ -301,10 +310,13 @@ test.describe('operational spine', () => {
     // second, unrelated error on top of the real one.
     if (!ids) return;
     // Reverse order of creation so nothing is left referencing a deleted row.
-    await db.from('students').delete().eq('institution_id', ids.instId);
-    await db.from('meal_services').delete().eq('institution_id', ids.instId);
-    await db.from('classes').delete().eq('id', ids.classId);
-    await db.from('institutions').delete().eq('id', ids.instId);
+    //
+    // This used to end at `delete from institutions`, which is REFUSED once a
+    // day has actually been lived: delivery_manifests.institution_id is
+    // `on delete restrict`. PostgREST returns the refusal in `error` rather
+    // than throwing, so the teardown looked like it worked and the institution
+    // survived into the next spec.
+    await removeInstitutionDay(db, [ids.instId]);
     await db.from('meals').delete().in('name', [STD_MEAL, ALT_MEAL]);
     await db.from('meal_plans').delete().in('name', [MORNING_PLAN, FULL_PLAN]);
     await db
@@ -592,17 +604,23 @@ test.describe('operational spine', () => {
     // Through the screen, not through assign_manifest_driver. The Kitchen is
     // the role that dispatches, so if the Kitchen cannot name a driver here the
     // delivery cannot leave — which was true until this release.
-    const dispatch = kitchen.locator('.card').filter({ hasText: 'Dispatch' });
-    await expect(dispatch.getByText('Assign a Driver before releasing')).toBeVisible({
-      timeout: 20_000,
+    // Scoped to THIS institution's row, not to the Dispatch card.
+    //
+    // The Kitchen's Dispatch table lists every site finalised for the date, so
+    // "the notice is on screen" and "the notice is on MY run" are different
+    // claims — and the first one passed while another spec's institution still
+    // had a manifest for today, then failed strict mode when there were two.
+    const dispatch = kitchen.locator('.card').filter({ hasText: 'name a driver, then release' });
+    const run1 = dispatch.locator('tr').filter({
+      has: kitchen.getByLabel(`Driver for ${INST} run 1`, { exact: true }),
     });
-    await dispatch
-      .getByLabel(`Driver for ${INST} run 1`, { exact: true })
-      .selectOption({ label: 'driver' });
-    await dispatch.getByRole('button', { name: 'Assign driver', exact: true }).click();
+    await expect(run1).toHaveCount(1, { timeout: 20_000 });
+    await expect(run1.getByText('Assign a Driver before releasing')).toBeVisible();
+    await run1.locator('select').selectOption({ label: 'driver' });
+    await run1.getByRole('button', { name: 'Assign driver', exact: true }).click();
     await expect(kitchen.getByText('Driver assigned.')).toBeVisible({ timeout: 20_000 });
 
-    await kitchen.getByRole('button', { name: 'Release to driver', exact: true }).first().click();
+    await run1.getByRole('button', { name: 'Release to driver', exact: true }).click();
     await expect(kitchen.getByText('Released to the driver.')).toBeVisible({ timeout: 20_000 });
     await kitchenCtx.close();
 

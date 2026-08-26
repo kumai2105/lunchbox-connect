@@ -2172,23 +2172,23 @@ export async function buildManifests(
   return { data: data as number, error: null };
 }
 
+/**
+ * The day's manifests, with the site each one is going to.
+ *
+ * Through the RPC, not a table read with an embed — the same lesson as
+ * `myManifests` below, one role along. The Kitchen may read every manifest and
+ * may NOT read `institutions` (app_can_see_institution has no `kitchen`
+ * branch), and PostgREST returns an unreadable embedded row as null rather than
+ * as an error. So the Dispatch table showed a blank site for every run, and the
+ * labels the packing bench prints had a blank line where the destination goes.
+ *
+ * manifests_for_date() restates the manifest read policy exactly and projects
+ * the name. Nobody sees a manifest they could not see before.
+ */
 export async function manifestsForDate(date: string): Promise<ApiResult<DeliveryManifest[]>> {
-  const { data, error } = await supabase
-    .from('delivery_manifests')
-    .select('*, institutions(name)')
-    .eq('service_date', date)
-    .order('run_number');
+  const { data, error } = await supabase.rpc('manifests_for_date', { p_date: date });
   if (error) return err(error);
-  const rows = (data ?? []) as unknown as Array<
-    DeliveryManifest & { institutions: Array<{ name: string }> | { name: string } | null }
-  >;
-  return {
-    data: rows.map(({ institutions, ...r }) => {
-      const rel = Array.isArray(institutions) ? institutions[0] : institutions;
-      return { ...r, institution_name: rel?.name };
-    }),
-    error: null,
-  };
+  return { data: (data ?? []) as DeliveryManifest[], error: null };
 }
 
 /** A Driver's own work. RLS already restricts this; the filter is for clarity. */

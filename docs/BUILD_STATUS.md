@@ -6,13 +6,17 @@ of each approved area and every honest shell.
 
 Legend: ✅ built · ⬜ honest shell (BLOCKED_BY_SPEC) · ⬣ claimed-with-caution
 
-**Live in production (2026-08-25):** database at migration **`0053`**; Edge
+**Live in production (2026-08-26):** database at migration **`0054`**; Edge
 Functions `admin-create-user`, `admin-set-password` and `admin-set-active`
 **ACTIVE**; frontend deployed from the gated SHA of this branch.
 
 The operational spine — Student Meal Plan entitlement, exact demand,
 dietary decisions, production, delivery custody and day closure — was applied
-on 2026-08-25 as migrations `0048`–`0053`. **It changed nothing for anyone yet:**
+on 2026-08-25 as migrations `0048`–`0053`, and `0054` on 2026-08-26 gave the
+four operations that had no interface one: bulk Meal Plan assignment, naming a
+Driver, working an issue to a close, and the bounded record correction. See
+`docs/RELEASE_2026-08-26_OPERABILITY_CLOSURE.md`. **It changed nothing for
+anyone yet:**
 every Institution carries `student_plan_enforced_from` NULL, so production
 demand keeps its exact pre-`0048` meaning until a Super Admin switches a site
 over, and `activate_student_meal_plans()` refuses while any operationally
@@ -89,16 +93,34 @@ README only. The full spec pack introduced corrections:
   provisional):** consumption_pct ∈ {0,25,50,75,100}, behaviour ∈
   {ate_independently, needed_encouragement, refused}, low-intake reason, and a
   one-tap Absent/Unwell/Asleep exception excluded from intake analytics.
-- Delivery / dispatch / driver state machines, handover evidence
 - Production-lock policy beyond the served-records boundary; email-delivered
   account self-activation; per-institution timezones
-- Meal-package assignment and exact production formula
 - Institutional billing workflow (institution pays LunchBox — confirmed scope only)
 - Reporting KPIs / finance and viewer data scopes
-- Ops log & issue lifecycle (Operations Manager view-only shell)
+- Ops log (the Operations Manager's own view-only shell). The operational ISSUE
+  lifecycle itself is built — see below.
 - Absences workflow (recording, cut-off, production effect)
-- Branches, allergies taxonomy/severity, special-meal handling, packing/labels
+- Branches; a formal allergy taxonomy and severity model
+- Temperature and cold-chain evidence; formal batch/lot traceability;
+  regulator-approval statuses — deferred by decision, not by omission
 - Unknown roles beyond the nine (forbidden)
+
+### No longer shells, as of `0048`–`0054`
+
+Four entries were removed from the list above because they became real, and a
+list that still promised them would be the only dishonest page in the product:
+
+- **Delivery, dispatch and driver state machines, and handover evidence**
+  (`0052`). One or two runs a day, a named Driver, collection, arrival and a
+  handover taken by a person the institution authorised.
+- **Meal-package assignment and the exact production formula** (`0048`,
+  `0050`). A Student Meal Plan is child-level entitlement; demand is the exact
+  count of entitled children, and a special Meal replaces a standard one
+  rather than adding to the total.
+- **Special-meal handling, packing and labels** (`0049`, `0051`).
+- **The operational issue lifecycle** (`0051`, `0054`): open → LunchBox
+  actioned → the institution acknowledges a delivery issue → closed, each step
+  by its own party and none of them skippable.
 
 ## Confirmed commercial rules (enforced/guaranteed no-op)
 
@@ -111,7 +133,7 @@ README only. The full spec pack introduced corrections:
 The stack is **approved** (A1–A3) and recorded in `docs/13` **Decision 034**:
 TypeScript · React 18 + Vite (SPA) · Supabase (PostgreSQL, Auth, Storage, Edge
 Functions) · Row Level Security as the boundary · Supabase CLI migrations
-(`0001`–`0047`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
+(`0001`–`0054`) · Cloudflare Workers deploy · pnpm · Vitest · Playwright.
 Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
 `TECHNICAL_STACK = NOT_YET_DEFINED` statements are SUPERSEDED.
 

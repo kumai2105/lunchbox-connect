@@ -39,6 +39,75 @@ export function adminDb() {
 }
 
 /**
+ * Remove a disposable institution and everything a lived-through day left on it.
+ *
+ * `delete from institutions` on its own does NOT work once a day has been run,
+ * and it fails SILENTLY through PostgREST: `delivery_manifests.institution_id`
+ * is `on delete restrict`, so the delete is refused, the error lands in
+ * `error` rather than throwing, and an unchecked teardown moves on. The
+ * institution and its manifests survive into the next spec.
+ *
+ * That is not a tidiness problem. The Kitchen's Dispatch table lists every site
+ * finalised for the date, so one spec's leftovers become another spec's second
+ * row — which is exactly how spine.spec's "Assign a Driver before releasing"
+ * assertion hit a strict-mode violation against a manifest belonging to a
+ * institution that should no longer have existed.
+ *
+ * Children first, and through the restrict edges in order:
+ * manifest lines cascade from manifests, production runs and special lines
+ * cascade from final demand, and final_demand -> meal_services and
+ * manifests -> institutions are both `restrict`.
+ */
+export async function removeInstitutionDay(
+  db: ReturnType<typeof adminDb>,
+  institutionIds: string[],
+): Promise<void> {
+  if (institutionIds.length === 0) return;
+
+  const services = await db
+    .from('meal_services')
+    .select('id')
+    .in('institution_id', institutionIds);
+  const serviceIds = (services.data ?? []).map((r) => (r as { id: string }).id);
+
+  await db.from('delivery_manifests').delete().in('institution_id', institutionIds);
+  await db.from('operational_issues').delete().in('institution_id', institutionIds);
+  if (serviceIds.length > 0) {
+    await db.from('final_demand').delete().in('meal_service_id', serviceIds);
+  }
+  await db.from('delivery_receivers').delete().in('institution_id', institutionIds);
+  await db.from('institution_delivery_configs').delete().in('institution_id', institutionIds);
+  await db.from('institution_meal_plans').delete().in('institution_id', institutionIds);
+  await db.from('institution_service_plans').delete().in('institution_id', institutionIds);
+
+  const students = await db.from('students').select('id').in('institution_id', institutionIds);
+  const studentIds = (students.data ?? []).map((r) => (r as { id: string }).id);
+  if (studentIds.length > 0) {
+    await db.from('special_meal_resolutions').delete().in('student_id', studentIds);
+    await db.from('student_dietary_requirements').delete().in('student_id', studentIds);
+    await db.from('student_meal_plans').delete().in('student_id', studentIds);
+    await db.from('student_parents').delete().in('student_id', studentIds);
+    await db.from('serving_records').delete().in('student_id', studentIds);
+  }
+
+  await db.from('students').delete().in('institution_id', institutionIds);
+  await db.from('meal_services').delete().in('institution_id', institutionIds);
+  await db.from('classes').delete().in('institution_id', institutionIds);
+
+  // Checked, unlike every teardown before it. A refused delete here means the
+  // list above has missed a reference, and a silent failure would hand the
+  // consequences to whichever spec runs next.
+  const gone = await db.from('institutions').delete().in('id', institutionIds);
+  if (gone.error) {
+    throw new Error(
+      `[e2e] teardown could not remove disposable institution(s) — ${gone.error.message}. ` +
+        `Something still references them, and leaving them behind changes what the ` +
+        `next spec sees.`,
+    );
+  }
+}
+
+/**
  * Wait until a screen has finished its first fetch.
  *
  * Every page in this app renders <Spinner/> while its data is still null, so

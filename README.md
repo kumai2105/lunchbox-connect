@@ -2,12 +2,16 @@
 
 [![CI](https://github.com/Kumai2105/lunchbox-connect/actions/workflows/ci.yml/badge.svg)](https://github.com/Kumai2105/lunchbox-connect/actions)
 
-**Live:** https://www.lunchboxconnect.com — against production schema `0053`.
+**Live:** https://www.lunchboxconnect.com — against production schema `0054`.
 The operational spine of 2026-08-25 (migrations `0048`–`0053`: Student Meal
 Plan entitlement, exact demand, dietary decisions, production, delivery custody
 and day closure) is **applied**; see
 `docs/RELEASE_2026-08-25_OPERATIONAL_SPINE.md` for the executed gate and
 `docs/FOUNDER_OPERATIONS_SPEC.md` for the operating model it implements.
+`0054` (2026-08-26) closed the operability gap that release left: bulk Meal
+Plan assignment, naming a Driver, the issue lifecycle and the bounded record
+correction existed in the database with no way for a person to reach them.
+See `docs/RELEASE_2026-08-26_OPERABILITY_CLOSURE.md`.
 It changes nothing for any existing site until that site is switched over
 deliberately: `student_plan_enforced_from` is NULL everywhere, and until it is
 set, demand keeps its exact previous meaning. The closure of 2026-08-23
@@ -46,7 +50,7 @@ pnpm · Vitest · Playwright · ESLint · Prettier
 pnpm install
 cp .env.example .env          # fill VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
 supabase link --project-ref <your-ref>
-supabase db push              # migrations 0001–0053
+supabase db push              # migrations 0001–0054
 pnpm functions:deploy         # admin-create-user, admin-set-password, admin-set-active
 pnpm dev                      # http://localhost:5173
 ```
@@ -72,9 +76,10 @@ Privileged steps that need your accounts (the tool cannot supply them):
 ```bash
 pnpm typecheck   # full-project TypeScript
 pnpm lint
-pnpm test:unit   # RBAC, calendar, meal analytics, kitchen, operational date, effective-dated configuration (125 tests)
+pnpm test:unit   # RBAC, calendar, meal analytics, kitchen, operational date, effective-dated
+                 # configuration, operational-action reachability (130 tests)
 pnpm test:e2e    # live-boundary Playwright suite — needs the env below
-./tests/sql/run_verification.sh   # 23 SQL suites, 280 assertions, on a throwaway PostgreSQL 16
+./tests/sql/run_verification.sh   # 26 SQL suites, 332 assertions, on a throwaway PostgreSQL 16
 ```
 
 `run_verification.sh` builds a PostgreSQL 16 cluster from nothing, applies
@@ -83,7 +88,9 @@ suite (golden path, cross-portal RLS, the 520-check authorization matrix, menu
 cutover, downstream wiring, special period, class staff, kitchen demand,
 correction order, publish-future, note privacy and record states, slot-resize
 and publish/record concurrency via real second sessions, analytics volume past
-the retired 5,000-row cap, and the raw-path DB-boundary suite).
+the retired 5,000-row cap, the raw-path DB-boundary suite, the operational
+spine and its scenarios, and the operability closure — the Driver projection
+and the issue lifecycle).
 
 **CI (GitHub Actions, `.github/workflows/ci.yml`)**: every PR runs the gate
 (typecheck, lint, unit). The E2E job runs automatically on same-repo PRs when
@@ -111,11 +118,10 @@ pnpm test:e2e
 The global setup seeds its own namespaced users/data idempotently (never your
 real data) on the current architecture — Meal → Menu → published Meal Service →
 class_staff → Classroom record → Parent result — and writes
-`tests/e2e/.seeded.json` (gitignored). 14 specs, **100 tests** — `login.roles`
-is parameterised over the nine role domains, so it contributes 10 of them. Take
-the number from `pnpm exec playwright test --list` rather than from any
-document; the CI gate does exactly that and fails on a silent skip as well as
-on a failure.
+`tests/e2e/.seeded.json` (gitignored). `login.roles` is parameterised over the
+nine role domains, so it contributes ten tests on its own. Take the total from
+`pnpm exec playwright test --list` rather than from any document; the CI gate
+does exactly that and fails on a silent skip as well as on a failure.
 
 No Supabase project of your own is required: `.github/workflows/e2e-local-supabase.yml`
 starts a throwaway local stack on a GitHub runner and runs the whole suite
@@ -130,6 +136,15 @@ against it. Specs:
 - `rls.spec.ts` — role isolation; a Nursery Admin reaches the Staff screen.
 - `status.spec.ts` — Super Admin sets eligibility (audited); per-meal kitchen
   demand; classroom staff cannot reach the Status screen.
+- `spine.spec.ts` — one working day on ONE delivery, by the people who carry it
+  out: Meal Plans → mixed assignment → activation → published service → special
+  meal decision → exact demand → finalise → produce → pack → dispatch → collect
+  → arrive → hand over → classroom → parent.
+- `closure.spec.ts` — a second day on TWO deliveries, and the six operations
+  that had no interface before `0054`: bulk Plan assignment, naming a Driver,
+  an issue actioned/acknowledged/closed by three different people, a bounded
+  correction, an Institution managing its own delivery receivers, and each
+  sitting travelling on exactly one run.
 
 ## Structure
 
@@ -142,7 +157,7 @@ src/
             analytics, reports, review, status, users, audit, parent/*
   components/  layout + shared UI (design ported from the approved mockup)
 supabase/
-  migrations/ 0001–0053 (schema, RLS, resolution/publish engine, meal library,
+  migrations/ 0001–0054 (schema, RLS, resolution/publish engine, meal library,
               class_staff, per-meal demand, analytics, DB-boundary integrity,
               historical immutability of referenced meal images, Meal Period
               tags, and the account/institution/class lifecycle)

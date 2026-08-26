@@ -97,6 +97,60 @@ begin
   raise notice 'PASS d3: nobody else is offered the Driver list — not the site, the Parent or a Driver';
 
   -- =================================================================
+  -- m — THE SITE A RUN IS GOING TO
+  --
+  -- A manifest with no destination on it is the same defect the Driver's
+  -- screen had before 0053, one role along: the Kitchen may read every
+  -- manifest and may not read `institutions`.
+  -- =================================================================
+  reset role;
+  perform set_config('request.jwt.claims',
+    json_build_object('sub',v_super,'role','authenticated')::text, true);
+  insert into delivery_manifests (institution_id, service_date, run_number,
+                                  delivery_point, state)
+  values (v_inst, current_date, 1, 'ZZ OPC Reception', 'PREPARING'),
+         (v_other, current_date, 1, 'ZZ OPC Other Gate', 'PREPARING');
+  set local role authenticated;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub',v_kitchen,'role','authenticated')::text, true);
+  select count(*) into n from institutions;
+  if n <> 0 then
+    raise exception 'FAIL the Kitchen read % institution rows directly', n;
+  end if;
+  select count(*) into n from manifests_for_date(current_date)
+   where institution_name in ('ZZ OPC A', 'ZZ OPC B');
+  if n <> 2 then
+    raise exception
+      'FAIL the Kitchen got % named manifests from manifests_for_date (want 2)', n;
+  end if;
+  raise notice 'PASS m1: the Kitchen sees which site each run is for, reading no institution rows';
+
+  -- The projection restates the read policy; it does not widen it.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub',v_admin,'role','authenticated')::text, true);
+  select count(*) into n from manifests_for_date(current_date);
+  if n <> 1 then
+    raise exception 'FAIL an Institution Admin saw % manifests (want only their own 1)', n;
+  end if;
+  select count(*) into n from manifests_for_date(current_date)
+   where institution_name = 'ZZ OPC A';
+  if n <> 1 then raise exception 'FAIL an Institution Admin saw the wrong site''s run'; end if;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub',v_parent,'role','authenticated')::text, true);
+  select count(*) into n from manifests_for_date(current_date);
+  if n <> 0 then raise exception 'FAIL a Parent was shown % delivery manifests', n; end if;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub',v_driver,'role','authenticated')::text, true);
+  select count(*) into n from manifests_for_date(current_date);
+  if n <> 0 then
+    raise exception 'FAIL an unassigned Driver was shown % manifests', n;
+  end if;
+  raise notice 'PASS m2: the projection restates the manifest read policy and widens nobody';
+
+  -- =================================================================
   -- i — THE ISSUE LIFECYCLE
   -- =================================================================
   perform set_config('request.jwt.claims',

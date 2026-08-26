@@ -43,6 +43,14 @@
 --    what was done is the shape of a record that means nothing six weeks later,
 --    when somebody is asking what happened to a delivery.
 --
+-- 2b. THE SITE A RUN IS GOING TO.
+--
+--    manifests_for_date() projects the institution name onto the day's
+--    manifests. The Kitchen could always READ its manifests and never read
+--    `institutions`, so every Dispatch row and every printed label has been
+--    missing the site since 0052. Found by the browser test that drives the
+--    new Driver selector, whose label read "Driver for undefined run 1".
+--
 -- 3. A SEARCH_PATH THIS RELEASE OWED.
 --
 --    app_special_meal_reference lost the setting in 0049 and the advisor said
@@ -71,6 +79,68 @@ comment on function active_drivers() is
   'by design: this answers "who can I give this run to", not "show me the '
   'accounts". Any other caller receives no rows rather than an error, because '
   'an empty dropdown is the honest answer to a question they may not ask.';
+
+-- ---------------------------------------------------------------------
+-- 1b. AND THE SITE EACH RUN IS FOR
+--
+-- Found by the browser test that drives the new Dispatch row: the selector's
+-- label came out as "Driver for undefined run 1".
+--
+-- Same defect as the Driver's screen in the last release, one role along.
+-- delivery_manifests_select lets the Kitchen read every manifest — correctly,
+-- the Kitchen dispatches them — but app_can_see_institution() has no `kitchen`
+-- branch, so the Kitchen cannot read `institutions`. PostgREST returns an
+-- unreadable embedded row as NULL rather than as an error, so
+-- `select *, institutions(name)` handed the screen a manifest with no site on
+-- it and no complaint.
+--
+-- It has been that way since 0052. The Dispatch table showed a blank
+-- institution for every run, and the LABELS DIALOG — the sheet the packing
+-- bench prints and sticks on the crate — put a blank line where the delivery
+-- address should be. Nothing asserted the name, so nothing failed.
+--
+-- Fixed by projection, exactly as my_delivery_manifests() was: the predicate
+-- below is delivery_manifests_select restated, so no role sees a manifest it
+-- could not already see. The only thing that changes is that the row now
+-- carries the name of the place it is going to.
+-- ---------------------------------------------------------------------
+create or replace function manifests_for_date(p_date date)
+returns table (
+  id                  uuid,
+  institution_id      uuid,
+  institution_name    text,
+  service_date        date,
+  run_number          smallint,
+  window_from         time,
+  window_to           time,
+  delivery_point      text,
+  state               dispatch_state,
+  driver_user_id      uuid,
+  handover_with_issue boolean,
+  handed_over_at      timestamptz
+)
+language sql stable security definer set search_path = public as $$
+  select m.id, m.institution_id, i.name, m.service_date, m.run_number,
+         m.window_from, m.window_to, m.delivery_point, m.state,
+         m.driver_user_id, m.handover_with_issue, m.handed_over_at
+    from delivery_manifests m
+    join institutions i on i.id = m.institution_id
+   where m.service_date = p_date
+     and (
+       app_is_super_admin()
+       or app_current_role() = 'kitchen'
+       or (app_current_role() = 'driver' and m.driver_user_id = auth.uid())
+       or (app_current_role() in ('school_admin', 'classroom_staff')
+           and app_can_see_institution(m.institution_id))
+     )
+   order by i.name, m.run_number;
+$$;
+
+comment on function manifests_for_date(date) is
+  'The day''s delivery manifests a caller may see, each carrying the name of '
+  'the institution it is going to. The predicate is delivery_manifests_select '
+  'restated: this widens nothing, it only stops the Kitchen being shown a run '
+  'with no destination on it.';
 
 -- ---------------------------------------------------------------------
 -- 2. THE ISSUE LIFECYCLE, ENFORCED
@@ -168,8 +238,10 @@ $$;
 -- because eight functions inherited a default nobody had written down.
 -- ---------------------------------------------------------------------
 revoke all on function active_drivers()                                                 from public, anon;
+revoke all on function manifests_for_date(date)                                          from public, anon;
 revoke all on function advance_operational_issue(uuid,operational_issue_status,text)     from public, anon;
 revoke all on function app_special_meal_reference(uuid)                                  from public, anon;
 
 grant execute on function active_drivers()                                              to authenticated;
+grant execute on function manifests_for_date(date)                                       to authenticated;
 grant execute on function advance_operational_issue(uuid,operational_issue_status,text)  to authenticated;
