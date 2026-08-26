@@ -84,7 +84,11 @@ function must<T>(what: string, res: { data: T | null; error: { message: string }
 
 test.describe('operability closure', () => {
   test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
-  test.setTimeout(240_000);
+  // Bounded, because a bounded budget is what makes a failure REPORTABLE.
+  // With no action timeout a single dead click used to eat four minutes and
+  // the job's step cap killed the run before the reporter said which click it
+  // was. playwright.config.ts now caps actions at 15s; this caps the test.
+  test.setTimeout(150_000);
   // One day, lived in order, by several people. Retrying restarts halfway
   // through a day that has already been half lived, so the retry fails on
   // something the first attempt did.
@@ -663,8 +667,12 @@ test.describe('operability closure', () => {
     await page.goto('/my-deliveries');
     await settled(page);
     await expect(page.getByText(INST).first()).toBeVisible({ timeout: 20_000 });
-    await page.getByRole('button', { name: 'Confirm collection', exact: true }).click();
-    await page.getByRole('button', { name: 'Arrived at institution', exact: true }).click();
+    const collect = page.getByRole('button', { name: 'Confirm collection', exact: true });
+    await expect(collect).toBeVisible({ timeout: 20_000 });
+    await collect.click();
+    const arrive = page.getByRole('button', { name: 'Arrived at institution', exact: true });
+    await expect(arrive).toBeVisible({ timeout: 20_000 });
+    await arrive.click();
     await expect(page.locator('.banner.ok')).toHaveText('Arrival recorded.', { timeout: 20_000 });
 
     // ---- the authorised Classroom Staff member takes custody — and reports a
@@ -674,7 +682,9 @@ test.describe('operability closure', () => {
     await login(rp, STAFF_EMAIL);
     await rp.goto('/handover');
     await settled(rp);
-    await rp.getByRole('button', { name: 'Report delivery issue', exact: true }).click();
+    const report = rp.getByRole('button', { name: 'Report delivery issue', exact: true });
+    await expect(report).toBeVisible({ timeout: 20_000 });
+    await report.click();
     await rp.locator('.modal').getByLabel('What kind of issue', { exact: true })
       .selectOption({ label: 'Missing Item' });
     await rp.locator('.modal').getByLabel('What happened', { exact: true })

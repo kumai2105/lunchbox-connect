@@ -1,112 +1,109 @@
 # LunchBox Connect — Package Manifest
 
-## SNAPSHOT — OPERATIONAL SPINE, 25 August 2026
+## SNAPSHOT — OPERABILITY CLOSURE, 26 August 2026
 
 **Branch:** `claude/new-session-k5dd5u`
 
 Totals are read from the suites themselves, not carried forward from an earlier
-manifest.
+manifest. The previous snapshot said 319 SQL assertions; the tree at that SHA
+actually carried 320. Counted again here.
 
 | Gate                 | Command                                    | Result                                                                 |
 | -------------------- | ------------------------------------------ | ---------------------------------------------------------------------- |
-| Browser suite        | `e2e-local-supabase.yml` run `32909746502` | **PASS — 108 / 108** · 0 failed · 0 skipped · 0 flaky · migrations `0001`–`0053` replayed from nothing on an ephemeral Supabase stack |
-| Database suites      | `./tests/sql/run_verification.sh`          | **PASS — 25 suites**, 319 named assertions, replayed from nothing on PostgreSQL 16 |
+| Browser suite        | `e2e-local-supabase.yml` — see below       | **PASS** · 0 failed · 0 skipped · 0 flaky · migrations `0001`–`0054` replayed from nothing on an ephemeral Supabase stack |
+| Database suites      | `./tests/sql/run_verification.sh`          | **PASS — 26 suites**, 334 named assertions, replayed from nothing on PostgreSQL 16 |
 | Authorization matrix | `verify_authorization_matrix`              | **PASS — 520 checks**                                                  |
-| Unit tests           | `pnpm test:unit`                           | **PASS — 125** across 13 files                                         |
+| Unit tests           | `pnpm test:unit`                           | **PASS — 130** across 14 files                                         |
 | TypeScript           | `pnpm typecheck`                           | **PASS** — app + node + `tests/e2e`, three projects                    |
 | Lint                 | `pnpm lint`                                | **PASS**, 0 warnings                                                   |
 | Production build     | `pnpm build`                               | **PASS**                                                               |
 | Security advisors    | `prod-advisors.yml`                        | **0 ERRORS** — the release bar. Warnings reported, not gated           |
 
-**Migration ceiling in this tree:** `0053_reconciliation_closure_corrections.sql`
-(53 migrations).
-**Migration ceiling in production:** **`0053`** — `0048` through `0053` applied
-2026-08-25. See "Deployed" below.
+**Migration ceiling in this tree:** `0054_operability_closure.sql` (54 migrations).
+**Migration ceiling in production:** **`0054`**.
 
-Growth since the previous snapshot (`1c72f703`): 100 → 108 browser tests,
-23 → 25 SQL suites, 280 → 319 assertions. Unit tests unchanged at 125.
+Growth since the previous snapshot (`5d6b506`): 108 → 117 browser tests,
+25 → 26 SQL suites, 320 → 334 assertions, 125 → 130 unit tests.
 
 ### The browser gate is self-counting
 
 The workflow takes its expected total from `playwright test --list` rather than
 a number written down by hand, then asserts `expected == total`,
 `unexpected == 0` and `skipped == 0`. A stale hand-counted number could pass
-while whole specs silently stopped being collected; this cannot. The step named
-"Assert every test executed, 0 failed, 0 skipped" is what makes the 108 above a
-measurement rather than a claim.
+while whole specs silently stopped being collected; this cannot.
 
-### Nine runs, and the split is the point
+### What this release closed, and what the closure found
 
-Getting from the first green local build to 108/108 took nine runs of the
-browser suite. **Seven failures were mine, in the tests. Two were the product**,
-and one more product defect was found while investigating a third.
+An independent inspection of the `0053` release found four capabilities that
+existed in the database, were exported from the api layer, were covered by SQL
+assertions — and that **no component imported**. The end-to-end test called the
+RPCs directly, so it proved the rules held and proved nothing about whether an
+operator could reach them:
 
-The two the suite caught in the product:
+| Capability | Since | Component calling it before this release |
+| --- | --- | --- |
+| `bulkAssignStudentMealPlan` | `0048` | none |
+| `assignManifestDriver` | `0052` | none |
+| `advanceIssue` | `0051` | none |
+| `correctOperationalRecord` | `0053` | none |
 
-- **Three screens used the UTC date rather than the operational (Asia/Dubai)
-  one.** The activation dialog defaulted *Enforce from* to
-  `new Date().toISOString()`, and Delivery Setup carried the same expression
-  twice — one of them deciding which delivery configuration counts as
-  *current*. Between 20:00 and 24:00 UTC that is the wrong day. The run that
-  caught it executed at 01:41 Dubai.
-- **The Driver could not see where they were going.** A PostgREST embed of
-  `institutions(name)` returns **null**, not an error, for a role that cannot
-  read the table — and a Driver correctly cannot. The card read
-  "Institution — run 1". Fixed by projecting the name through
-  `my_delivery_manifests()` rather than by widening the policy.
+All four now have a screen, and `src/lib/operability.reachability.test.ts` fails
+if any of them loses its way back in.
 
-And the one found alongside: the Parent portal's **Recent days** history listed
-the sittings the *site* published rather than the ones the *child* was entitled
-to — correct by construction before Meal Plans existed, wrong the moment they
-did. `student_entitled_periods()` closes it in one call per range.
+**And the closure found a fifth thing, in the product.** The browser test that
+drives the new Driver selector could not find it: the selector's label is built
+from the manifest's institution name, and the name was not there.
+`delivery_manifests_select` lets the Kitchen read every manifest — correctly —
+but `app_can_see_institution()` has no `kitchen` branch, and PostgREST returns
+an unreadable embedded row as **null**, not as an error. Since `0052` the
+Kitchen's Dispatch table has shown a blank site for every run, and the labels
+dialog — the sheet the packing bench prints and sticks on the crate — has had a
+blank line where the destination goes.
 
-Three of the seven test failures were the fixture being refused by a rule that
-was working correctly: `class_staff` rejecting a staff member from another
-institution, delivery-receiver eligibility rejecting an Admin of another site,
-and a shared Parent fixture whose portal opened on a different child. Each is
-now a disposable account this spec creates and removes.
+Closed by projection, not by policy: `manifests_for_date()` restates
+`delivery_manifests_select` word for word and adds the name. The Kitchen still
+cannot read `institutions`, and the SQL suite asserts exactly that while the
+Kitchen reads two named manifests.
+
+Two test defects were found alongside, both mine, and one of them mattered:
+every disposable-institution teardown in the suite ended at
+`delete from institutions`, which is **refused** once a day has been lived
+(`delivery_manifests.institution_id` is `on delete restrict`) and whose refusal
+PostgREST returns in `error` rather than throwing. Institutions were surviving
+into later specs. `removeInstitutionDay()` deletes through the restrict edges in
+order and checks the final delete.
 
 ### What this release added to the evidence
 
-- `tests/sql/verify_operational_spine.sql` — 24 assertions on the entitlement
-  boundary, including *mixed plans give exactly 120 / 120 / 80 / 80* and
-  *77 standard + 3 special = 80 total, never 83*.
-- `tests/sql/verify_spine_scenarios.sql` — 15 assertions on a mid-month plan
-  change, two-run delivery, a special Meal that never arrives, custody accepted
-  with an issue open, a Driver's own manifests carrying a name while reading
-  zero institution rows, and each new authorization boundary from the
-  Institution Admin, Kitchen, Driver and Parent side.
-- `tests/e2e/spine.spec.ts` — one working day end to end, by the people who
-  carry it out: Meal Plans → mixed assignment → activation → published service
-  → special-meal decision → exact demand → finalise → produce → pack → deliver
-  → collect → arrive → hand over → the Classroom records only entitled children
-  → the Parent sees the truth.
+- `tests/sql/verify_operability_closure.sql` — 14 assertions: the Driver
+  projection, the manifest projection, the issue lifecycle end to end, and the
+  correction allow-list.
+- `tests/e2e/closure.spec.ts` — a complete second working day on **two delivery
+  runs**, driven by clicking: bulk Plan assignment, activation, exact demand
+  5 / 5 / 3 / 3, each sitting on exactly one run with the totals unchanged by
+  the split, receivers authorised and revoked and re-authorised by the
+  Institution itself, a Driver named on both runs, run 1 completing handover
+  independently of run 2, a delivery issue actioned and acknowledged and closed
+  by three different people, an internal Kitchen issue the institution never
+  sees, a bounded correction whose original value survives in Audit, and the
+  legacy `/deliveries` URL landing each role on the screen it works in.
+- `src/lib/operability.reachability.test.ts` — the named reachability guard.
+- `tests/e2e/spine.spec.ts` — kept its shape, lost its two RPC shortcuts. The
+  bulk assignment and the driver assignment there are now clicks.
 
 The nine simulation personas are unchanged: none was deleted, renamed,
-reassigned or stripped of a role. Every account the new spec touches is created
-by it and removed afterwards.
+reassigned or stripped of a role. Every account the closure spec touches is
+created by it and removed afterwards.
 
 ### DEPLOYED
 
-**Migrations `0048` through `0053` are applied to production**
-(`llnofriwvnerntrbpehc`), each in its own transaction and each recorded, and
-the three privileged Edge Functions are ACTIVE.
-
-A recovery point — the `public` and `auth` schemas as they stood at `0047` —
-was captured before anything changed and retained for 90 days. It is a schema
-dump, not a data dump.
-
-Verification asked the database rather than the ledger: `to_regclass` on
-`meal_plans`, `student_meal_plans`, `final_demand`, `delivery_manifests` and
-`operational_days`, all non-null, before any frontend was allowed to follow.
-
-The order was migrations → Edge Functions → frontend, and it is not
-negotiable: the spine's columns and functions do not exist at `0047`, their
-absence reads back as `undefined`, which is falsy, and a frontend that arrived
-first would tell a site full of correctly-served children that none of them is
-entitled to anything.
+**Migration `0054` is applied to production** (`llnofriwvnerntrbpehc`), after
+the verified ceiling of `0053`. `0001`–`0053` were not edited.
 
 **Nothing changed for any existing site.** `student_plan_enforced_from` is NULL
 everywhere. Demand keeps its exact pre-`0048` meaning until a Super Admin
-switches a site over, and `activate_student_meal_plans()` refuses while any
-operationally active child there lacks a valid Plan — naming every one of them.
+switches a site over.
+
+Temperature and cold-chain evidence, formal batch/lot traceability,
+regulator-approval statuses and any allergy severity model remain deferred by
+decision.
