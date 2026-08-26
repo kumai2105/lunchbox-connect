@@ -111,12 +111,17 @@ textarea {
 /* ---------- official brand logo ----------
    One asset, used at two sizes. Width is capped and height is auto, so the
    supplied artwork keeps its own aspect ratio at every breakpoint and can
-   never be stretched, cropped or pushed past its container. */
+   never be stretched, cropped or pushed past its container. The artwork is
+   transparent and is used exactly as supplied — it is never recoloured, and
+   nothing is ever drawn behind it. `object-fit: contain` is a guard: if a
+   height is ever imposed on one of these placements, the mark letterboxes
+   inside it instead of distorting. */
 .brand-logo {
   display: block;
   width: 100%;
   height: auto;
   max-width: 100%;
+  object-fit: contain;
 }
 
 /* Login: centred above the form, present enough to establish the brand
@@ -133,20 +138,10 @@ textarea {
   max-width: 260px;
 }
 
-/* Sidebar: smaller than the login placement. The artwork is transparent, so it
-   sits directly on the white login card — but not on the navy rail. Its letter
-   outline (#01205f) and CONNECT wordmark (#01469f) measure 1.17:1 and 2.01:1
-   against the rail, so on navy the outline vanishes and CONNECT goes muddy.
-   Hence the smallest white plate that separates it — padding, a radius, a soft
-   shadow. The logo itself is NOT recoloured to solve this. */
+/* Sidebar: smaller than the login placement, and placed directly on the rail —
+   no plate, no panel, nothing behind it. */
 .side-brand {
   margin: 18px 16px 14px;
-}
-.side-brand .brand-logo {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 10px 12px;
-  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.55);
 }
 
 /* ---------- shell ---------- */
@@ -1618,17 +1613,14 @@ tbody tr:last-child td {
 
   /* The rail is 64px. The logo goes in at the largest size that fits with a
      margin either side — 48px, which still reads as the brand — rather than a
-     lettered placeholder. Nothing else in the rail moves: the plate is the
-     same width the "LC" square occupied, so no tappable navigation space is
-     lost. */
+     lettered placeholder. Nothing else in the rail moves: it occupies the same
+     width the "LC" square did, so no tappable navigation space is lost. */
   .side-brand {
     margin: 14px 8px 12px;
   }
   .side-brand .brand-logo {
     width: 48px;
     margin: 0 auto;
-    padding: 5px;
-    border-radius: 9px;
   }
 
   .nav a span:not(.nav-ico),

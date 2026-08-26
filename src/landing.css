@@ -73,21 +73,15 @@
   gap: 16px;
   min-height: 64px;
 }
-/* The artwork is transparent, but it still needs a light plate on navy — and
-   for a measured reason, not a habit. Its letter outline is #01205f and the
-   CONNECT wordmark is #01469f; against this header's #0b1729 those are 1.17:1
-   and 2.01:1. Dropped straight onto the navy the outline disappears entirely
-   and CONNECT reads as a smudge, leaving yellow letters floating with no
-   lockup. Only the yellow (#fed601, 12.7:1) would survive. So: the smallest
-   plate that separates it, the same treatment the product sidebar uses. The
-   logo is never recoloured — a reversed variant is the brand owner's call. */
+/* The transparent artwork sits directly on the navy — no plate, no panel, no
+   rectangle behind it. The logo is used exactly as supplied: never recoloured,
+   cropped or stretched. `object-fit: contain` is a guard rather than a layout;
+   height stays auto so the file's own ratio decides the box. */
 .lp-brand img {
   display: block;
   width: 132px;
   height: auto;
-  background: #fff;
-  border-radius: 10px;
-  padding: 6px 9px;
+  object-fit: contain;
 }
 .lp-nav { display: none; }
 .lp-header-cta {
