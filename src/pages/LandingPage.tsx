@@ -479,7 +479,6 @@ export default function LandingPage() {
                 </a>
                 <div className="lp-cta-direct">
                   <a href="mailto:info@lunchboxconnect.com">info@lunchboxconnect.com</a>
-                  <a href="tel:+971559933354">+971 55 993 3354</a>
                 </div>
               </div>
             </div>
@@ -504,7 +503,6 @@ export default function LandingPage() {
             </p>
             <p className="lp-footer-contact">
               <a href="mailto:info@lunchboxconnect.com">info@lunchboxconnect.com</a>
-              <a href="tel:+971559933354">+971 55 993 3354</a>
             </p>
           </div>
           <p className="lp-source lp-footer-note">

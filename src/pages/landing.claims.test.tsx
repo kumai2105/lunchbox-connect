@@ -76,14 +76,14 @@ describe('public homepage — forbidden claims', () => {
   });
 
   it('shows no customer count, meals-served counter or review score', () => {
-    // The only figures a visitor sees are the three cited UAE ones (and the
-    // years and phone number that carry them).
+    // The only figures a visitor sees are the three cited UAE ones and the
+    // years that qualify them.
     const numbers = text.match(/\b\d[\d,]{2,}\b/g) ?? [];
-    // 331/233/456 are the cited figures; the rest are the years that
-    // qualify them and the digits of the published phone number.
-    const allowed = new Set([
-      '331', '233', '456', '2025', '2051', '2026', '33', '971', '993', '3354',
-    ]);
+    // 331/233/456 are the cited figures; the rest are the years that qualify
+    // them and the Dubai Education 33 reference. The published phone number
+    // used to be here too — it is gone from the page, so its digits are gone
+    // from this list, and a phone number reappearing now fails this test.
+    const allowed = new Set(['331', '233', '456', '2025', '2051', '2026', '33']);
     expect(numbers.filter((n) => !allowed.has(n.replace(/,/g, '')))).toEqual([]);
   });
 });
