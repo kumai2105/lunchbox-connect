@@ -264,6 +264,27 @@ genuinely new functions, granted to `authenticated` on purpose.
 number that would have signalled a real mistake. Recorded in full as finding 19
 of `docs/OPEN_FINDINGS.md`.
 
+## One open question closed on the way past
+
+Finding 18 asked whether Cloudflare's Git integration — which builds and
+comments "Deployment successful" on every push to this branch — publishes to
+the live custom domain. If it did, every commit would push a frontend ahead of
+its backend, which is the one ordering this project treats as non-negotiable.
+
+It was settled by fingerprint rather than by argument. Vite names an asset from
+its content, so the bundle filename identifies the tree that built it.
+`prod-smoke` pointed at `https://www.lunchboxconnect.com` — after Cloudflare
+had built `0122466` and `2a5c0ee` from this branch — reported
+`index-X1uI2czC.js`. Rebuilding both candidate trees with `deploy.yml`'s exact
+build environment gives `index-SnlDdnhZ.js` for this branch's head and
+`index-X1uI2czC.js` for `5d6b506`, the last deliberate deploy.
+
+The live site is the last deliberate deploy, and it did not move while the Git
+integration built this branch twice. **The integration is preview-only, and
+`deploy.yml`'s backend-readiness gate is not bypassable by a push.** Confirmed
+before this release's frontend deploy, because afterwards the question would
+have been unanswerable from outside.
+
 ## What did NOT change
 
 Nothing about the operating model. Student Meal Plan is still child-level

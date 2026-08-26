@@ -715,7 +715,7 @@ column on one table whenever this screen is next opened.
 
 ---
 
-## 18. Cloudflare's Git integration builds on every push — confirm it is preview-only — OPEN, TO CONFIRM
+## 18. Cloudflare's Git integration builds on every push — CLOSED, CONFIRMED PREVIEW-ONLY
 
 Every push to `claude/new-session-k5dd5u` triggers a Cloudflare Workers build,
 which comments on PR #1 with "Deployment successful" and two URLs:
@@ -756,14 +756,47 @@ refused 401, `admin-create-user` refuses without a JWT, the bundle targets the
 right project and carries no service-role material) and says nothing about
 which commit's bundle `www` is serving.
 
-To actually settle it, compare the asset filename served by
-`https://www.lunchboxconnect.com/` against the one built by the last
-DELIBERATE deploy. If they differ, the Git integration is publishing live and
-must be pointed at the production branch or disabled — the backend-readiness
-gate in `deploy.yml` must not be bypassable by a push. Note that the question
-becomes moot for this release the moment the frontend is deployed on purpose,
-because the live bundle is then the one that was chosen; the finding is about
-whether it could drift again afterwards.
+### SETTLED — by reproducing the content hash, not by argument
+
+Vite derives an asset's filename from its CONTENT, so the bundle name is a
+fingerprint of the tree that produced it. That makes the question answerable
+exactly rather than circumstantially.
+
+`prod-smoke` was dispatched with `app_url=https://www.lunchboxconnect.com` —
+the custom domain, not the Worker origin — at **02:00 on 26 August**, which is
+*after* Cloudflare's Git integration had built and reported "Deployment
+successful" for `0122466` (01:45) and `2a5c0ee` (01:58) from this branch. It
+reported:
+
+```
+bundle: /assets/index-X1uI2czC.js
+```
+
+Both candidate trees were then rebuilt locally with `deploy.yml`'s exact build
+environment (`VITE_SUPABASE_URL` and the anon key, both public and both read
+from that workflow):
+
+| Tree | Builds |
+| --- | --- |
+| `2a5c0ee` — this branch's head, built by Cloudflare minutes earlier | `index-SnlDdnhZ.js` |
+| `5d6b506` — the last DELIBERATE `deploy.yml` run (run 60, 00:07:26Z) | **`index-X1uI2czC.js`** |
+
+`www` is serving the second one. The live site is the bundle from the last
+deliberate deploy, and it did **not** move when the Git integration built this
+branch twice in the preceding quarter hour.
+
+**Conclusion: the Git integration publishes preview aliases only. It does not
+publish to the custom domain, and the backend-readiness gate in `deploy.yml`
+is not bypassable by a push.** That gate — which refuses to ship a frontend
+whose tree expects a higher migration than production is attested at — remains
+the only path to the live route, which is what makes the
+migrations → functions → frontend ordering enforceable rather than merely
+documented.
+
+This was confirmed BEFORE this release's frontend deploy, deliberately: once
+the frontend is deployed on purpose the live bundle is the chosen one either
+way, and the question of whether it could drift would have become
+unanswerable from the outside.
 
 ---
 
