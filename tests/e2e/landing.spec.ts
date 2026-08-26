@@ -34,7 +34,7 @@ test.describe('public homepage', () => {
       await page.goto('/');
       for (const audience of [
         'For Institutions',
-        'For Kitchen & Delivery',
+        'For Operations',
         'For Classroom teams',
         'For Parents',
       ]) {

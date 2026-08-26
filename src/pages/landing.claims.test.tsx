@@ -115,7 +115,11 @@ describe('public homepage — audiences', () => {
   });
 
   it('gives Kitchen and delivery their own story', () => {
-    expect(text).toContain('For Kitchen & Delivery');
+    // Labelled "For Operations" since the visual redesign — the panel covers
+    // Kitchen production AND delivery, and the shorter label is what the
+    // stakeholder row can carry. The meaning below is unchanged and is still
+    // the claim the register supports.
+    expect(text).toContain('For Operations');
     expect(text).toMatch(/exact Demand, production, packing, dispatch and recorded handover/);
   });
 

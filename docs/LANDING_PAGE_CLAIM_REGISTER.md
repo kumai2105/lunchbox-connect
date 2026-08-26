@@ -198,7 +198,7 @@ us" · "our clients tell us" · "eliminates allergy risk" · "allergy safe" ·
 Municipality approved" · "ADEK approved" · "no other company does this" · "the
 first" · "the only" · "market leader" · "leading UAE provider".
 
-`src/pages/landing.claims.test.ts` fails if any of the forbidden strings
+`src/pages/landing.claims.test.tsx` fails if any of the forbidden strings
 reaches the rendered homepage. That test is the enforcement; this file is the
 reason.
 

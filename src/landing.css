@@ -1,600 +1,443 @@
-/* =====================================================================
+/* ==========================================================================
    PUBLIC HOMEPAGE
-   Scoped entirely under .lp so it cannot reach the operating product.
-   Brand: the existing navy (--brand-deep), LunchBox blue (--brand) and the
-   logo's warm accent. Mobile first; every wider layout is a min-width
-   addition, so the phone case is the one that cannot be forgotten.
-   ===================================================================== */
+   --------------------------------------------------------------------------
+   Everything here is scoped under `.lp`, which only the public landing page
+   renders. The product's own styles.css is untouched by this file and vice
+   versa: an anonymous marketing page and a signed-in operations tool should
+   never be able to restyle one another by accident.
+
+   Composition, not decoration. The page leads with the product, then the four
+   people who use it, then the journey, then the evidence — and it is built to
+   be scanned, not read. Roughly two thirds of the vertical space is visual.
+
+   Mobile first. Every wider layout is a min-width block at the bottom.
+   ========================================================================== */
 
 .lp {
   --lp-navy: #0b1729;
-  --lp-navy-2: #12233d;
-  --lp-blue: #2563eb;
-  --lp-blue-light: #60a5fa;
-  --lp-accent: #f5a524;
+  --lp-navy-2: #12213a;
+  --lp-blue: #1d4ed8;
+  --lp-blue-lt: #60a5fa;
+  --lp-gold: #f5c518;
+  --lp-red: #e02424;
   --lp-ink: #0f172a;
-  --lp-muted: #5b6b82;
-  --lp-line: #dbe3ee;
-  --lp-paper: #ffffff;
-  --lp-tint: #f5f7fb;
+  --lp-muted: #52627a;
+  --lp-line: #e3e9f2;
+  --lp-tint: #f5f8fc;
 
+  background: #fff;
   color: var(--lp-ink);
-  background: var(--lp-paper);
-  font-family: inherit;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
-
 .lp *,
 .lp *::before,
 .lp *::after { box-sizing: border-box; }
 
-.lp-shell {
-  width: 100%;
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 0 20px;
-}
+.lp-shell { width: 100%; max-width: 1240px; margin: 0 auto; padding: 0 20px; }
 
 .lp-skip {
-  position: absolute;
-  left: -9999px;
+  position: absolute; left: -9999px; top: 0; z-index: 50;
+  background: var(--lp-navy); color: #fff; padding: 12px 18px; border-radius: 0 0 10px 0;
 }
-.lp-skip:focus {
-  left: 16px;
-  top: 16px;
-  z-index: 100;
-  background: #fff;
-  color: var(--lp-ink);
-  padding: 10px 16px;
-  border-radius: 8px;
-}
+.lp-skip:focus { left: 0; }
 
-/* Visible focus everywhere. The page is mostly anchors; they must be usable
-   from a keyboard without hunting for the caret. */
-.lp a:focus-visible,
-.lp button:focus-visible {
-  outline: 3px solid var(--lp-accent);
-  outline-offset: 3px;
-  border-radius: 6px;
-}
+.lp :focus-visible { outline: 3px solid var(--lp-blue-lt); outline-offset: 3px; border-radius: 6px; }
 
-/* ------------------------------------------------------------------ header */
-.lp-header {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: rgba(11, 23, 41, 0.92);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-.lp-header-inner {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-height: 64px;
-}
-/* The transparent artwork sits directly on the navy — no plate, no panel, no
-   rectangle behind it. The logo is used exactly as supplied: never recoloured,
-   cropped or stretched. `object-fit: contain` is a guard rather than a layout;
-   height stays auto so the file's own ratio decides the box. */
-.lp-brand img {
-  display: block;
-  width: 132px;
-  height: auto;
-  object-fit: contain;
-}
-.lp-nav { display: none; }
-.lp-header-cta {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.lp-link-login {
-  color: #cfe0ff;
-  text-decoration: none;
-  font-size: 0.86rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.lp-link-login:hover { color: #fff; }
+/* ---------------------------------------------------------------- type */
+.lp h1, .lp h2, .lp h3 { margin: 0; letter-spacing: -0.022em; }
+.lp p { margin: 0; }
 
-/* -------------------------------------------------------------------- CTAs */
-.lp-btn {
-  display: inline-block;
-  padding: 12px 20px;
-  border-radius: 999px;
-  font-weight: 650;
-  font-size: 0.9rem;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: transform 0.15s ease, background 0.15s ease;
-}
-.lp-btn-solid { background: var(--lp-blue); color: #fff; }
-.lp-btn-solid:hover { background: #1d4ed8; transform: translateY(-1px); }
-.lp-btn-ghost {
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  color: #fff;
-}
-.lp-btn-ghost:hover { background: rgba(255, 255, 255, 0.08); }
-.lp-btn-lg { padding: 16px 30px; font-size: 1rem; }
-
-/* -------------------------------------------------------------------- hero */
-.lp-hero {
-  background:
-    radial-gradient(1000px 500px at 78% 10%, rgba(37, 99, 235, 0.30), transparent 60%),
-    linear-gradient(160deg, var(--lp-navy) 0%, var(--lp-navy-2) 100%);
-  color: #fff;
-  padding: 56px 0 64px;
-}
-.lp-hero-inner { display: grid; gap: 40px; }
 .lp-eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: var(--lp-blue-light);
-  margin: 0 0 18px;
+  text-transform: uppercase; letter-spacing: 0.15em;
+  font-size: 0.67rem; font-weight: 750; color: var(--lp-gold); margin: 0 0 16px;
 }
 .lp-eyebrow-dark { color: var(--lp-blue); }
-.lp-hero h1 {
-  margin: 0 0 20px;
-  font-size: clamp(2.1rem, 8vw, 4rem);
-  line-height: 1.04;
-  letter-spacing: -0.025em;
-  font-weight: 750;
-}
-.lp-accent { color: var(--lp-blue-light); }
+.lp-accent { color: var(--lp-gold); }
 .lp-accent-ink { color: var(--lp-blue); }
-.lp-lead {
-  margin: 0 0 28px;
-  font-size: clamp(1rem, 2.4vw, 1.12rem);
-  line-height: 1.6;
-  color: #c9d7ea;
-  max-width: 46ch;
-}
-.lp-hero-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 
-.lp-hero-art { display: flex; justify-content: center; }
-.lp-chain { width: 100%; max-width: 420px; height: auto; }
-.lp-chain-lines line {
-  stroke: rgba(147, 197, 253, 0.45);
-  stroke-width: 1.5;
-  stroke-dasharray: 4 5;
-}
-.lp-chain-halo { fill: rgba(37, 99, 235, 0.18); }
-.lp-chain-node { fill: #cfe0ff; }
-.lp-chain-core {
-  fill: #fff;
-  font-size: 13px;
-  font-weight: 700;
-  text-anchor: middle;
-}
-.lp-chain-label {
-  fill: #9fb6d4;
-  font-size: 11px;
-  font-weight: 600;
-  text-anchor: middle;
-  letter-spacing: 0.04em;
-}
+.lp-h2 { font-size: clamp(1.6rem, 5vw, 2.5rem); line-height: 1.15; font-weight: 780; }
+.lp-h2-center { text-align: center; }
+.lp-body { font-size: 1rem; line-height: 1.65; color: var(--lp-muted); }
+.lp-note { font-size: 0.85rem; color: var(--lp-muted); }
+.lp-source { font-size: 0.78rem; line-height: 1.55; color: #7c8ba1; }
 
-/* ---------------------------------------------------------------- sections */
-.lp-section { padding: 64px 0; }
-.lp-section-tint { background: var(--lp-tint); }
-.lp-h2 {
-  margin: 0 0 18px;
-  font-size: clamp(1.6rem, 5.2vw, 2.6rem);
-  line-height: 1.14;
-  letter-spacing: -0.02em;
-  font-weight: 720;
-  max-width: 20ch;
+/* ------------------------------------------------------------- buttons */
+.lp-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px 20px; border-radius: 10px; font-size: 0.92rem; font-weight: 700;
+  text-decoration: none; border: 1.5px solid transparent; white-space: nowrap;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
 }
-.lp-h2-stack { max-width: 24ch; }
-.lp-h2-center { max-width: 26ch; margin-left: auto; margin-right: auto; text-align: center; }
-.lp-body {
-  margin: 0 0 12px;
-  font-size: 1rem;
-  line-height: 1.65;
-  color: var(--lp-muted);
-  max-width: 52ch;
-}
-.lp-body-wide { max-width: 60ch; }
-.lp-body-center { margin-left: auto; margin-right: auto; text-align: center; }
-.lp-note { font-size: 0.85rem; color: var(--lp-muted); margin: 0; }
+.lp-btn:hover { transform: translateY(-1px); }
+.lp-btn-lg { padding: 14px 26px; font-size: 1rem; }
+.lp-btn-gold { background: var(--lp-gold); color: #1a1405; box-shadow: 0 8px 20px -10px rgba(245, 197, 24, 0.9); }
+.lp-btn-gold:hover { background: #ffd534; }
+.lp-btn-outline { border-color: currentColor; color: #fff; }
+.lp-hero .lp-btn-outline:hover { background: rgba(255, 255, 255, 0.09); }
+.lp-btn-quiet { border-color: var(--lp-line); color: var(--lp-ink); background: #fff; }
+.lp-btn-quiet:hover { border-color: var(--lp-blue); color: var(--lp-blue); }
 
-/* ------------------------------------------------------- broken -> joined */
-.lp-contrast {
-  margin-top: 40px;
-  display: grid;
-  gap: 18px;
-  align-items: center;
-  justify-items: center;
-}
-.lp-contrast-panel {
-  margin: 0;
-  width: 100%;
-  max-width: 320px;
-  padding: 22px;
-  border-radius: 18px;
-  border: 1px solid var(--lp-line);
-  background: #fff;
-  text-align: center;
-}
-.lp-contrast-panel svg { width: 100%; max-width: 190px; height: auto; }
-.lp-contrast-panel figcaption {
-  margin-top: 12px;
-  font-size: 0.74rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 700;
-  color: var(--lp-muted);
-}
-.lp-contrast-panel.is-joined {
-  border-color: rgba(37, 99, 235, 0.35);
-  box-shadow: 0 16px 40px -24px rgba(37, 99, 235, 0.55);
-}
-.lp-contrast-panel.is-joined figcaption { color: var(--lp-blue); }
-.lp-loose { fill: #c4cede; }
-.lp-tight { fill: var(--lp-blue-light); }
-.lp-joined-lines line { stroke: rgba(37, 99, 235, 0.5); stroke-width: 1.6; }
-.lp-joined-core { fill: var(--lp-blue); }
-.lp-contrast-arrow { font-size: 1.6rem; color: var(--lp-blue); }
-
-/* ------------------------------------------------------------ UAE context */
-.lp-context { background: var(--lp-navy); color: #fff; padding: 52px 0; }
-.lp-stats {
-  list-style: none;
-  margin: 0 0 26px;
-  padding: 0;
-  display: grid;
-  gap: 26px;
-}
-.lp-stats li { border-left: 3px solid var(--lp-accent); padding-left: 16px; }
-.lp-stats b {
-  display: block;
-  font-size: clamp(2.2rem, 8vw, 3.1rem);
-  line-height: 1;
-  font-weight: 750;
-  letter-spacing: -0.02em;
-}
-.lp-stats span {
-  display: block;
-  margin-top: 8px;
-  font-size: 0.92rem;
-  color: #c9d7ea;
-  max-width: 30ch;
-}
-.lp-stats em {
-  display: block;
-  margin-top: 6px;
-  font-style: normal;
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #7f96b5;
-}
-.lp-context-note { color: #c9d7ea; max-width: 62ch; }
-.lp-source {
-  margin: 10px 0 0;
-  font-size: 0.74rem;
-  line-height: 1.55;
-  color: #7f96b5;
-  max-width: 70ch;
-}
-.lp-source-strong { color: var(--lp-muted); }
-
-/* ------------------------------------------------------------- four views */
-.lp-views {
-  margin-top: 34px;
-  display: grid;
-  gap: 22px;
-}
-/* Deliberately NOT four identical cards. Four equal rounded boxes turn the
-   most important idea on the page — one child, four responsibilities — into a
-   catalogue. A hairline, a large ordinal and open space read as four facets of
-   one thing instead of four products. */
-.lp-view {
-  position: relative;
-  padding: 26px 0 4px;
-  border-top: 1px solid var(--lp-line);
-}
-.lp-view-n {
-  display: block;
-  font-size: 2.4rem;
-  font-weight: 750;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  color: rgba(37, 99, 235, 0.22);
-  margin-bottom: 8px;
-}
-.lp-view h3 {
-  margin: 0 0 10px;
-  font-size: 1.18rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-.lp-view p { margin: 0; font-size: 0.94rem; line-height: 1.6; color: var(--lp-muted); }
-.lp-pull {
-  margin: 44px 0 0;
-  padding: 22px 26px;
-  border-left: 4px solid var(--lp-accent);
-  background: #fff;
-  border-radius: 0 14px 14px 0;
-  font-size: clamp(1rem, 3vw, 1.22rem);
-  font-weight: 620;
-  line-height: 1.45;
-  max-width: 46ch;
-}
-
-/* ----------------------------------------------------------------- journey */
-.lp-journey-section { background: var(--lp-navy); color: #fff; }
-.lp-journey-section .lp-h2-center { color: #fff; }
-/* A rail with stops on it. Six bordered boxes in a row is a slide; a line the
-   eye can follow is a journey, which is the one idea this section exists to
-   carry. The rail is drawn on the list itself so it cannot drift out of
-   alignment with the stops. */
-.lp-journey {
-  list-style: none;
-  margin: 44px 0 0;
-  padding: 0;
-  display: grid;
-  gap: 0;
-  position: relative;
-}
-.lp-journey li {
-  position: relative;
-  padding: 0 0 30px 30px;
-  border-left: 2px solid rgba(96, 165, 250, 0.28);
-}
-.lp-journey li:last-child { border-left-color: transparent; padding-bottom: 0; }
-.lp-journey li::before {
-  content: '';
-  position: absolute;
-  left: -7px;
-  top: 4px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--lp-navy);
-  border: 2px solid var(--lp-accent);
-}
-.lp-journey-n {
-  font-size: 0.7rem;
-  font-weight: 750;
-  letter-spacing: 0.16em;
-  color: var(--lp-accent);
-}
-.lp-journey h3 {
-  margin: 6px 0 8px;
-  font-size: 1.06rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-.lp-journey p {
-  margin: 0;
-  font-size: 0.86rem;
-  line-height: 1.5;
-  color: #9fb6d4;
-}
-.lp-food {
-  margin-top: 44px;
-  padding: 30px 26px;
-  border-radius: 20px;
-  background: linear-gradient(120deg, rgba(37, 99, 235, 0.22), rgba(245, 165, 36, 0.12));
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-.lp-food h3 {
-  margin: 0 0 10px;
-  font-size: clamp(1.05rem, 3.2vw, 1.42rem);
-  font-weight: 700;
-  line-height: 1.3;
-  max-width: 30ch;
-}
-.lp-food p { margin: 0; color: #c9d7ea; line-height: 1.6; max-width: 58ch; font-size: 0.95rem; }
-
-/* ----------------------------------------------------------------- parents */
-.lp-parents-inner { display: grid; gap: 36px; align-items: center; }
-.lp-phone {
-  width: 100%;
-  max-width: 260px;
-  margin: 0 auto;
-  aspect-ratio: 9 / 17;
-  border-radius: 30px;
-  padding: 12px;
-  background: linear-gradient(160deg, var(--lp-navy), var(--lp-navy-2));
-  box-shadow: 0 30px 60px -30px rgba(11, 23, 41, 0.6);
-}
-.lp-phone-screen {
-  height: 100%;
-  border-radius: 22px;
-  background: #fff;
-  padding: 20px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.lp-phone-eyebrow {
-  font-size: 0.62rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-weight: 750;
-  color: var(--lp-blue);
-}
-.lp-phone-rows { display: grid; gap: 9px; }
-.lp-phone-row { display: flex; align-items: center; gap: 8px; }
-.lp-phone-row i {
-  width: 20px; height: 20px; border-radius: 7px;
-  background: rgba(37, 99, 235, 0.16); flex: none;
-}
-.lp-phone-row span { height: 8px; border-radius: 4px; background: #e3e9f2; }
-.lp-phone-row span.w70 { width: 70%; }
-.lp-phone-row span.w60 { width: 60%; }
-.lp-phone-row span.w50 { width: 50%; }
-.lp-phone-row b {
-  margin-left: auto; width: 26px; height: 8px; border-radius: 4px;
-  background: var(--lp-blue-light); flex: none;
-}
-.lp-phone-row b.pale { background: #e3e9f2; }
-.lp-phone-week { display: flex; gap: 6px; margin-top: 2px; }
-.lp-phone-day { flex: 1; text-align: center; }
-.lp-phone-day em {
-  display: block; font-style: normal; font-size: 0.56rem;
-  font-weight: 700; color: var(--lp-muted); margin-bottom: 5px;
-}
-.lp-phone-day u {
-  display: block; height: 34px; border-radius: 7px;
-  background: rgba(37, 99, 235, 0.10); text-decoration: none;
-}
-
-/* ------------------------------------------------------------------ vision */
-.lp-vision { background: var(--lp-tint); }
-.lp-today-tomorrow { display: grid; gap: 20px; }
-.lp-tt { padding: 30px 26px; border-radius: 20px; }
-.lp-tt-tag {
-  display: inline-block;
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-weight: 750;
-  margin-bottom: 14px;
-}
-.lp-tt h2 {
-  margin: 0 0 12px;
-  font-size: clamp(1.2rem, 3.6vw, 1.6rem);
-  line-height: 1.24;
-  letter-spacing: -0.015em;
-  font-weight: 700;
-}
-.lp-tt p { margin: 0; line-height: 1.6; font-size: 0.95rem; }
-.lp-tt-today { background: var(--lp-navy); color: #fff; }
-.lp-tt-today .lp-tt-tag { color: var(--lp-accent); }
-.lp-tt-today p { color: #c9d7ea; }
-.lp-tt-tomorrow { background: #fff; border: 1px dashed var(--lp-line); }
-.lp-tt-tomorrow .lp-tt-tag { color: var(--lp-blue); }
-.lp-tt-tomorrow p { color: var(--lp-muted); }
-.lp-vision-line {
-  margin: 34px 0 0;
-  font-size: clamp(1.1rem, 3.6vw, 1.6rem);
-  font-weight: 680;
-  line-height: 1.35;
-  letter-spacing: -0.015em;
-  max-width: 26ch;
-}
-.lp-context-refs {
-  margin-top: 38px;
-  display: grid;
-  gap: 20px;
-  padding-top: 26px;
-  border-top: 1px solid var(--lp-line);
-}
-.lp-context-refs h4 {
-  margin: 0 0 6px;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--lp-blue);
-}
-.lp-context-refs p { margin: 0; font-size: 0.88rem; line-height: 1.55; color: var(--lp-muted); }
-
-/* ----------------------------------------------------------------- contact */
-.lp-contact { background: #fff; text-align: center; }
-.lp-contact-actions {
-  margin-top: 28px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-.lp-contact-direct { display: flex; flex-direction: column; gap: 6px; }
-.lp-contact-direct a {
-  color: var(--lp-ink);
-  font-weight: 620;
-  text-decoration: none;
+/* ================================================================ HEADER
+   Light on purpose. The brand artwork is a navy-outlined lockup with a blue
+   wordmark: on the navy used below, the outline measures 1.17:1 and the
+   wordmark 2.01:1 and neither reads. The fix is a surface that suits the
+   artwork, NOT a white plate boxed in behind it. Nothing is ever drawn
+   behind the logo — see the `.lp-brand img` rule. */
+.lp-header {
+  position: sticky; top: 0; z-index: 40;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: saturate(1.6) blur(10px);
   border-bottom: 1px solid var(--lp-line);
 }
-.lp-contact-direct a:hover { border-color: var(--lp-blue); color: var(--lp-blue); }
-.lp-contact-parent { margin: 28px 0 0; font-size: 0.9rem; color: var(--lp-muted); }
-.lp-contact-parent a { color: var(--lp-blue); font-weight: 650; text-decoration: none; }
+.lp-header-inner { display: flex; align-items: center; gap: 16px; min-height: 68px; }
 
-/* ------------------------------------------------------------------ footer */
-.lp-footer { background: var(--lp-navy); color: #9fb6d4; padding: 48px 0 32px; }
-.lp-footer-inner { display: grid; gap: 28px; }
-.lp-footer-what { margin: 16px 0 12px; line-height: 1.6; font-size: 0.9rem; }
-.lp-footer-contact { display: flex; flex-direction: column; gap: 4px; margin: 0; }
-.lp-footer-contact a,
-.lp-footer-nav a {
-  color: #cfe0ff;
-  text-decoration: none;
-  font-size: 0.88rem;
+/* The supplied transparent artwork, used exactly as supplied: no background,
+   no padding, no radius, no shadow, no crop. CSS sizes it and nothing else. */
+.lp-brand img {
+  display: block; width: 124px; height: auto; object-fit: contain;
 }
-.lp-footer-contact a:hover,
-.lp-footer-nav a:hover { color: #fff; }
-.lp-footer-nav { display: grid; gap: 10px; align-content: start; }
-.lp-footer-note {
-  margin-top: 26px;
-  padding-top: 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+.lp-nav { display: none; }
+.lp-header-cta { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.lp-header-cta .lp-btn-quiet { display: none; }
+
+/* ================================================================== HERO
+   The visitor sees the product in the first screen. The old build opened on
+   an abstract node diagram, which asked people to decode a metaphor before
+   they had been told what the thing was. */
+.lp-hero {
+  background:
+    radial-gradient(1100px 460px at 78% 8%, rgba(37, 99, 235, 0.38), transparent 62%),
+    linear-gradient(168deg, var(--lp-navy) 0%, var(--lp-navy-2) 100%);
+  color: #fff; padding: 44px 0 0; overflow: hidden;
 }
+.lp-hero-inner { display: grid; gap: 34px; }
+.lp-hero h1 { font-size: clamp(2rem, 8.4vw, 3.5rem); line-height: 1.05; font-weight: 800; margin: 0 0 18px; }
+.lp-lead { font-size: 1rem; line-height: 1.68; color: #c6d6ee; max-width: 34em; }
+.lp-hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+
+.lp-hero-art { position: relative; padding-bottom: 34px; }
+
+/* ------------------------------------------- the product stack (hero art)
+   Three real screens, layered the way people actually meet them: the
+   Institution's desk, the Kitchen's rail, the Parent's phone. */
+/* Laptop left, tablet right and slightly behind, phone in front. The three
+   overlap only at their corners: an earlier arrangement laid the tablet across
+   the middle of the laptop and hid the content of both, which defeats the one
+   job this composition has. */
+.lp-stack { position: relative; margin: 0 auto; max-width: 470px; padding-bottom: 16%; }
+.lp-stack .lp-fr-admin { width: 78%; }
+.lp-stack .lp-fr-kitchen {
+  position: absolute; right: 0; top: 16%; width: 48%;
+  box-shadow: 0 26px 60px -26px rgba(0, 0, 0, 0.85);
+}
+.lp-stack .lp-fr-parent {
+  position: absolute; left: 13%; bottom: 0; width: 21%; min-width: 88px;
+  box-shadow: 0 26px 60px -18px rgba(0, 0, 0, 0.92);
+}
+
+/* ------------------------------------------------------- product frames
+   ABSTRACT. Structure is taken from the real screens — the Command Center's
+   own navigation, the Kitchen table's own columns and stage names, the
+   Parent portal's own sections — and every value is a neutral bar. There is
+   not one number in any of these, which is the point: the software exists
+   and this is its shape, and a homepage may not invent data to look busy. */
+.lp-fr {
+  background: #fff; border-radius: 12px; overflow: hidden;
+  box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.7);
+  font-size: 10px; color: var(--lp-ink);
+}
+.lp-fr s, .lp-fr u, .lp-fr b, .lp-fr q, .lp-fr i {
+  display: block; background: #dfe6f1; border-radius: 3px; text-decoration: none;
+}
+.lp-fr s { height: 5px; width: 62%; }
+.lp-fr s.sm { width: 34%; }
+.lp-fr s.w30 { width: 30%; }
+.lp-fr s.w40 { width: 40%; }
+.lp-fr s.w60 { width: 60%; }
+.lp-fr u { height: 5px; width: 22%; background: #c9d6ea; }
+.lp-fr b { height: 8px; width: 8px; border-radius: 50%; background: #c2d3ee; flex: none; }
+.lp-fr q { height: 5px; width: 16%; background: rgba(37, 99, 235, 0.32); }
+
+/* Command Center */
+.lp-fr-bar { display: flex; gap: 5px; padding: 8px 10px; background: #f2f5fa; border-bottom: 1px solid var(--lp-line); }
+.lp-fr-bar i { width: 7px; height: 7px; border-radius: 50%; background: #cfd9e8; }
+.lp-fr-body { display: flex; min-height: 176px; }
+.lp-fr-nav { width: 33%; background: var(--lp-navy); padding: 10px 8px; display: grid; gap: 6px; align-content: start; }
+.lp-fr-mark { display: block; height: 9px; width: 58%; border-radius: 3px; background: var(--lp-gold); margin-bottom: 6px; }
+.lp-fr-nav em {
+  font-style: normal; font-size: 7.5px; color: #93a9c8; line-height: 1.35;
+  padding: 3px 5px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lp-fr-nav em.is-on { background: rgba(96, 165, 250, 0.22); color: #fff; }
+.lp-fr-main { flex: 1; padding: 10px; display: grid; gap: 9px; align-content: start; }
+.lp-fr-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.lp-fr-tile { background: var(--lp-tint); border: 1px solid var(--lp-line); border-radius: 6px; padding: 6px 5px; }
+.lp-fr-tile span { display: block; font-size: 6.5px; color: var(--lp-muted); line-height: 1.2; margin-bottom: 5px; }
+.lp-fr-tile u { width: 60%; height: 7px; background: rgba(37, 99, 235, 0.35); }
+.lp-fr-rows { display: grid; gap: 6px; }
+.lp-fr-row { display: flex; align-items: center; gap: 6px; padding-bottom: 5px; border-bottom: 1px solid #f0f3f8; }
+
+/* Kitchen production */
+.lp-fr-kitchen { padding: 0 0 8px; }
+.lp-fr-head { padding: 8px 10px; background: var(--lp-navy); color: #fff; font-size: 8.5px; font-weight: 700; }
+.lp-fr-cols { display: flex; gap: 6px; padding: 7px 10px 5px; border-bottom: 1px solid var(--lp-line); }
+.lp-fr-cols span { flex: 1; font-size: 6.5px; font-weight: 700; color: var(--lp-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.lp-fr-line { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-bottom: 1px solid #f2f5fa; }
+.lp-fr-line s, .lp-fr-line u { flex: 1; }
+.lp-chip { font-size: 6.5px; font-weight: 700; padding: 2px 5px; border-radius: 20px; white-space: nowrap; }
+.lp-chip-0 { background: rgba(245, 197, 24, 0.24); color: #7a5c00; }
+.lp-chip-1 { background: rgba(37, 99, 235, 0.16); color: var(--lp-blue); }
+.lp-chip-2 { background: rgba(16, 138, 90, 0.16); color: #0b6b46; }
+.lp-fr-foot { display: flex; align-items: center; gap: 6px; padding: 8px 10px 0; font-size: 7px; font-weight: 700; color: var(--lp-muted); }
+.lp-fr-foot i { flex: 1; height: 5px; background: rgba(37, 99, 235, 0.22); }
+
+/* Parent phone */
+.lp-fr-parent { border-radius: 18px; border: 4px solid #0d1a2e; padding: 12px 9px 11px; background: #fff; }
+.lp-fr-notch { width: 34%; height: 4px; border-radius: 4px; background: #0d1a2e; margin: -6px auto 9px; }
+.lp-fr-eyebrow {
+  display: block; font-size: 6.5px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.09em; color: var(--lp-blue); margin: 0 0 6px;
+}
+.lp-fr-meals { display: grid; gap: 6px; margin-bottom: 11px; }
+.lp-fr-meal { display: flex; align-items: center; gap: 6px; background: var(--lp-tint); border-radius: 7px; padding: 5px; }
+.lp-fr-meal .lp-tray { width: 22px; flex: none; }
+.lp-fr-meal s { flex: 1; }
+.lp-fr-week { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.lp-fr-day { background: var(--lp-tint); border-radius: 5px; padding: 5px 2px; text-align: center; }
+.lp-fr-day em { display: block; font-style: normal; font-size: 6px; font-weight: 800; color: var(--lp-muted); margin-bottom: 3px; }
+.lp-fr-day u { width: 68%; height: 4px; margin: 0 auto; }
+
+/* ---------------------------------------------------------- tray motif */
+.lp-tray { display: block; width: 100%; height: auto; }
+.lp-tray-body { fill: #eef3fa; stroke: #dae3f0; stroke-width: 2; }
+.lp-tray-well { fill: #fff; }
+.lp-tray-food-a { fill: #f5c518; }
+.lp-tray-food-b { fill: #e8843a; }
+.lp-tray-food-c { fill: #3f9c62; }
+.lp-tray.is-mini .lp-tray-body { stroke: none; }
+.lp-tray.is-wide { width: 132px; flex: none; }
+.lp-tray.is-corner { position: absolute; right: 20px; bottom: 18px; width: 104px; }
+.lp-hz-today .lp-tray-body { fill: rgba(255, 255, 255, 0.08); stroke: rgba(255, 255, 255, 0.16); }
+.lp-hz-today .lp-tray-well { fill: rgba(255, 255, 255, 0.07); }
+
+/* ============================================================= AUDIENCES
+   Deliberately NOT four identical rounded boxes. Three primary panels carry a
+   real product frame; the Classroom sits on a wide band with the meal motif.
+   Four equal cards would turn the most important idea on the page — one child,
+   four responsibilities — into a catalogue. */
+.lp-aud-band { padding: 56px 0; background: var(--lp-tint); }
+.lp-aud-head { max-width: 46em; margin: 0 0 30px; }
+.lp-aud-head .lp-body { margin-top: 14px; }
+.lp-auds { display: grid; gap: 16px; }
+
+.lp-aud {
+  background: #fff; border: 1px solid var(--lp-line); border-radius: 16px;
+  padding: 22px 20px 0; overflow: hidden; position: relative;
+  box-shadow: 0 18px 40px -34px rgba(15, 23, 42, 0.6);
+}
+.lp-aud h3 { font-size: 1.1rem; font-weight: 760; margin-bottom: 8px; }
+.lp-aud p { font-size: 0.9rem; line-height: 1.6; color: var(--lp-muted); }
+.lp-aud-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 11px; margin-bottom: 14px;
+}
+.lp-aud-ico svg { width: 21px; height: 21px; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.lp-ico-blue { background: rgba(29, 78, 216, 0.1); }
+.lp-ico-blue svg { stroke: var(--lp-blue); }
+.lp-ico-gold { background: rgba(245, 197, 24, 0.2); }
+.lp-ico-gold svg { stroke: #9a7500; }
+.lp-ico-green { background: rgba(16, 138, 90, 0.12); }
+.lp-ico-green svg { stroke: #0b6b46; }
+
+/* The frame is cropped by the panel on purpose: it reads as a window into a
+   working product rather than a picture pasted onto a card. */
+.lp-aud-art { margin: 18px -20px -1px; padding: 0 20px; height: 146px; overflow: hidden; }
+.lp-aud-art .lp-fr { transform: scale(1.04); transform-origin: top center; }
+.lp-aud-art .lp-fr-parent { width: 128px; margin: 0 auto; }
+.lp-aud-art .lp-fr-kitchen { margin-top: 4px; }
+
+/* Stacked on a phone. Laid out as a row it squeezed the copy into a column two
+   words wide beside a fixed-width motif. */
+.lp-aud.is-wide {
+  display: grid; gap: 16px; padding: 22px 20px;
+  background: linear-gradient(120deg, #fff 0%, #f0f5fc 100%);
+}
+.lp-aud.is-wide .lp-aud-ico { margin-bottom: 0; }
+.lp-aud-wide-copy { min-width: 0; }
+.lp-aud.is-wide .lp-tray.is-wide { width: 100%; max-width: 190px; }
+
+/* =============================================================== JOURNEY
+   A rail with stops on it. Five bordered boxes in a row is a slide; a line
+   the eye can follow is a journey. */
+.lp-journey-band { padding: 48px 0; background: #fff; }
+.lp-journey {
+  list-style: none; margin: 30px 0 0; padding: 0;
+  display: grid; gap: 0;
+}
+.lp-journey li {
+  position: relative; padding: 0 0 26px 26px;
+  border-left: 2px solid rgba(29, 78, 216, 0.16);
+}
+.lp-journey li:last-child { border-left-color: transparent; padding-bottom: 0; }
+.lp-journey-dot {
+  position: absolute; left: -7px; top: 3px; width: 12px; height: 12px; border-radius: 50%;
+  background: #fff; border: 3px solid var(--lp-blue);
+}
+.lp-journey h3 {
+  font-size: 0.86rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--lp-navy); margin-bottom: 6px;
+}
+.lp-journey p { font-size: 0.9rem; line-height: 1.55; color: var(--lp-muted); }
+
+/* =============================================================== PARENTS */
+.lp-parents { padding: 56px 0; background: var(--lp-tint); }
+.lp-parents-inner { display: grid; gap: 30px; }
+.lp-parents-art { display: flex; justify-content: center; }
+.lp-parents-art .lp-fr-parent { width: 210px; }
+.lp-parents-copy .lp-body { margin-top: 16px; }
+.lp-pull {
+  margin: 20px 0 0; padding: 14px 18px; border-left: 4px solid var(--lp-gold);
+  background: #fff; border-radius: 0 10px 10px 0;
+  font-size: 0.95rem; font-weight: 650; line-height: 1.5; color: var(--lp-ink);
+}
+.lp-parents .lp-note { margin-top: 14px; }
+
+/* ============================================================== EVIDENCE
+   A short, dark band. The old build spent a full screen and four policy
+   paragraphs here; three cited figures and one sentence do the same work. */
+.lp-evidence { background: var(--lp-navy); color: #fff; padding: 40px 0; }
+.lp-evidence-inner { display: grid; gap: 26px; }
+.lp-stats { list-style: none; margin: 0; padding: 0; display: grid; gap: 20px; }
+.lp-stats li { border-left: 3px solid var(--lp-gold); padding-left: 15px; }
+.lp-stats b { display: block; font-size: 2.3rem; font-weight: 800; line-height: 1; color: var(--lp-gold); }
+.lp-stats span { display: block; margin: 7px 0 4px; font-size: 0.85rem; font-weight: 650; }
+.lp-stats em { display: block; font-style: normal; font-size: 0.7rem; letter-spacing: 0.04em; color: #8fa6c6; text-transform: uppercase; }
+.lp-evidence-note p { font-size: 0.93rem; line-height: 1.65; color: #c3d3ea; }
+.lp-evidence-note .lp-source { margin-top: 12px; color: #8195b1; }
+
+/* ================================================================ VISION */
+.lp-horizon { padding: 56px 0; background: #fff; }
+.lp-horizon-inner { display: grid; gap: 16px; }
+.lp-hz { position: relative; border-radius: 16px; padding: 26px 22px; overflow: hidden; }
+.lp-hz h2 { font-size: 1.22rem; line-height: 1.3; font-weight: 760; margin: 12px 0 10px; }
+.lp-hz p { font-size: 0.9rem; line-height: 1.62; }
+.lp-hz-tag {
+  display: inline-block; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.12em;
+  text-transform: uppercase; padding: 4px 10px; border-radius: 20px;
+}
+/* The motif sits in reserved space in the bottom corner. It must never run
+   under the paragraph — an earlier version covered the last line of it. */
+.lp-hz-today { background: var(--lp-navy); color: #fff; padding-bottom: 132px; }
+.lp-hz-today p { max-width: 30em; }
+.lp-hz-today .lp-hz-tag { background: var(--lp-gold); color: #1a1405; }
+.lp-hz-today p { color: #c3d3ea; }
+.lp-hz-next { background: var(--lp-tint); border: 1px dashed #c6d3e6; }
+.lp-hz-tag-next { background: rgba(29, 78, 216, 0.12); color: var(--lp-blue); }
+.lp-hz-next p { color: var(--lp-muted); }
+
+/* =================================================================== CTA */
+.lp-cta { padding: 0 0 56px; background: #fff; }
+.lp-cta-inner {
+  display: grid; gap: 18px; background: var(--lp-navy); color: #fff;
+  border-radius: 18px; padding: 34px 26px;
+  background-image: radial-gradient(700px 300px at 88% 0%, rgba(37, 99, 235, 0.42), transparent 65%);
+}
+.lp-cta-main h2 { font-size: clamp(1.35rem, 4.4vw, 1.9rem); line-height: 1.22; font-weight: 780; }
+.lp-cta-main > p { margin-top: 12px; font-size: 0.95rem; line-height: 1.65; color: #c3d3ea; max-width: 40em; }
+.lp-cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; margin-top: 22px; }
+.lp-cta-direct { display: grid; gap: 4px; }
+.lp-cta-direct a { color: #dbe7f8; text-decoration: none; font-size: 0.9rem; }
+.lp-cta-direct a:hover { color: #fff; text-decoration: underline; }
+.lp-cta-login {
+  background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px; padding: 20px; display: grid; gap: 12px; align-content: center;
+}
+.lp-cta-login p { font-size: 0.88rem; color: #c3d3ea; }
+
+/* ================================================================ FOOTER
+   Light, like the header, so the brand artwork reads here too. */
+.lp-footer { background: var(--lp-tint); border-top: 1px solid var(--lp-line); padding: 34px 0; }
+.lp-footer-inner { display: grid; gap: 24px; }
+.lp-footer-brand .lp-brand img { width: 118px; margin-bottom: 14px; }
+.lp-footer-what { font-size: 0.86rem; line-height: 1.6; color: var(--lp-muted); }
+.lp-footer-contact { display: grid; gap: 3px; margin-top: 12px; }
+.lp-footer-contact a, .lp-footer-nav a {
+  color: var(--lp-ink); text-decoration: none; font-size: 0.86rem;
+}
+.lp-footer-contact a:hover, .lp-footer-nav a:hover { color: var(--lp-blue); }
+.lp-footer-nav { display: grid; gap: 9px; align-content: start; }
+.lp-footer-note { order: 3; }
 
 /* ==================================================================== 700px */
 @media (min-width: 700px) {
   .lp-shell { padding: 0 32px; }
-  .lp-section { padding: 84px 0; }
-  .lp-contrast { grid-template-columns: 1fr auto 1fr; }
-  .lp-stats { grid-template-columns: repeat(3, 1fr); gap: 30px; }
-  .lp-views { grid-template-columns: repeat(2, 1fr); }
-  /* The rail turns horizontal once there is room: the stop sits ON the line
-     and the stage hangs beneath it, so the eye still travels left to right. */
-  .lp-journey { grid-template-columns: repeat(3, 1fr); gap: 26px 18px; }
-  .lp-journey li {
-    padding: 26px 0 0;
-    border-left: 0;
-    border-top: 2px solid rgba(96, 165, 250, 0.28);
-  }
-  .lp-journey li:last-child { border-left: 0; padding-bottom: 0; }
-  .lp-journey li::before { left: 0; top: -7px; }
-  .lp-today-tomorrow { grid-template-columns: 1fr 1fr; }
-  .lp-context-refs { grid-template-columns: repeat(3, 1fr); }
-  .lp-parents-inner { grid-template-columns: 1.1fr 0.9fr; }
-  .lp-contact-direct { flex-direction: row; gap: 22px; }
-  .lp-footer-inner { grid-template-columns: 1.4fr 1fr; }
-  .lp-footer-nav { grid-template-columns: repeat(2, 1fr); }
+  .lp-hero { padding-top: 56px; }
+  .lp-hero-art { padding-bottom: 46px; }
+  .lp-stack { max-width: 540px; }
+
+  /* Two columns: three primaries plus the Classroom panel fill the grid
+     exactly, 2 + 2. Spanning Classroom across the row here would leave
+     Operations alone beside an empty cell. */
+  .lp-auds { grid-template-columns: repeat(2, 1fr); }
+  .lp-aud.is-wide { align-content: start; }
+  .lp-aud.is-wide .lp-tray.is-wide { width: 100%; max-width: 210px; }
+
+  /* The rail turns horizontal: five stops read as one line, left to right. */
+  .lp-journey { grid-template-columns: repeat(5, 1fr); gap: 20px; margin-top: 34px; }
+  .lp-journey li { padding: 22px 14px 0 0; border-left: none; border-top: 2px solid rgba(29, 78, 216, 0.16); }
+  .lp-journey li:last-child { border-top-color: rgba(29, 78, 216, 0.16); }
+  .lp-journey-dot { left: 0; top: -7px; }
+
+  .lp-stats { grid-template-columns: repeat(3, 1fr); gap: 26px; }
+  .lp-horizon-inner { grid-template-columns: 1fr 1fr; }
+  .lp-parents-inner { grid-template-columns: 320px 1fr; align-items: center; }
+  .lp-cta-inner { grid-template-columns: 1fr 300px; gap: 30px; padding: 40px 36px; }
+  .lp-footer-inner { grid-template-columns: 1.6fr 1fr; }
+  .lp-footer-note { order: 0; grid-column: 1 / -1; }
 }
 
 /* =================================================================== 1000px */
 @media (min-width: 1000px) {
-  .lp-nav {
-    display: flex;
-    gap: 26px;
-    margin-left: 26px;
-  }
+  .lp-nav { display: flex; gap: 26px; margin-left: 30px; }
   .lp-nav a {
-    color: #c9d7ea;
-    text-decoration: none;
-    font-size: 0.86rem;
-    font-weight: 600;
+    color: var(--lp-ink); text-decoration: none; font-size: 0.88rem; font-weight: 640;
+    padding: 6px 0; border-bottom: 2px solid transparent;
   }
-  .lp-nav a:hover { color: #fff; }
-  .lp-hero { padding: 96px 0 104px; }
-  .lp-hero-inner { grid-template-columns: 1.05fr 0.95fr; gap: 56px; align-items: center; }
-  .lp-chain { max-width: 520px; }
-  .lp-section { padding: 104px 0; }
-  .lp-journey { grid-template-columns: repeat(6, 1fr); gap: 0; }
-  .lp-journey li { padding: 26px 18px 0 0; }
-  .lp-food { display: grid; grid-template-columns: 1fr 1.2fr; gap: 30px; align-items: center; padding: 38px 34px; }
-  .lp-food h3 { margin: 0; }
-  .lp-parents-inner { gap: 64px; }
-  .lp-phone { max-width: 288px; }
-  .lp-tt { padding: 40px 36px; }
+  .lp-nav a:hover { color: var(--lp-blue); border-bottom-color: var(--lp-blue); }
+  .lp-header-cta .lp-btn-quiet { display: inline-flex; }
+
+  .lp-hero { padding: 76px 0 0; }
+  .lp-hero-inner { grid-template-columns: 1fr 1.06fr; gap: 44px; align-items: center; }
+  .lp-hero-art { padding-bottom: 64px; }
+  .lp-stack { max-width: 100%; }
+
+  .lp-aud-band { padding: 76px 0; }
+  .lp-auds { grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  /* At three columns the three primaries fill row one, so Classroom becomes
+     the wide band beneath them. */
+  .lp-aud.is-wide {
+    grid-column: 1 / -1;
+    grid-template-columns: auto 1fr auto; align-items: center; gap: 24px;
+  }
+  .lp-aud.is-wide .lp-tray.is-wide { width: 150px; }
+  .lp-aud-art { height: 168px; }
+
+  .lp-journey-band { padding: 62px 0; }
+  .lp-parents { padding: 76px 0; }
+  .lp-parents-inner { grid-template-columns: 380px 1fr; gap: 56px; }
+  .lp-evidence { padding: 52px 0; }
+  .lp-evidence-inner { grid-template-columns: 1.9fr 1fr; align-items: center; gap: 44px; }
+  .lp-horizon { padding: 76px 0; }
+  .lp-hz { padding: 34px 30px; }
+  .lp-hz h2 { font-size: 1.36rem; }
 }
 
-/* Motion is decorative only; the page is fully legible without it. */
+/* Motion is decoration here; anyone who has asked for less of it gets none. */
 @media (prefers-reduced-motion: reduce) {
-  .lp *,
-  .lp *::before,
-  .lp *::after {
-    animation: none !important;
-    transition: none !important;
+  .lp *, .lp *::before, .lp *::after {
+    transition: none !important; animation: none !important;
   }
   .lp-btn:hover { transform: none; }
 }
