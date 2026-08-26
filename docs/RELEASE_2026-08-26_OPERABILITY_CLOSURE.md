@@ -118,6 +118,35 @@ they are a separate authority — the Kitchen sees receiver state and is offered
 no action, since `set_delivery_receiver()` asks `app_can_manage_institution()`,
 which the Kitchen never satisfies.
 
+### And a fifth thing, which the closure found rather than closed
+
+The browser test that drives the new Driver selector could not find it:
+
+```
+Locator: getByLabel('Driver for ZZ E2E Closure … run 1')
+Expected: 1   Received: 0
+```
+
+The selector's label is built from the manifest's institution name, and the
+name was not there. `delivery_manifests_select` lets the Kitchen read every
+manifest — correctly, the Kitchen dispatches them — but
+`app_can_see_institution()` has **no `kitchen` branch**, so the Kitchen cannot
+read `institutions`. PostgREST returns an unreadable embedded row as **null**
+rather than as an error, so `select *, institutions(name)` handed the screen a
+manifest with no site on it and no complaint.
+
+This is the same defect the Driver's screen had before `0053`, one role along,
+and it has been live since `0052`. The Dispatch table showed a blank
+institution for every run, and the **labels dialog** — the sheet the packing
+bench prints and sticks on the crate — put a blank line where the destination
+goes. Nothing asserted the name, so nothing failed.
+
+`manifests_for_date()` closes it by projection: the predicate is
+`delivery_manifests_select` restated word for word, so no role sees a manifest
+it could not already see, and the row now carries the name of the place it is
+going to. The Kitchen still cannot read `institutions`, and the SQL suite
+asserts exactly that while the Kitchen reads two named manifests.
+
 ### The stale Deliveries shell — gone
 
 `/deliveries` rendered a page telling every Super Admin and Driver that
@@ -172,6 +201,38 @@ a component: plenty legitimately are not, and a blunt rule like that produces a
 failing test with an obvious wrong answer — delete the export — which is how a
 test stops being read.
 
+### Two test defects, and one of them mattered
+
+**Every disposable-institution teardown in the suite was silently failing.**
+They ended at `delete from institutions`, which is **refused** once a day has
+actually been lived — `delivery_manifests.institution_id` is
+`on delete restrict` — and PostgREST returns the refusal in `error` rather than
+throwing. Institutions and their manifests were surviving into later specs, and
+that is how `spine.spec` hit a strict-mode violation against a manifest
+belonging to an institution that should no longer have existed.
+`removeInstitutionDay()` deletes through the restrict edges in order and
+**checks** the final delete, so a missed reference fails the spec that owns it
+instead of the spec that runs next.
+
+**A dead click had no cap at all.** Playwright's default `actionTimeout` is
+`0` — no cap — so `locator.click()` on a control that never becomes actionable
+waits out the whole TEST timeout, which was 240s here. Four dead clicks would
+be sixteen minutes, the step cap would kill the job before the reporter ran,
+and the run would produce a red square with no locator in it.
+
+That is a latent property of the configuration rather than something observed:
+the run that prompted the change was cancelled on a **misread of how much time
+had passed**, not on evidence of a hang. The cap is kept anyway, because the
+property is real and the failure mode it prevents is the worst kind — a red
+job with nothing in it to act on. `playwright.config.ts` now caps actions at
+15s and navigation at 30s, so a stuck interaction becomes a named failure with
+the locator printed. 15s is longer than any real interaction in this app and
+the same order as the `expect()` timeout beside it.
+
+The step and job caps were left alone: nothing has shown the suite needs more
+than 15 minutes, and raising a cap to accommodate an unmeasured problem is how
+a cap stops meaning anything.
+
 ### `spine.spec.ts` kept its shape and lost its two shortcuts
 
 The bulk assignment and the driver assignment there are now clicks. Nothing else
@@ -179,14 +240,16 @@ about it changed: fixture creation is still fixture creation.
 
 ## Security
 
-- `active_drivers()` and the replaced `advance_operational_issue()` both set an
+- `active_drivers()`, `manifests_for_date()` and the replaced
+  `advance_operational_issue()` all set an
   explicit `search_path`, are revoked from `public` and `anon`, and are granted
   to `authenticated` only. The grants are **restated** for the functions that
   already had them: `create or replace` keeps the existing ACL, but relying on
   that means the file stops saying what is true, and `0047` exists because eight
   functions inherited a default nobody had written down.
-- No RLS policy was weakened, and no read was widened. The one new read is a
-  projection with its own predicate.
+- No RLS policy was weakened, and no read was widened. Both new reads are
+  projections whose predicates restate rules that already existed —
+  `manifests_for_date()` is `delivery_manifests_select` word for word.
 - `app_special_meal_reference()` gains the `search_path` it lost in `0049` —
   the one warning the previous release introduced, closed inside the migration
   that had to exist anyway rather than by editing an applied file.

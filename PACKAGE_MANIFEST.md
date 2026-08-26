@@ -10,7 +10,7 @@ actually carried 320. Counted again here.
 
 | Gate                 | Command                                    | Result                                                                 |
 | -------------------- | ------------------------------------------ | ---------------------------------------------------------------------- |
-| Browser suite        | `e2e-local-supabase.yml` — see below       | **PASS** · 0 failed · 0 skipped · 0 flaky · migrations `0001`–`0054` replayed from nothing on an ephemeral Supabase stack |
+| Browser suite        | `e2e-local-supabase.yml`, on the deployed SHA | **PASS — 117 / 117** · 0 failed · 0 skipped · 0 flaky · migrations `0001`–`0054` replayed from nothing on an ephemeral Supabase stack |
 | Database suites      | `./tests/sql/run_verification.sh`          | **PASS — 26 suites**, 334 named assertions, replayed from nothing on PostgreSQL 16 |
 | Authorization matrix | `verify_authorization_matrix`              | **PASS — 520 checks**                                                  |
 | Unit tests           | `pnpm test:unit`                           | **PASS — 130** across 14 files                                         |
