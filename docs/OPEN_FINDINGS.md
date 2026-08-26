@@ -867,3 +867,17 @@ after eight functions silently inherited PostgreSQL's default `EXECUTE` to
 `PUBLIC`.
 
 Total warnings 147 → 148. Zero ERRORS, which is the release bar.
+
+### `0055` moved it once more, the same way
+
+| Rule | `0054` | `0055` |
+| --- | --- | --- |
+| `authenticated_security_definer_function_executable` | 106 | **107** |
+| `anon_security_definer_function_executable` | 39 | **39** |
+| `function_search_path_mutable` | 3 | **3** |
+| **ERRORS** | **0** | **0** |
+
+The `+1` is `final_demand_for_date()`, the single new function, executable by
+`authenticated` because that is what makes the Kitchen screen work. `anon` did
+not move — the migration revokes the function from `public` and `anon` in its
+own grants block, and the advisor confirms it independently. Total 148 → 149.
