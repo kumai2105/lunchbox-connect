@@ -567,10 +567,23 @@ test.describe('operability closure', () => {
     // production table shows every site finalised for this date, so a loop that
     // clicked "the first button" while another spec's demand was also waiting
     // would advance THEIR day. Four is this institution's four.
-    await expect(page.getByRole('button', { name: 'Start production', exact: true })).toHaveCount(
-      4,
-      { timeout: 20_000 },
-    );
+    // ---- the production line says WHICH SITE it is for.
+    //
+    // Finding 17, closed by 0055. `final_demand` carries institution_id and the
+    // Kitchen cannot read `institutions`, so the name has to be projected — the
+    // same defect, one screen along, that left the Dispatch row blank. With two
+    // sites serving Lunch the rows are otherwise identical, and the actions
+    // beside them are the ones that must not touch the wrong site's food.
+    const prodCard = page.locator('.card').filter({ hasText: 'exact Final Demand' });
+    await expect(prodCard.getByText(INST).first()).toBeVisible({ timeout: 20_000 });
+
+    // Since 0055 each action names the SITE and the SITTING it belongs to, so
+    // this scopes to THIS institution by name rather than trusting that no
+    // other site is mid-production. The hazard above is now closed by the
+    // selector itself, not by a count that happened to be right.
+    const mine = (action: string) => page.getByRole('button', { name: `${action} — ${INST}` });
+
+    await expect(mine('Start production')).toHaveCount(4, { timeout: 20_000 });
     for (const action of [
       'Start production',
       'Mark production complete',
@@ -578,13 +591,10 @@ test.describe('operability closure', () => {
       'Mark packing complete',
     ]) {
       for (let remaining = 4; remaining >= 1; remaining--) {
-        const btn = page.getByRole('button', { name: action, exact: true }).first();
+        const btn = mine(action).first();
         await expect(btn).toBeVisible({ timeout: 20_000 });
         await btn.click();
-        await expect(page.getByRole('button', { name: action, exact: true })).toHaveCount(
-          remaining - 1,
-          { timeout: 20_000 },
-        );
+        await expect(mine(action)).toHaveCount(remaining - 1, { timeout: 20_000 });
       }
     }
 

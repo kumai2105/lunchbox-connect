@@ -571,9 +571,12 @@ test.describe('operational spine', () => {
     await login(kitchen, seeded().kitchenEmail);
     await kitchen.goto('/kitchen');
     await settled(kitchen);
-    await expect(
-      kitchen.getByRole('button', { name: 'Start production', exact: true }).first(),
-    ).toBeVisible({ timeout: 20_000 });
+    // Scoped to THIS institution: since 0055 every production action names the
+    // site it belongs to, so a second site finalised for the same date cannot
+    // be advanced by this spec.
+    const mine = (action: string) =>
+      kitchen.getByRole('button', { name: `${action} — ${INST}` });
+    await expect(mine('Start production').first()).toBeVisible({ timeout: 20_000 });
 
     // One sitting at a time, four sittings, four steps — and each click waits
     // for the number of remaining buttons to drop by one rather than for a
@@ -586,13 +589,10 @@ test.describe('operational spine', () => {
       'Mark packing complete',
     ]) {
       for (let remaining = 4; remaining >= 1; remaining--) {
-        const btn = kitchen.getByRole('button', { name: action, exact: true }).first();
+        const btn = mine(action).first();
         await expect(btn).toBeVisible({ timeout: 20_000 });
         await btn.click();
-        await expect(kitchen.getByRole('button', { name: action, exact: true })).toHaveCount(
-          remaining - 1,
-          { timeout: 20_000 },
-        );
+        await expect(mine(action)).toHaveCount(remaining - 1, { timeout: 20_000 });
       }
     }
     await expect(kitchen.getByText('PACKED', { exact: false }).first()).toBeVisible({

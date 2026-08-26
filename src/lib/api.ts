@@ -2027,12 +2027,12 @@ export async function demandForDate(date: string): Promise<ApiResult<DemandRow[]
 }
 
 export async function finalDemandForDate(date: string): Promise<ApiResult<FinalDemand[]>> {
-  const { data, error } = await supabase
-    .from('final_demand')
-    .select('*')
-    .eq('service_date', date)
-    .is('superseded_at', null)
-    .order('period');
+  // Reads the projection, not the table. The Kitchen may read every finalised
+  // sitting but may NOT read `institutions`, so the site name has to be
+  // projected server-side; final_demand_for_date() restates
+  // final_demand_select word for word and adds the name. It also filters
+  // superseded rows and orders by site, so a two-site day groups correctly.
+  const { data, error } = await supabase.rpc('final_demand_for_date', { p_date: date });
   if (error) return err(error);
   return { data: (data ?? []) as FinalDemand[], error: null };
 }

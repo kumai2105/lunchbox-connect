@@ -421,6 +421,11 @@ export interface DemandRow {
 export interface FinalDemand {
   id: string;
   institution_id: string;
+  // Projected by final_demand_for_date() (0055). The Kitchen cannot read
+  // `institutions`, so this never comes from an embed — an unreadable embed
+  // returns null rather than an error, which is how the site went missing
+  // from this screen in the first place.
+  institution_name: string;
   service_date: string;
   period: AppPeriod;
   meal_service_id: string;

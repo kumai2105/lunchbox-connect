@@ -281,6 +281,7 @@ function ProductionWorkflow({ date }: { date: string }) {
           <table>
             <thead>
               <tr>
+                <th>Site</th>
                 <th>Sitting</th>
                 <th>Required</th>
                 <th>Production</th>
@@ -293,8 +294,13 @@ function ProductionWorkflow({ date }: { date: string }) {
                 const r = runs.find((x) => x.final_demand_id === f.id);
                 const prod = r?.production_state ?? 'READY';
                 const pack = r?.packing_state ?? 'WAITING_FOR_PRODUCTION';
+                // Two sites both serving Lunch produce two rows that are
+                // otherwise identical, and the actions beside them must not be
+                // applied to the wrong site's food.
+                const where = `${f.institution_name} ${PERIOD_META[f.period].label}`;
                 return (
                   <tr key={f.id}>
+                    <td>{f.institution_name}</td>
                     <td>{PERIOD_META[f.period].label}</td>
                     <td className="mono">
                       <b>{f.total_quantity}</b>{' '}
@@ -312,6 +318,7 @@ function ProductionWorkflow({ date }: { date: string }) {
                           onClick={() =>
                             void run(() => startProduction(f.id), 'Production started.')
                           }
+                          aria-label={`Start production — ${where}`}
                         >
                           Start production
                         </Btn>
@@ -326,6 +333,7 @@ function ProductionWorkflow({ date }: { date: string }) {
                               'Production complete — the exact required quantity was produced.',
                             )
                           }
+                          aria-label={`Mark production complete — ${where}`}
                         >
                           Mark production complete
                         </Btn>
@@ -335,6 +343,7 @@ function ProductionWorkflow({ date }: { date: string }) {
                           variant="brand"
                           disabled={busy}
                           onClick={() => void run(() => startPacking(f.id), 'Packing started.')}
+                          aria-label={`Start packing — ${where}`}
                         >
                           Start packing
                         </Btn>
@@ -349,6 +358,7 @@ function ProductionWorkflow({ date }: { date: string }) {
                               'Packing complete — the exact required packs are ready.',
                             )
                           }
+                          aria-label={`Mark packing complete — ${where}`}
                         >
                           Mark packing complete
                         </Btn>
