@@ -626,14 +626,21 @@ test.describe('operability closure', () => {
       has: page.getByLabel(`Driver for ${INST} run 1`, { exact: true }),
     });
     await expect(run1).toHaveCount(1, { timeout: 20_000 });
-    await run1.getByRole('button', { name: 'Release to driver', exact: true }).click();
-    await expect(page.getByText('Released to the driver.')).toBeVisible({ timeout: 20_000 });
 
-    // ---- and the label the bench prints carries the destination
+    // ---- the label the bench prints carries the destination.
+    //
+    // Before the release, deliberately: the packing bench labels a crate while
+    // it is still in the yard, and once a manifest is RELEASED the driver
+    // selector is correctly gone — so the row this locator is built from stops
+    // existing. That is the product behaving properly, and the test has to
+    // follow the same order the work does.
     await run1.getByRole('button', { name: 'View / print labels', exact: true }).click();
     await expect(page.locator('.modal')).toContainText(INST, { timeout: 20_000 });
     await page.locator('.modal').getByRole('button', { name: 'Close' }).click();
     await expect(page.locator('.modal')).toHaveCount(0, { timeout: 20_000 });
+
+    await run1.getByRole('button', { name: 'Release to driver', exact: true }).click();
+    await expect(page.getByText('Released to the driver.')).toBeVisible({ timeout: 20_000 });
 
     // ---- the named Driver sees the work; the other Driver sees none of it
     const bCtx = await browser.newContext();

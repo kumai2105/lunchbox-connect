@@ -94,6 +94,28 @@ export async function removeInstitutionDay(
   await db.from('meal_services').delete().in('institution_id', institutionIds);
   await db.from('classes').delete().in('institution_id', institutionIds);
 
+  // The institution's own people, BEFORE the institution.
+  //
+  // app_users.institution_id is `on delete set null`, so deleting the
+  // institution first nulls every staff row that pointed at it — and
+  // app_users_staff_needs_institution then rejects the result, because a
+  // school_admin or classroom_staff with no institution is not a valid row.
+  // The delete is refused, PostgREST returns the refusal in `error`, and the
+  // institution survives. Removing the accounts first means there is nothing
+  // for that trigger-shaped constraint to act on.
+  //
+  // serving_records.recorded_by is `not null references app_users` with no
+  // on-delete clause, so any serving this staff member recorded has to go
+  // first — which the student sweep above already did.
+  const people = await db.from('app_users').delete().in('institution_id', institutionIds);
+  if (people.error) {
+    throw new Error(
+      `[e2e] teardown could not remove this institution's accounts — ${people.error.message}. ` +
+        `Something they authored still exists, and the institution cannot be removed ` +
+        `while they point at it.`,
+    );
+  }
+
   // Checked, unlike every teardown before it. A refused delete here means the
   // list above has missed a reference, and a silent failure would hand the
   // consequences to whichever spec runs next.
