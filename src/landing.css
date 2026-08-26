@@ -73,9 +73,14 @@
   gap: 16px;
   min-height: 64px;
 }
-/* The supplied artwork is on white with a navy outline, so against the navy
-   header it gets the smallest white plate that separates it — the same
-   treatment the product sidebar uses. The logo is never recoloured. */
+/* The artwork is transparent, but it still needs a light plate on navy — and
+   for a measured reason, not a habit. Its letter outline is #01205f and the
+   CONNECT wordmark is #01469f; against this header's #0b1729 those are 1.17:1
+   and 2.01:1. Dropped straight onto the navy the outline disappears entirely
+   and CONNECT reads as a smudge, leaving yellow letters floating with no
+   lockup. Only the yellow (#fed601, 12.7:1) would survive. So: the smallest
+   plate that separates it, the same treatment the product sidebar uses. The
+   logo is never recoloured — a reversed variant is the brand owner's call. */
 .lp-brand img {
   display: block;
   width: 132px;

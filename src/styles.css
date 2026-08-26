@@ -133,10 +133,12 @@ textarea {
   max-width: 260px;
 }
 
-/* Sidebar: smaller than the login placement. The supplied artwork is on white
-   and its own outline is navy, so against the navy rail it gets the smallest
-   white plate that separates it — padding, a radius, a soft shadow. The logo
-   itself is NOT recoloured to solve this. */
+/* Sidebar: smaller than the login placement. The artwork is transparent, so it
+   sits directly on the white login card — but not on the navy rail. Its letter
+   outline (#01205f) and CONNECT wordmark (#01469f) measure 1.17:1 and 2.01:1
+   against the rail, so on navy the outline vanishes and CONNECT goes muddy.
+   Hence the smallest white plate that separates it — padding, a radius, a soft
+   shadow. The logo itself is NOT recoloured to solve this. */
 .side-brand {
   margin: 18px 16px 14px;
 }

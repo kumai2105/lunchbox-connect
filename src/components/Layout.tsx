@@ -107,11 +107,12 @@ export default function Layout() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        {/* The official logo, at every width. The supplied artwork is on
-            white and its own outline is navy, so against the navy rail it gets
-            the smallest white plate that separates it; the logo is never
-            recoloured. On the 64px rail it shrinks to 48px rather than being
-            swapped for a lettered placeholder (styles.css). */}
+        {/* The official logo, at every width. The artwork is transparent, but
+            its outline and CONNECT wordmark are too close to the rail's navy to
+            read on it, so it keeps the smallest white plate that separates it;
+            the logo is never recoloured (styles.css has the measurements). On
+            the 64px rail it shrinks to 48px rather than being swapped for a
+            lettered placeholder. */}
         <div className="side-brand">
           <img className="brand-logo" src={logoUrl} alt="LunchBox Connect" />
         </div>
