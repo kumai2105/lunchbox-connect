@@ -746,8 +746,21 @@ whole of the previous release, yet the live site still required a dispatched
 all, so the custom domain is bound in the dashboard rather than by a push.
 
 **Not confirmed from inside the build sandbox**, whose egress cannot reach
-`www.lunchboxconnect.com` (`curl` returns status 000). It is answerable from a
-GitHub runner, which can: `prod-smoke.yml` reaches the live origin. Confirm it
-there, and if it turns out the integration does publish live, either point it
-at the production branch or disable it — the gate that exists must not be
-bypassable by a push.
+`www.lunchboxconnect.com` (`curl` returns status 000).
+
+**And `prod-smoke` does not answer it either** — checked, rather than assumed.
+Run `32919575952` passed every check, but its `APP` is
+`https://lunchbox-connect.koumai-2105.workers.dev`: the Worker ORIGIN, not the
+custom domain. It proves the backend boundary holds (twelve anonymous probes
+refused 401, `admin-create-user` refuses without a JWT, the bundle targets the
+right project and carries no service-role material) and says nothing about
+which commit's bundle `www` is serving.
+
+To actually settle it, compare the asset filename served by
+`https://www.lunchboxconnect.com/` against the one built by the last
+DELIBERATE deploy. If they differ, the Git integration is publishing live and
+must be pointed at the production branch or disabled — the backend-readiness
+gate in `deploy.yml` must not be bypassable by a push. Note that the question
+becomes moot for this release the moment the frontend is deployed on purpose,
+because the live bundle is then the one that was chosen; the finding is about
+whether it could drift again afterwards.
