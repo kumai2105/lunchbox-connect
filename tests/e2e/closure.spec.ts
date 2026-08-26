@@ -905,7 +905,9 @@ test.describe('operability closure', () => {
         .from('audit_log')
         .select('previous_value, reason')
         .eq('action', 'record.corrected')
-        .order('created_at', { ascending: false })
+        // audit_log stamps `occurred_at`, not created_at — it records when the
+        // thing HAPPENED, which is the question an audit answers.
+        .order('occurred_at', { ascending: false })
         .limit(5),
     );
     const mine = audit.find((a) => a.previous_value?.delivery_point === 'Main reception');
