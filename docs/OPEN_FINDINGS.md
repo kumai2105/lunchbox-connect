@@ -712,3 +712,42 @@ can never advance another site's day), and it is not one of the operability
 gaps this release was asked to close. It changes no rule, no authorization and
 no number — a Kitchen user may already read every one of these rows. It is one
 column on one table whenever this screen is next opened.
+
+---
+
+## 18. Cloudflare's Git integration builds on every push — confirm it is preview-only — OPEN, TO CONFIRM
+
+Every push to `claude/new-session-k5dd5u` triggers a Cloudflare Workers build,
+which comments on PR #1 with "Deployment successful" and two URLs:
+
+```
+https://<commit-hash>-lunchbox-connect.koumai-2105.workers.dev
+https://claude-new-session-k5dd5u-lunchbox-connect.koumai-2105.workers.dev
+```
+
+Both are **preview aliases**. Cloudflare Workers Builds deploys to the
+production route only from the configured production branch, and this is not
+that branch — so the expectation is that these builds never touch
+`www.lunchboxconnect.com`.
+
+**Why it is worth confirming rather than assuming.** If that integration ever
+did publish to the live route, it would push a frontend ahead of its backend
+on every commit — precisely the ordering this project treats as
+non-negotiable, because absent columns and functions read back as `undefined`,
+which is falsy. The repository's own deploy path is protected against this:
+`deploy.yml` has a backend-readiness gate that refuses to ship when
+`BACKEND_READY_MIGRATION` is lower than the highest migration in the tree. The
+Git integration sits outside that gate.
+
+**Evidence it is preview-only.** The integration has been active across the
+whole of the previous release, yet the live site still required a dispatched
+`deploy.yml` run to change, and was verified at `0053` afterwards by
+`prod-smoke` and `prod-browser-auth`. `wrangler.jsonc` declares no routes at
+all, so the custom domain is bound in the dashboard rather than by a push.
+
+**Not confirmed from inside the build sandbox**, whose egress cannot reach
+`www.lunchboxconnect.com` (`curl` returns status 000). It is answerable from a
+GitHub runner, which can: `prod-smoke.yml` reaches the live origin. Confirm it
+there, and if it turns out the integration does publish live, either point it
+at the production branch or disable it — the gate that exists must not be
+bypassable by a push.
