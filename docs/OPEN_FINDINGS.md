@@ -764,3 +764,46 @@ gate in `deploy.yml` must not be bypassable by a push. Note that the question
 becomes moot for this release the moment the frontend is deployed on purpose,
 because the live bundle is then the one that was chosen; the finding is about
 whether it could drift again afterwards.
+
+---
+
+## 19. Migration `0054` adds two advisor warnings, and closes one — ACCEPTED, NOT A DEFECT
+
+Recorded because §21 of the closure order asks for any new advisor warning to
+be addressed rather than absorbed. This one is addressed by explaining it: the
+movement is exactly what the migration was written to cause.
+
+Supabase security advisors, production `llnofriwvnerntrbpehc`, before and
+after the apply:
+
+| Rule | `0053` | `0054` |
+| --- | --- | --- |
+| `authenticated_security_definer_function_executable` | 104 | **106** |
+| `anon_security_definer_function_executable` | 39 | **39** |
+| `function_search_path_mutable` | 4 | **3** |
+| **ERRORS** | **0** | **0** |
+
+**The `-1` is the point of the migration.** `app_special_meal_reference()` lost
+its `search_path` in `0049`; `0054` restores it with a `create or replace`
+inside the migration that had to exist anyway, rather than by editing an
+applied file. The advisor confirms it landed.
+
+**The `+2` is `active_drivers()` and `manifests_for_date()`** — the two
+genuinely new functions. `advance_operational_issue()` and
+`app_special_meal_reference()` already existed and were replaced, so they do
+not add to the count. The rule fires because a `SECURITY DEFINER` function is
+executable by `authenticated`, which for these two is the deliberate design:
+they exist so that a signed-in Kitchen user can name a Driver and see where a
+run is going without being granted a wider read on `app_users` or
+`institutions`. Revoking the grant would remove the capability the release was
+asked to deliver. 106 of this schema's functions carry the same warning for the
+same reason.
+
+**The number that would have signalled a real problem is `anon`, and it did not
+move.** Both new functions are revoked from `public` and `anon` in `0054`'s
+grants block, and the advisor independently confirms no new anon-reachable
+`SECURITY DEFINER` function exists. That is the check `0047` was written for
+after eight functions silently inherited PostgreSQL's default `EXECUTE` to
+`PUBLIC`.
+
+Total warnings 147 → 148. Zero ERRORS, which is the release bar.

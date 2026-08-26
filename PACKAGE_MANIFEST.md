@@ -5,13 +5,15 @@
 **Branch:** `claude/new-session-k5dd5u`
 
 Totals are read from the suites themselves, not carried forward from an earlier
-manifest. The previous snapshot said 319 SQL assertions; the tree at that SHA
-actually carried 320. Counted again here.
+manifest — every figure below was counted from the output of the run it names,
+on this tree, for this release. That rule has caught a wrong number in this
+file more than once, including in this release: the draft of this manifest said
+334 SQL assertions and the suites actually report 328.
 
 | Gate                 | Command                                    | Result                                                                 |
 | -------------------- | ------------------------------------------ | ---------------------------------------------------------------------- |
 | Browser suite        | `e2e-local-supabase.yml`, on the deployed SHA | **PASS — 117 / 117** · 0 failed · 0 skipped · 0 flaky · migrations `0001`–`0054` replayed from nothing on an ephemeral Supabase stack |
-| Database suites      | `./tests/sql/run_verification.sh`          | **PASS — 26 suites**, 334 named assertions, replayed from nothing on PostgreSQL 16 |
+| Database suites      | `./tests/sql/run_verification.sh`          | **PASS — 26 suites**, 328 named assertions, replayed from nothing on PostgreSQL 16 |
 | Authorization matrix | `verify_authorization_matrix`              | **PASS — 520 checks**                                                  |
 | Unit tests           | `pnpm test:unit`                           | **PASS — 130** across 14 files                                         |
 | TypeScript           | `pnpm typecheck`                           | **PASS** — app + node + `tests/e2e`, three projects                    |
@@ -23,7 +25,11 @@ actually carried 320. Counted again here.
 **Migration ceiling in production:** **`0054`**.
 
 Growth since the previous snapshot (`5d6b506`): 108 → 117 browser tests,
-25 → 26 SQL suites, 320 → 334 assertions, 125 → 130 unit tests.
+25 → 26 SQL suites, 125 → 130 unit tests — each of those pairs is countable
+from the two trees. No assertion-count delta is quoted: re-measuring the
+predecessor cleanly did not succeed here (a port override that the concurrency
+suite's real second session did not follow), and a delta whose starting number
+was not verified is the exact thing the rule above exists to stop.
 
 ### The browser gate is self-counting
 

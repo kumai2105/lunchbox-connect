@@ -184,7 +184,7 @@ independently of run 2, a delivery issue actioned and acknowledged and closed by
 three different people, an internal Kitchen issue the institution never sees,
 and a correction whose original value is still readable in Audit.
 
-### `tests/sql/verify_operability_closure.sql` — 12 named assertions
+### `tests/sql/verify_operability_closure.sql` — 14 named assertions
 
 Including the one that matters most for `active_drivers()`: the Kitchen can name
 a Driver **while reading zero driver rows from `app_users`**. The first draft of
@@ -254,6 +254,15 @@ about it changed: fixture creation is still fixture creation.
   the one warning the previous release introduced, closed inside the migration
   that had to exist anyway rather than by editing an applied file.
 - `0001`–`0053` are untouched.
+
+Measured on production after the apply, not predicted: **0 advisor ERRORS**.
+`function_search_path_mutable` fell 4 → 3, which is the
+`app_special_meal_reference()` fix landing.
+`authenticated_security_definer_function_executable` rose 104 → 106 — the two
+genuinely new functions, granted to `authenticated` on purpose.
+`anon_security_definer_function_executable` stayed at **39**, which is the
+number that would have signalled a real mistake. Recorded in full as finding 19
+of `docs/OPEN_FINDINGS.md`.
 
 ## What did NOT change
 

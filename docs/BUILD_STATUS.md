@@ -140,7 +140,7 @@ Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
 ## Verification evidence (release candidate)
 
 - `pnpm typecheck` — clean · `pnpm lint` — clean (0 warnings)
-- `pnpm test:unit` — **125 tests** (RBAC incl. the read-only Institution
+- `pnpm test:unit` — **130 tests** across 14 files (RBAC incl. the read-only Institution
   schedule, calendar, meal analytics incl. the unscored-is-not-0% rule, kitchen
   revision grouping, operational date + Asia/Dubai presentation, the parent
   child-switch selection/readiness invariant, the four factual dashboard
@@ -148,15 +148,15 @@ Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
   nav-link/route reachability check, the `account` resource every role holds
   over its own sign-in details, and the derivation that withholds a role from
   the account-creation picker while every screen in its navigation is a shell)
-- `./tests/sql/run_verification.sh` — **23 SQL suites** (280 assertions) on a
+- `./tests/sql/run_verification.sh` — **26 SQL suites** (328 assertions) on a
   throwaway PostgreSQL 16, incl. the 520-check authorization matrix, the
   raw-path DB-boundary suite (RPC-only writes, note-publish authority,
   tenant/eligibility triggers, meal-image storage visibility, meal-image
   historical immutability, and audit-log tamper resistance) and the lifecycle
   security suite (deactivation proven against a live token, archival refusals,
   guardian revocation, and no password material anywhere in Audit)
-- `pnpm test:e2e` — 14 specs / **100** tests, 0 failed, 0 skipped, 0 flaky
-  (`login.roles` runs once per role, so it contributes 10). Executed by
+- `pnpm test:e2e` — 16 specs / **117** tests, 0 failed, 0 skipped, 0 flaky
+  (`login.roles` runs once per role, so it contributes 9). Executed by
   `.github/workflows/e2e-local-supabase.yml` against an ephemeral Supabase
   stack started on the GitHub runner, because this sandbox blocks
   `*.supabase.co`. The target is `127.0.0.1`; production is refused outright by
