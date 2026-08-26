@@ -689,7 +689,7 @@ opening `0054` on its own at the end of this release.
 
 ---
 
-## 17. The Kitchen's production table does not name the site — OPEN, MINOR
+## 17. The Kitchen's production table does not name the site — CLOSED by `0055`
 
 `Kitchen production → Production and packing` lists one row per Final Demand,
 with columns Sitting · Required · Production · Packing · Actions. It does not
@@ -706,12 +706,39 @@ that is what a kitchen cooks to. The production and packing table is the
 opposite — it is per site and per sitting — so the missing column is a real
 omission rather than a deliberate aggregation.
 
-**Not fixed here.** It was found while making the closure browser test
-deterministic (the test asserts the row count it expects before clicking, so it
-can never advance another site's day), and it is not one of the operability
-gaps this release was asked to close. It changes no rule, no authorization and
-no number — a Kitchen user may already read every one of these rows. It is one
-column on one table whenever this screen is next opened.
+It was found while making the closure browser test deterministic, and recorded
+as minor at the time because only one Institution was operating.
+
+### Closed by `0055`, because onboarding a second site is what makes it real
+
+The classification as *minor* rested entirely on there being one site. The
+moment a second Institution is enrolled and operating, this table shows two
+rows that are identical except for a quantity that could legitimately match —
+and the actions beside them mark food **produced** and **packed**. That is not
+a cosmetic ambiguity; it is two crates that can be swapped.
+
+The obvious fix does not work, and fails silently. `final_demand` carries
+`institution_id`, but the Kitchen cannot read `institutions` —
+`app_can_see_institution()` has no `kitchen` branch — and PostgREST returns an
+unreadable embedded row as **null** rather than as an error. Embedding
+`institutions(name)` would have put a blank column on the screen and reported
+nothing wrong, which is exactly how the destination went missing from the
+Dispatch row and the printed label before `0054`.
+
+So it is closed the same way that was: **by projection, not by policy.**
+`final_demand_for_date()` restates `final_demand_select` word for word —
+`app_is_super_admin() or app_current_role() = 'kitchen'` — joins the name, drops
+superseded rows, and orders by site so a two-site day groups on the bench. No
+role sees a sitting it could not already see, and the Kitchen still cannot read
+`institutions`.
+
+The table now leads with a **Site** column, and the four state actions carry the
+site and the sitting in their accessible name, so neither an operator nor a test
+can act on the wrong site's row.
+
+`tests/sql/verify_kitchen_sees_the_site.sql` — 5 assertions. The one that
+matters is **s2**: the Kitchen reads two *named* production lines while reading
+**zero** rows from `institutions`.
 
 ---
 

@@ -148,7 +148,7 @@ Operational timezone (MVP): Asia/Dubai. Decision 024 and the old
   nav-link/route reachability check, the `account` resource every role holds
   over its own sign-in details, and the derivation that withholds a role from
   the account-creation picker while every screen in its navigation is a shell)
-- `./tests/sql/run_verification.sh` — **26 SQL suites** (328 assertions) on a
+- `./tests/sql/run_verification.sh` — **27 SQL suites** (333 assertions) on a
   throwaway PostgreSQL 16, incl. the 520-check authorization matrix, the
   raw-path DB-boundary suite (RPC-only writes, note-publish authority,
   tenant/eligibility triggers, meal-image storage visibility, meal-image

@@ -264,6 +264,41 @@ genuinely new functions, granted to `authenticated` on purpose.
 number that would have signalled a real mistake. Recorded in full as finding 19
 of `docs/OPEN_FINDINGS.md`.
 
+## `0055` — the Kitchen can see which site each production line is for
+
+Added after the closure shipped, because the release that follows it is the
+onboarding of a second Institution, and that is what turns Finding 17 from a
+cosmetic note into an operational hazard.
+
+The Production and packing table listed one row per finalised sitting and
+rendered only the period:
+
+```
+Sitting   Required   Production   Packing
+Lunch     18         READY        WAITING_FOR_PRODUCTION
+Lunch     23         READY        WAITING_FOR_PRODUCTION
+```
+
+Two sites, two rows identical but for a quantity that could legitimately
+match — and the buttons beside them mark food **produced** and **packed**.
+
+The cause is the one this release already met once: `final_demand` carries
+`institution_id`, the Kitchen cannot read `institutions`, and PostgREST returns
+an unreadable embed as **null** rather than as an error. Embedding the name
+would have produced a blank column and no complaint.
+
+`final_demand_for_date()` closes it by projection: the predicate restates
+`final_demand_select` word for word, the join adds the name, superseded rows are
+dropped, and the ordering is by site so a two-site day groups on the bench. The
+table leads with a **Site** column, and each state action names its site and
+sitting — which also let `closure.spec` and `spine.spec` stop clicking "the
+first button on the screen", closing a cross-spec hazard `closure.spec` had
+already flagged in a comment of its own.
+
+`verify_kitchen_sees_the_site` adds 5 assertions. The one that matters is that
+the Kitchen reads two **named** production lines while reading **zero** rows
+from `institutions`.
+
 ## One open question closed on the way past
 
 Finding 18 asked whether Cloudflare's Git integration — which builds and
