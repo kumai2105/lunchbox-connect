@@ -36,7 +36,7 @@ const ROLES = [
   { role: 'viewer', key: 'viewerEmail', shell: 'staff', protectedRoute: '/reports' },
   { role: 'classroom_staff', key: 'classroomEmail', shell: 'staff', protectedRoute: '/today' },
   { role: 'kitchen', key: 'kitchenEmail', shell: 'staff', protectedRoute: '/kitchen' },
-  { role: 'driver', key: 'driverEmail', shell: 'staff', protectedRoute: '/deliveries' },
+  { role: 'driver', key: 'driverEmail', shell: 'staff', protectedRoute: '/my-deliveries' },
   { role: 'parent', key: 'parentEmail', shell: 'parent', protectedRoute: '/parent/insights' },
 ] as const;
 

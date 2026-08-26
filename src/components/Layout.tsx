@@ -11,7 +11,7 @@ import NoAccessPage from '../pages/NoAccessPage';
 // Every route in App.tsx needs an entry here, or its topbar silently falls
 // back to showing "Dashboard" regardless of which page is actually open —
 // that was true for half the routes (guardians/status/audit/kitchen/
-// deliveries/reports/ops/absences) until this was filled in.
+// reports/ops/absences) until this was filled in.
 const PAGE_TITLES: Record<string, [string, string]> = {
   dashboard: ['Dashboard', 'LunchBox Connect /'],
   institutions: ['Institutions', 'LunchBox Connect /'],
@@ -28,7 +28,6 @@ const PAGE_TITLES: Record<string, [string, string]> = {
   review: ['Parent-safe updates', 'LunchBox Connect /'],
   today: ['Today — serving', 'LunchBox Connect /'],
   kitchen: ['Kitchen production', 'LunchBox Connect /'],
-  deliveries: ['Deliveries', 'LunchBox Connect /'],
   reports: ['Reporting', 'LunchBox Connect /'],
   ops: ['Ops log & issues', 'LunchBox Connect /'],
   absences: ['Absences', 'LunchBox Connect /'],

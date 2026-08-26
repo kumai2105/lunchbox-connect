@@ -1,16 +1,20 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   activateStudentMealPlans,
+  bulkAssignStudentMealPlan,
+  currentPlansForInstitution,
   institutionMealPlans,
   listInstitutions,
   listMealPlans,
+  listStudents,
   planReadiness,
   retireMealPlan,
   saveMealPlan,
   setInstitutionMealPlans,
+  upcomingPlansForInstitution,
 } from '../lib/api';
 import { PERIOD_LABEL, PERIOD_ORDER } from '../lib/periods';
-import type { AppPeriod, Institution, MealPlan, PlanReadinessRow } from '../lib/types';
+import type { AppPeriod, Institution, MealPlan, PlanReadinessRow, Student } from '../lib/types';
 import { operationalToday } from '../lib/format';
 import {
   Banner,
@@ -46,6 +50,7 @@ export default function MealPlansPage() {
   const [dialog, setDialog] = useState<
     | { kind: 'plan'; plan: MealPlan | null }
     | { kind: 'availability'; institution: Institution }
+    | { kind: 'assign'; institution: Institution }
     | { kind: 'activate'; institution: Institution }
     | null
   >(null);
@@ -184,6 +189,12 @@ export default function MealPlansPage() {
                       >
                         Available Plans
                       </Btn>
+                      <Btn
+                        variant="ghost"
+                        onClick={() => setDialog({ kind: 'assign', institution: i })}
+                      >
+                        Assign Plans
+                      </Btn>
                       {!i.student_plan_enforced_from && (
                         <Btn
                           variant="brand"
@@ -225,6 +236,21 @@ export default function MealPlansPage() {
             run(
               () => setInstitutionMealPlans(dialog.institution.id, ids),
               'Available Meal Plans updated.',
+            )
+          }
+        />
+      )}
+
+      {dialog?.kind === 'assign' && (
+        <BulkAssignDialog
+          institution={dialog.institution}
+          plans={plans ?? []}
+          busy={busy}
+          onClose={() => setDialog(null)}
+          onAssign={(studentIds, planId, from, note) =>
+            run(
+              () => bulkAssignStudentMealPlan({ studentIds, planId, from, note }),
+              `${studentIds.length} Student${studentIds.length === 1 ? '' : 's'} assigned.`,
             )
           }
         />
@@ -380,6 +406,239 @@ function AvailabilityDialog({
               </label>
             ))}
         </div>
+      )}
+    </Modal>
+  );
+}
+
+/**
+ * BULK ASSIGNMENT — the onboarding shape of this task.
+ *
+ * Assigning Plans one child at a time is fine for a correction and wrong for a
+ * new site: a nursery arrives with sixty children on two Plans, and sixty
+ * separate saves is both an afternoon and sixty chances to pick the wrong row.
+ *
+ * The operation is ATOMIC in the database and this screen does not soften that.
+ * There is no partial-success path and no per-row result: if one child is
+ * refused, nothing is written and the refusal names every child it refused.
+ * A roster half-assigned is worse than one not assigned, because the half that
+ * succeeded looks finished.
+ *
+ * The filters exist because the operator's real questions are "who has nothing
+ * yet" and "who is already moving", not "show me everybody".
+ */
+function BulkAssignDialog({
+  institution,
+  plans,
+  busy,
+  onClose,
+  onAssign,
+}: {
+  institution: Institution;
+  plans: MealPlan[];
+  busy: boolean;
+  onClose: () => void;
+  onAssign: (
+    studentIds: string[],
+    planId: string,
+    from: string,
+    note: string | null,
+  ) => Promise<boolean>;
+}) {
+  const today = operationalToday();
+  const [students, setStudents] = useState<Student[] | null>(null);
+  const [availableIds, setAvailableIds] = useState<string[]>([]);
+  const [current, setCurrent] = useState<Record<string, { planId: string; planName: string }>>({});
+  const [upcoming, setUpcoming] = useState<Record<string, { planName: string; from: string }>>({});
+  const [filter, setFilter] = useState('all');
+  const [selected, setSelected] = useState<string[]>([]);
+  const [planId, setPlanId] = useState('');
+  const [from, setFrom] = useState(today);
+  const [note, setNote] = useState('');
+
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const [s, a, c, u] = await Promise.all([
+        listStudents({ institutionId: institution.id }),
+        institutionMealPlans(institution.id),
+        currentPlansForInstitution(institution.id, from),
+        upcomingPlansForInstitution(institution.id, from),
+      ]);
+      if (!live) return;
+      setStudents(s.data ?? []);
+      setAvailableIds(a.data ?? []);
+      setCurrent(c.data ?? {});
+      setUpcoming(u.data ?? {});
+    })();
+    return () => {
+      live = false;
+    };
+  }, [institution.id, from]);
+
+  // Only the Plans this Institution may actually use. Offering one it cannot
+  // use would offer a refusal.
+  const offerable = useMemo(
+    () => plans.filter((p) => p.active && availableIds.includes(p.id)),
+    [plans, availableIds],
+  );
+
+  const visible = useMemo(() => {
+    const all = students ?? [];
+    if (filter === 'all') return all;
+    if (filter === 'missing') return all.filter((s) => !current[s.id]);
+    if (filter === 'upcoming') return all.filter((s) => upcoming[s.id]);
+    return all.filter((s) => current[s.id]?.planId === filter);
+  }, [students, filter, current, upcoming]);
+
+  // A selection made under one filter must not silently carry children who are
+  // no longer on screen into the assignment.
+  const visibleIds = useMemo(() => new Set(visible.map((s) => s.id)), [visible]);
+  const effective = useMemo(() => selected.filter((id) => visibleIds.has(id)), [selected, visibleIds]);
+  const allVisibleSelected = visible.length > 0 && effective.length === visible.length;
+
+  const chosenPlan = offerable.find((p) => p.id === planId);
+  const ready = effective.length > 0 && Boolean(chosenPlan) && Boolean(from);
+
+  return (
+    <Modal
+      title={`Assign Meal Plans — ${institution.name}`}
+      onClose={onClose}
+      footer={
+        <>
+          <Btn variant="ghost" onClick={onClose}>
+            Cancel
+          </Btn>
+          <Btn
+            variant="brand"
+            disabled={!ready || busy}
+            onClick={() => void onAssign(effective, planId, from, note.trim() || null)}
+          >
+            {busy ? 'Assigning…' : 'Bulk Assign'}
+          </Btn>
+        </>
+      }
+    >
+      <Banner kind="info">
+        This is <b>one atomic operation</b>. If any Student here cannot take the Plan, nothing is
+        written and the refusal names every one of them — there is no partial assignment.
+      </Banner>
+
+      {students === null ? (
+        <Spinner />
+      ) : students.length === 0 ? (
+        <EmptyState text="This institution has no Students yet." />
+      ) : offerable.length === 0 ? (
+        <Banner kind="warn">
+          No Meal Plan is available at this institution yet. Set its Available Plans first.
+        </Banner>
+      ) : (
+        <>
+          <Field label="Show">
+            <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+              <option value="all">All Students ({students.length})</option>
+              <option value="missing">
+                Missing a Plan ({students.filter((s) => !current[s.id]).length})
+              </option>
+              <option value="upcoming">
+                With an upcoming Plan change ({students.filter((s) => upcoming[s.id]).length})
+              </option>
+              {offerable.map((p) => (
+                <option key={p.id} value={p.id}>
+                  On {p.name} ({students.filter((s) => current[s.id]?.planId === p.id).length})
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <div className="table-wrap" style={{ maxHeight: 260, overflowY: 'auto' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>
+                    <label className="check-inline">
+                      <input
+                        type="checkbox"
+                        aria-label="Select every Student shown"
+                        checked={allVisibleSelected}
+                        onChange={(e) =>
+                          setSelected(e.target.checked ? visible.map((s) => s.id) : [])
+                        }
+                      />
+                    </label>
+                  </th>
+                  <th>Student</th>
+                  <th>Plan on {from}</th>
+                  <th>Already scheduled</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((s) => (
+                  <tr key={s.id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        aria-label={`${s.given_name} ${s.family_name}`}
+                        checked={selected.includes(s.id)}
+                        onChange={(e) =>
+                          setSelected(
+                            e.target.checked
+                              ? [...selected, s.id]
+                              : selected.filter((x) => x !== s.id),
+                          )
+                        }
+                      />
+                    </td>
+                    <td>
+                      {s.given_name} {s.family_name}{' '}
+                      {s.student_no && <span className="muted">{s.student_no}</span>}
+                    </td>
+                    <td>
+                      {current[s.id] ? (
+                        current[s.id].planName
+                      ) : (
+                        <span className="muted">No Plan</span>
+                      )}
+                    </td>
+                    <td>
+                      {upcoming[s.id] ? (
+                        <Pill variant="amber">
+                          {upcoming[s.id].planName} from {upcoming[s.id].from}
+                        </Pill>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {visible.length === 0 && <EmptyState text="No Student matches this filter." />}
+
+          <Field label="Meal Plan to assign">
+            <select value={planId} onChange={(e) => setPlanId(e.target.value)}>
+              <option value="">Choose a Meal Plan…</option>
+              {offerable.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Effective from">
+            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </Field>
+          <Field label="Note (optional)">
+            <input value={note} onChange={(e) => setNote(e.target.value)} />
+          </Field>
+
+          <Banner kind={ready ? 'ok' : 'info'}>
+            {ready
+              ? `${effective.length} Student${effective.length === 1 ? '' : 's'} → ${chosenPlan!.name} from ${from}`
+              : 'Select at least one Student and a Meal Plan.'}
+          </Banner>
+        </>
       )}
     </Modal>
   );

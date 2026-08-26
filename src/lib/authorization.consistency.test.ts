@@ -47,7 +47,6 @@ const ROUTED_PAGES = [
   'review',
   'today',
   'kitchen',
-  'deliveries',
   'reports',
   'ops',
   'absences',

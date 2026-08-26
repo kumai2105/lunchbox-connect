@@ -49,7 +49,6 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
     { page: 'operations', label: 'Operations', icon: 'wrench' },
     { page: 'delivery', label: 'Delivery setup', icon: 'truck' },
     { page: 'kitchen', label: 'Kitchen production', icon: 'flame' },
-    { page: 'deliveries', label: 'Deliveries', icon: 'truck', shell: true },
     { page: 'reports', label: 'Reporting', icon: 'barChart', shell: true },
     { page: 'audit', label: 'Audit', icon: 'clipboardList' },
   ],
@@ -65,8 +64,8 @@ export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
     // NOT_YET_DEFINED, so Today (serving) and Parent-safe updates are not in the
     // Nursery Admin nav.
     //
-    // Absences, Deliveries and Reporting are ALSO absent, and that is a
-    // deliberate removal rather than an oversight. All three were empty shells
+    // Absences and Reporting are ALSO absent, and that is a
+    // deliberate removal rather than an oversight. Both were empty shells
     // — real menu entries leading to a screen that says the module is not
     // built. A customer's administrator signing in to their own nursery should
     // see the product they actually have, not three promises. The Super Admin

@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  activeDrivers,
+  advanceIssue,
+  assignManifestDriver,
   completePacking,
   completeProduction,
   confirmSpecialPacked,
   confirmSpecialProduced,
   finalDemandForDate,
   kitchenSpecialMeals,
+  listIssues,
   manifestLines,
   manifestsForDate,
   mealProductionDemand,
@@ -31,11 +35,13 @@ import {
   Spinner,
   StatCard,
 } from '../components/ui';
+import { IssueActionDialog, IssueCloseDialog } from '../components/issues';
 import type {
   DeliveryManifest,
   FinalDemand,
   KitchenSpecialMeal,
   ManifestLine,
+  OperationalIssue,
   ProductionRun,
   SpecialLine,
 } from '../lib/types';
@@ -191,12 +197,19 @@ function ProductionWorkflow({ date }: { date: string }) {
   const [specials, setSpecials] = useState<KitchenSpecialMeal[]>([]);
   const [manifests, setManifests] = useState<DeliveryManifest[]>([]);
   const [mLines, setMLines] = useState<Record<string, ManifestLine[]>>({});
+  const [drivers, setDrivers] = useState<Array<{ user_id: string; full_name: string }>>([]);
+  // The dispatcher's in-progress choice per manifest, before they commit it.
+  const [driverChoice, setDriverChoice] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [issues, setIssues] = useState<OperationalIssue[]>([]);
   const [issueFor, setIssueFor] = useState<{ id: string; stage: 'PRODUCTION' | 'PACKING' } | null>(
     null,
   );
+  const [workIssue, setWorkIssue] = useState<
+    { kind: 'action' | 'close'; issue: OperationalIssue } | null
+  >(null);
   const [labelsFor, setLabelsFor] = useState<DeliveryManifest | null>(null);
 
   const load = useCallback(async () => {
@@ -209,16 +222,20 @@ function ProductionWorkflow({ date }: { date: string }) {
     const fd = f.data ?? [];
     setFinal(fd);
     const ids = fd.map((x) => x.id);
-    const [r, l, sp, m] = await Promise.all([
+    const [r, l, sp, m, dv, is] = await Promise.all([
       productionRuns(ids),
       specialLines(ids),
       kitchenSpecialMeals(date),
       manifestsForDate(date),
+      activeDrivers(),
+      listIssues(date),
     ]);
     setRuns(r.data ?? []);
     setLines(l.data ?? []);
     setSpecials(sp.data ?? []);
     setManifests(m.data ?? []);
+    setDrivers(dv.data ?? []);
+    setIssues(is.data ?? []);
     const map: Record<string, ManifestLine[]> = {};
     await Promise.all(
       (m.data ?? []).map(async (x) => {
@@ -245,6 +262,7 @@ function ProductionWorkflow({ date }: { date: string }) {
     }
     setOk(done);
     setIssueFor(null);
+    setWorkIssue(null);
     await load();
     return true;
   }
@@ -433,7 +451,13 @@ function ProductionWorkflow({ date }: { date: string }) {
       )}
 
       {manifests.length > 0 && (
-        <Card title="Dispatch" hint="release to the driver once everything on the run is packed">
+        <Card title="Dispatch" hint="name a driver, then release once everything on the run is packed">
+          {drivers.length === 0 && (
+            <Banner kind="warn">
+              No active Driver account exists yet, so no delivery can be released. Create one under
+              Users &amp; roles first.
+            </Banner>
+          )}
           <table>
             <thead>
               <tr>
@@ -441,33 +465,144 @@ function ProductionWorkflow({ date }: { date: string }) {
                 <th>Run</th>
                 <th>Window</th>
                 <th>State</th>
+                <th>Driver</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {manifests.map((m) => (
-                <tr key={m.id}>
-                  <td>{m.institution_name}</td>
-                  <td>{m.run_number}</td>
-                  <td className="cell-sub">
-                    {m.window_from
-                      ? `${m.window_from.slice(0, 5)}–${(m.window_to ?? '').slice(0, 5)}`
-                      : '—'}
+              {manifests.map((m) => {
+                // A driver may be changed while the run is still in the yard.
+                // Once it has been released the person carrying it is a fact
+                // about what happened, and the database refuses to rewrite the
+                // rest of the chain around a different name.
+                const changeable = m.state === 'PREPARING' || m.state === 'READY_FOR_DISPATCH';
+                const assignedName = m.driver_user_id
+                  ? (drivers.find((d) => d.user_id === m.driver_user_id)?.full_name ?? 'Assigned')
+                  : null;
+                const choice = driverChoice[m.id] ?? m.driver_user_id ?? '';
+                return (
+                  <tr key={m.id}>
+                    <td>{m.institution_name}</td>
+                    <td>{m.run_number}</td>
+                    <td className="cell-sub">
+                      {m.window_from
+                        ? `${m.window_from.slice(0, 5)}–${(m.window_to ?? '').slice(0, 5)}`
+                        : '—'}
+                    </td>
+                    <td>{m.state.replace(/_/g, ' ')}</td>
+                    <td>
+                      {assignedName && <Pill variant="green">{assignedName}</Pill>}
+                      {changeable && drivers.length > 0 && (
+                        <div style={{ marginTop: assignedName ? 6 : 0 }}>
+                          <select
+                            aria-label={`Driver for ${m.institution_name} run ${m.run_number}`}
+                            value={choice}
+                            onChange={(e) =>
+                              setDriverChoice({ ...driverChoice, [m.id]: e.target.value })
+                            }
+                          >
+                            <option value="">Choose a Driver…</option>
+                            {drivers.map((d) => (
+                              <option key={d.user_id} value={d.user_id}>
+                                {d.full_name}
+                              </option>
+                            ))}
+                          </select>{' '}
+                          <Btn
+                            size="sm"
+                            variant={m.driver_user_id ? 'ghost' : 'brand'}
+                            disabled={busy || !choice || choice === m.driver_user_id}
+                            onClick={() =>
+                              void run(
+                                () => assignManifestDriver(m.id, choice),
+                                m.driver_user_id ? 'Driver changed.' : 'Driver assigned.',
+                              )
+                            }
+                          >
+                            {m.driver_user_id ? 'Change driver' : 'Assign driver'}
+                          </Btn>
+                        </div>
+                      )}
+                      {!assignedName && !changeable && <span className="muted">—</span>}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <Btn variant="ghost" onClick={() => setLabelsFor(m)}>
+                        View / print labels
+                      </Btn>{' '}
+                      {m.state === 'READY_FOR_DISPATCH' &&
+                        (m.driver_user_id ? (
+                          <Btn
+                            variant="brand"
+                            disabled={busy}
+                            onClick={() =>
+                              void run(() => releaseManifest(m.id), 'Released to the driver.')
+                            }
+                          >
+                            Release to driver
+                          </Btn>
+                        ) : (
+                          // Said before the click rather than after it. The
+                          // database refuses this too, but a disabled button
+                          // with no explanation is a dead end.
+                          <span className="muted">Assign a Driver before releasing</span>
+                        ))}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {issues.length > 0 && (
+        <Card
+          title="Issues"
+          hint="what was raised for this day, and what LunchBox did about it"
+        >
+          <table>
+            <thead>
+              <tr>
+                <th>Stage</th>
+                <th>Category</th>
+                <th>What happened</th>
+                <th>What was done</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {issues.map((i) => (
+                <tr key={i.id}>
+                  <td>{i.stage}</td>
+                  <td>{i.category}</td>
+                  <td>{i.description}</td>
+                  <td>{i.resolution ?? <span className="muted">—</span>}</td>
+                  <td>
+                    <Pill variant={i.status === 'CLOSED' ? 'green' : 'amber'}>
+                      {i.status.replace(/_/g, ' ')}
+                    </Pill>
                   </td>
-                  <td>{m.state.replace(/_/g, ' ')}</td>
                   <td style={{ textAlign: 'right' }}>
-                    <Btn variant="ghost" onClick={() => setLabelsFor(m)}>
-                      View / print labels
-                    </Btn>{' '}
-                    {m.state === 'READY_FOR_DISPATCH' && (
+                    {i.status === 'OPEN' && (
                       <Btn
+                        size="sm"
                         variant="brand"
                         disabled={busy}
-                        onClick={() =>
-                          void run(() => releaseManifest(m.id), 'Released to the driver.')
-                        }
+                        onClick={() => setWorkIssue({ kind: 'action', issue: i })}
                       >
-                        Release to driver
+                        Action issue
+                      </Btn>
+                    )}
+                    {(i.status === 'LUNCHBOX_ACTIONED' ||
+                      i.status === 'INSTITUTION_ACKNOWLEDGED') && (
+                      <Btn
+                        size="sm"
+                        variant="brand"
+                        disabled={busy}
+                        onClick={() => setWorkIssue({ kind: 'close', issue: i })}
+                      >
+                        Close issue
                       </Btn>
                     )}
                   </td>
@@ -475,7 +610,36 @@ function ProductionWorkflow({ date }: { date: string }) {
               ))}
             </tbody>
           </table>
+          <p className="hint">
+            A production or packing issue is internal — the institution never sees it, and it closes
+            once actioned. A delivery issue waits for the institution to acknowledge the resolution.
+          </p>
         </Card>
+      )}
+
+      {workIssue?.kind === 'action' && (
+        <IssueActionDialog
+          issue={workIssue.issue}
+          busy={busy}
+          onClose={() => setWorkIssue(null)}
+          onAction={(resolution) =>
+            run(
+              () => advanceIssue(workIssue.issue.id, 'LUNCHBOX_ACTIONED', resolution),
+              'Issue actioned.',
+            )
+          }
+        />
+      )}
+
+      {workIssue?.kind === 'close' && (
+        <IssueCloseDialog
+          issue={workIssue.issue}
+          busy={busy}
+          onClose={() => setWorkIssue(null)}
+          onConfirm={(note) =>
+            run(() => advanceIssue(workIssue.issue.id, 'CLOSED', note), 'Issue closed.')
+          }
+        />
       )}
 
       {issueFor && (

@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  advanceIssue,
   confirmHandover,
+  deliveryReceivers,
   listIssues,
   manifestLines,
   manifestsForDate,
   reportIssue,
+  setDeliveryReceiver,
+  staffForInstitution,
 } from '../lib/api';
 import { PERIOD_LABEL } from '../lib/periods';
 import { operationalToday } from '../lib/format';
-import type { DeliveryManifest, ManifestLine, OperationalIssue } from '../lib/types';
+import { useAuth } from '../lib/auth';
+import type { AppUser, DeliveryManifest, ManifestLine, OperationalIssue } from '../lib/types';
 import {
   Banner,
   Btn,
@@ -43,13 +48,24 @@ const ISSUE_CATEGORIES = [
  * or leaves the delivery unaccepted until it is resolved.
  */
 export default function HandoverPage() {
+  const { profile } = useAuth();
+  // Who may authorise a receiver is the database's rule (app_can_manage_
+  // institution); this decides only whether the card is offered. A Classroom
+  // Staff member reaches this page to RECEIVE a delivery, not to decide who
+  // else may.
+  const managesOwnSite = profile?.role === 'school_admin' && Boolean(profile.institution_id);
+  const myInstitution = profile?.institution_id ?? null;
+
   const [rows, setRows] = useState<DeliveryManifest[] | null>(null);
   const [lines, setLines] = useState<Record<string, ManifestLine[]>>({});
   const [issues, setIssues] = useState<OperationalIssue[]>([]);
+  const [staff, setStaff] = useState<AppUser[]>([]);
+  const [receivers, setReceivers] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dialog, setDialog] = useState<{ manifest: DeliveryManifest } | null>(null);
+  const [ackFor, setAckFor] = useState<OperationalIssue | null>(null);
   const date = operationalToday();
 
   const load = useCallback(async () => {
@@ -62,6 +78,14 @@ export default function HandoverPage() {
     const data = m.data ?? [];
     setRows(data);
     setIssues(i.data ?? []);
+    if (managesOwnSite && myInstitution) {
+      const [s, r] = await Promise.all([
+        staffForInstitution(myInstitution),
+        deliveryReceivers(myInstitution),
+      ]);
+      setStaff(s.data ?? []);
+      setReceivers(r.data ?? []);
+    }
     const map: Record<string, ManifestLine[]> = {};
     await Promise.all(
       data.map(async (x) => {
@@ -70,7 +94,7 @@ export default function HandoverPage() {
       }),
     );
     setLines(map);
-  }, [date]);
+  }, [date, managesOwnSite, myInstitution]);
 
   useEffect(() => {
     void load();
@@ -88,6 +112,7 @@ export default function HandoverPage() {
     }
     setOk(done);
     setDialog(null);
+    setAckFor(null);
     await load();
     return true;
   }
@@ -190,7 +215,9 @@ export default function HandoverPage() {
                       <tr>
                         <th>Issue</th>
                         <th>What happened</th>
+                        <th>What LunchBox did</th>
                         <th>Status</th>
+                        <th style={{ textAlign: 'right' }} />
                       </tr>
                     </thead>
                     <tbody>
@@ -198,10 +225,23 @@ export default function HandoverPage() {
                         <tr key={i.id}>
                           <td>{i.category}</td>
                           <td>{i.description}</td>
+                          <td>{i.resolution ?? <span className="muted">—</span>}</td>
                           <td>
                             <Pill variant={i.status === 'CLOSED' ? 'green' : 'amber'}>
                               {i.status.replace(/_/g, ' ')}
                             </Pill>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            {i.status === 'LUNCHBOX_ACTIONED' && (
+                              <Btn
+                                size="sm"
+                                variant="brand"
+                                disabled={busy}
+                                onClick={() => setAckFor(i)}
+                              >
+                                Acknowledge resolution
+                              </Btn>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -212,6 +252,86 @@ export default function HandoverPage() {
             </Card>
           );
         })
+      )}
+
+      {managesOwnSite && myInstitution && (
+        <Card
+          title="Who may receive a delivery"
+          hint="Your own Admin and Classroom Staff — a capability, not a role"
+        >
+          <Banner kind="info">
+            Authorising someone lets them accept custody of a delivery <b>for this institution</b>{' '}
+            and widens nothing else. A Parent is never eligible, and nobody from another institution
+            appears here. Delivery times, runs and the delivery point are set by LunchBox.
+          </Banner>
+          {staff.filter(
+            (u) =>
+              u.active !== false && (u.role === 'school_admin' || u.role === 'classroom_staff'),
+          ).length === 0 ? (
+            <EmptyState text="No active staff at this institution yet." />
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th style={{ textAlign: 'right' }}>Receiver</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {staff
+                    .filter(
+                      (u) =>
+                        u.active !== false &&
+                        (u.role === 'school_admin' || u.role === 'classroom_staff'),
+                    )
+                    .map((u) => {
+                      const isReceiver = receivers.includes(u.user_id);
+                      return (
+                        <tr key={u.user_id}>
+                          <td>{u.full_name}</td>
+                          <td>{u.role.replace(/_/g, ' ')}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            <Btn
+                              size="sm"
+                              variant={isReceiver ? 'ghost' : 'brand'}
+                              disabled={busy}
+                              onClick={() =>
+                                void run(
+                                  () =>
+                                    setDeliveryReceiver(myInstitution, u.user_id, !isReceiver),
+                                  isReceiver
+                                    ? 'Receiver authorisation removed.'
+                                    : 'Authorised to receive deliveries.',
+                                )
+                              }
+                            >
+                              {isReceiver ? 'Remove authorisation' : 'Authorise'}
+                            </Btn>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {ackFor && (
+        <AcknowledgeDialog
+          issue={ackFor}
+          busy={busy}
+          onClose={() => setAckFor(null)}
+          onAcknowledge={(note) =>
+            run(
+              () => advanceIssue(ackFor.id, 'INSTITUTION_ACKNOWLEDGED', note),
+              'Thank you — LunchBox has been told you are satisfied with the resolution.',
+            )
+          }
+        />
       )}
 
       {dialog && (
@@ -244,6 +364,59 @@ export default function HandoverPage() {
         />
       )}
     </>
+  );
+}
+
+/**
+ * ACKNOWLEDGE RESOLUTION — the institution's own step.
+ *
+ * It is not a rubber stamp and it is not the closing action. Acknowledging
+ * says "we have seen what you did and we are satisfied"; LunchBox closes the
+ * issue afterwards. Keeping those two separate is what stops a supplier
+ * marking its own homework.
+ */
+function AcknowledgeDialog({
+  issue,
+  busy,
+  onClose,
+  onAcknowledge,
+}: {
+  issue: OperationalIssue;
+  busy: boolean;
+  onClose: () => void;
+  onAcknowledge: (note: string | null) => Promise<boolean>;
+}) {
+  const [note, setNote] = useState('');
+  return (
+    <Modal
+      title={`Acknowledge resolution — ${issue.category}`}
+      onClose={onClose}
+      footer={
+        <>
+          <Btn variant="ghost" onClick={onClose}>
+            Cancel
+          </Btn>
+          <Btn variant="brand" disabled={busy} onClick={() => void onAcknowledge(note || null)}>
+            {busy ? 'Saving…' : 'Acknowledge resolution'}
+          </Btn>
+        </>
+      }
+    >
+      <p>
+        <b>What you reported:</b> {issue.description}
+      </p>
+      <p>
+        <b>What LunchBox did:</b> {issue.resolution ?? '—'}
+      </p>
+      <Banner kind="info">
+        This records that your institution is satisfied with the resolution. LunchBox closes the
+        issue afterwards — acknowledging does not close it, and nothing about the delivery already
+        received changes.
+      </Banner>
+      <Field label="Anything to add (optional)">
+        <input value={note} onChange={(e) => setNote(e.target.value)} />
+      </Field>
+    </Modal>
   );
 }
 

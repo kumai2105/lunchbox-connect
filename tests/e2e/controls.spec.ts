@@ -47,9 +47,16 @@ const CORE_ROUTES: Array<{ path: string; roleKey: string; label: string }> = [
   { path: '/schedule', roleKey: 'schoolAdminEmail', label: 'Published schedule' },
 ];
 
-/** Deliberately deferred areas. Honest emptiness is the requirement, not features. */
+/**
+ * Deliberately deferred areas. Honest emptiness is the requirement, not features.
+ *
+ * The Driver's /deliveries shell is no longer on this list, and not because it
+ * was tidied away: dispatch, delivery states and proof of handover were built
+ * in 0052, so a page saying they are "not built" had become the one dishonest
+ * screen in the product. The URL now redirects to the real screen, and
+ * closure.spec.ts asserts where each role lands.
+ */
 const DEFERRED_ROUTES: Array<{ path: string; roleKey: string; label: string }> = [
-  { path: '/deliveries', roleKey: 'driverEmail', label: 'Deliveries' },
   { path: '/ops', roleKey: 'operationsEmail', label: 'Ops log & issues' },
   { path: '/absences', roleKey: 'superAdminEmail', label: 'Absences' },
 ];

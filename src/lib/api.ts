@@ -1817,6 +1817,40 @@ export async function currentPlansForInstitution(
   return { data: out, error: null };
 }
 
+/**
+ * Plan changes already scheduled but not yet in force, per child.
+ *
+ * `currentPlansForInstitution` deliberately asks what is true ON a date, so a
+ * change dated next Monday is invisible to it — correctly, because it is not
+ * this child's Plan yet. Bulk assignment needs the other question too: an
+ * operator about to move thirty children wants to see the six who are already
+ * moving, rather than scheduling a second change on top of the first.
+ */
+export async function upcomingPlansForInstitution(
+  institutionId: string,
+  afterDate: string,
+): Promise<ApiResult<Record<string, { planName: string; from: string }>>> {
+  const { data, error } = await supabase
+    .from('student_meal_plans')
+    .select('student_id, effective_from, meal_plans(name), students!inner(institution_id)')
+    .eq('students.institution_id', institutionId)
+    .gt('effective_from', afterDate)
+    .order('effective_from');
+  if (error) return err(error);
+  const out: Record<string, { planName: string; from: string }> = {};
+  for (const raw of (data ?? []) as unknown as Array<{
+    student_id: string;
+    effective_from: string;
+    meal_plans: Array<{ name: string }> | { name: string } | null;
+  }>) {
+    // Ordered ascending, so the FIRST row for a child is the next change.
+    if (out[raw.student_id]) continue;
+    const rel = Array.isArray(raw.meal_plans) ? raw.meal_plans[0] : raw.meal_plans;
+    out[raw.student_id] = { planName: rel?.name ?? '—', from: raw.effective_from };
+  }
+  return { data: out, error: null };
+}
+
 export async function assignStudentMealPlan(input: {
   studentId: string;
   planId: string;
@@ -2178,6 +2212,22 @@ export async function manifestLines(manifestId: string): Promise<ApiResult<Manif
     .order('period');
   if (error) return err(error);
   return { data: (data ?? []) as ManifestLine[], error: null };
+}
+
+/**
+ * The Drivers a dispatcher may name.
+ *
+ * Through an RPC because a Driver belongs to LunchBox rather than to a site,
+ * so `app_users` is the wrong place to ask: the Kitchen cannot read it, and
+ * widening the policy to fill a dropdown would hand the Kitchen every account
+ * in the system. active_drivers() projects the two columns the question needs.
+ */
+export async function activeDrivers(): Promise<
+  ApiResult<Array<{ user_id: string; full_name: string }>>
+> {
+  const { data, error } = await supabase.rpc('active_drivers');
+  if (error) return err(error);
+  return { data: (data ?? []) as Array<{ user_id: string; full_name: string }>, error: null };
 }
 
 export const assignManifestDriver = (manifestId: string, driverId: string) =>

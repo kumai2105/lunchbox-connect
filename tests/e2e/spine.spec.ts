@@ -361,34 +361,40 @@ test.describe('operational spine', () => {
   });
 
   test('mixed Plans are assigned, and activation then succeeds', async ({ page }) => {
-    const db = adminDb();
-    const sa = await signedInDb(seeded().superAdminEmail);
-    const plan = async (name: string) =>
-      must<{ id: string }>(
-        `find plan ${name}`,
-        await db.from('meal_plans').select('id').eq('name', name).single(),
-      ).id;
-    // Assigning six children one at a time through six identical dialogs would
-    // make this test about the dialog. It is about the ACTIVATION decision, so
-    // the assignment is done in bulk — but through the product's own RPC, as a
-    // signed-in Super Admin, so the periods-subset rule, the availability rule
-    // and the one-Plan-per-date exclusion constraint all still apply. The
-    // single-child dialog is driven on the Student profile below.
-    const assign = async (studentIds: string[], planName: string) =>
-      must<number>(
-        `assign ${planName}`,
-        await sa.rpc('bulk_assign_student_meal_plan', {
-          p_students: studentIds,
-          p_plan: await plan(planName),
-          p_from: today(),
-          p_note: null,
-        }),
-      );
-    await assign(ids.morningIds, MORNING_PLAN);
-    await assign(ids.fullIds, FULL_PLAN);
-
     await login(page, seeded().superAdminEmail);
     await page.goto('/meal-plans');
+    await settled(page);
+
+    // Assigned through the BULK screen, because that is how a real site is
+    // onboarded and because it is now a screen. This used to call
+    // bulk_assign_student_meal_plan directly, which proved the rule a second
+    // time and proved nothing about whether anyone could reach it — and for a
+    // whole release, nobody could.
+    const modal = page.locator('.modal');
+    const assign = async (names: string[], planName: string) => {
+      await page
+        .locator('tr', { hasText: INST })
+        .getByRole('button', { name: 'Assign Plans', exact: true })
+        .click();
+      await expect(modal).toContainText('one atomic operation', { timeout: 20_000 });
+      for (const name of names) {
+        await modal.getByRole('checkbox', { name, exact: true }).check();
+      }
+      await modal
+        .getByLabel('Meal Plan to assign', { exact: true })
+        .selectOption({ label: planName });
+      await modal.getByRole('button', { name: 'Bulk Assign', exact: true }).click();
+      await expect(page.locator('.modal')).toHaveCount(0, { timeout: 30_000 });
+      await expect(page.getByText(`${names.length} Students assigned.`)).toBeVisible({
+        timeout: 20_000,
+      });
+    };
+    await assign(['Morning Child1', 'Morning Child2'], MORNING_PLAN);
+    await assign(
+      ['Full Child1', 'Full Child2', 'Full Child3', 'Full Child4'],
+      FULL_PLAN,
+    );
+
     const row = page.locator('tr', { hasText: INST });
     await row.getByRole('button', { name: 'Activate Student Meal Plans', exact: true }).click();
     await expect(page.locator('.modal')).toContainText('has a valid Meal Plan', {
@@ -581,33 +587,23 @@ test.describe('operational spine', () => {
       timeout: 20_000,
     });
 
-    // ---- assign a driver, then release
-    const db = adminDb();
-    const manifest = must<{ id: string }>(
-      'find the manifest',
-      await db
-        .from('delivery_manifests')
-        .select('id')
-        .eq('institution_id', ids.instId)
-        .eq('service_date', today())
-        .single(),
-    );
-    const driver = must<{ user_id: string }>(
-      'find the seeded Driver',
-      await db.from('app_users').select('user_id').eq('email', seeded().driverEmail).single(),
-    );
-    // Only the Kitchen or a Super Admin may assign a Driver, so this is done as
-    // one rather than with the service key, which is nobody.
-    const sa = await signedInDb(seeded().superAdminEmail);
-    const assigned = await sa.rpc('assign_manifest_driver', {
-      p_manifest: manifest.id,
-      p_driver: driver.user_id,
+    // ---- name the driver on the Dispatch row, then release
+    //
+    // Through the screen, not through assign_manifest_driver. The Kitchen is
+    // the role that dispatches, so if the Kitchen cannot name a driver here the
+    // delivery cannot leave — which was true until this release.
+    const dispatch = kitchen.locator('.card').filter({ hasText: 'Dispatch' });
+    await expect(dispatch.getByText('Assign a Driver before releasing')).toBeVisible({
+      timeout: 20_000,
     });
-    if (assigned.error) throw new Error(`fixture: assign the Driver — ${assigned.error.message}`);
+    await dispatch
+      .getByLabel(`Driver for ${INST} run 1`, { exact: true })
+      .selectOption({ label: 'driver' });
+    await dispatch.getByRole('button', { name: 'Assign driver', exact: true }).click();
+    await expect(kitchen.getByText('Driver assigned.')).toBeVisible({ timeout: 20_000 });
 
-    await kitchen.reload();
     await kitchen.getByRole('button', { name: 'Release to driver', exact: true }).first().click();
-    await expect(kitchen.locator('.banner.ok')).toBeVisible({ timeout: 20_000 });
+    await expect(kitchen.getByText('Released to the driver.')).toBeVisible({ timeout: 20_000 });
     await kitchenCtx.close();
 
     // ---- the Driver collects and arrives, and CANNOT hand over

@@ -10,6 +10,8 @@ import {
 import { PERIOD_LABEL, PERIOD_ORDER } from '../lib/periods';
 import type { AppPeriod, AppUser, DeliveryConfig, Institution } from '../lib/types';
 import { operationalToday } from '../lib/format';
+import { useRole } from '../lib/auth';
+import { can } from '../lib/rbac';
 import {
   Banner,
   Btn,
@@ -36,6 +38,21 @@ import {
  * licence to write a row on every site's behalf.
  */
 export default function DeliverySetupPage() {
+  // Delivery configuration is LunchBox's decision and the site's to READ. The
+  // matrix has always said so — `delivery` grants school_admin and kitchen
+  // 'view' and nothing else — but this screen offered "Change configuration"
+  // to whoever opened it, so an Institution Admin was shown a button that
+  // could only ever be refused. The interface now offers what the caller can
+  // actually do.
+  const role = useRole();
+  const mayConfigure = can(role, 'delivery', 'update');
+  // Authorising a receiver is a different authority from configuring the
+  // delivery, and the database keeps them apart: set_delivery_receiver asks
+  // app_can_manage_institution, which the Kitchen never satisfies. The Kitchen
+  // reads this screen to know where it is delivering, so it sees the state
+  // without being offered an action it cannot take.
+  const mayManageReceivers = role === 'super_admin' || role === 'school_admin';
+
   const [institutions, setInstitutions] = useState<Institution[] | null>(null);
   const [selected, setSelected] = useState<Institution | null>(null);
   const [configs, setConfigs] = useState<DeliveryConfig[]>([]);
@@ -136,11 +153,20 @@ export default function DeliverySetupPage() {
           <Card
             title="Delivery configuration"
             actions={
-              <Btn variant="brand" onClick={() => setEditing(true)}>
-                {current ? 'Change configuration' : 'Configure deliveries'}
-              </Btn>
+              mayConfigure ? (
+                <Btn variant="brand" onClick={() => setEditing(true)}>
+                  {current ? 'Change configuration' : 'Configure deliveries'}
+                </Btn>
+              ) : undefined
             }
           >
+            {!mayConfigure && (
+              <Banner kind="info">
+                This is set by LunchBox. To change the number of runs, the delivery windows or the
+                delivery point, ask LunchBox — you can see the arrangement in effect here, and you
+                manage your own authorised receivers on Today&rsquo;s delivery.
+              </Banner>
+            )}
             {!current ? (
               <Banner kind="warn">
                 DELIVERY CONFIGURATION REQUIRED — this institution has no configuration in effect
@@ -215,6 +241,11 @@ export default function DeliverySetupPage() {
                             <td>{u.full_name}</td>
                             <td>{u.role.replace(/_/g, ' ')}</td>
                             <td style={{ textAlign: 'right' }}>
+                              {!mayManageReceivers ? (
+                                <Pill variant={isReceiver ? 'green' : 'slate'}>
+                                  {isReceiver ? 'Authorised' : 'Not authorised'}
+                                </Pill>
+                              ) : (
                               <Btn
                                 variant={isReceiver ? 'ghost' : 'brand'}
                                 disabled={busy || !selected}
@@ -229,6 +260,7 @@ export default function DeliverySetupPage() {
                               >
                                 {isReceiver ? 'Remove authorisation' : 'Authorise'}
                               </Btn>
+                              )}
                             </td>
                           </tr>
                         );

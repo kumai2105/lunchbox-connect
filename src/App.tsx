@@ -30,7 +30,6 @@ import ParentMenu from './pages/parent/ParentMenu';
 import ParentInsights from './pages/parent/ParentInsights';
 import ParentProfile from './pages/parent/ParentProfile';
 import KitchenPage from './pages/KitchenPage';
-import DeliveriesPage from './pages/DeliveriesPage';
 import ReportsPage from './pages/ReportsPage';
 import OpsPage from './pages/OpsPage';
 import AbsencesPage from './pages/AbsencesPage';
@@ -104,6 +103,37 @@ function Home() {
 
 function Page({ page, children }: { page: string; children: ReactNode }) {
   return <Guard page={page}>{children}</Guard>;
+}
+
+/**
+ * The legacy /deliveries URL.
+ *
+ * It used to render a shell announcing that dispatch, delivery states and
+ * proof of handover "are not built". They have been built since 0052, so the
+ * page had become a statement contradicting the product it was part of. It is
+ * gone, but the URL is not: three roles had it bookmarked, and each of them
+ * has a real screen now.
+ *
+ * Deliberately a redirect rather than a duplicate manifest UI. There is one
+ * delivery workflow, reached from wherever that role does its work.
+ */
+function DeliveriesRedirect() {
+  const { session, loading, profileLoading } = useAuth();
+  const role = useRole();
+
+  if (loading || profileLoading) return null;
+  if (!session) return <Navigate to="/login" replace />;
+  if (!role) return <NoAccessPage />;
+
+  const destination =
+    role === 'driver'
+      ? '/my-deliveries'
+      : role === 'school_admin' || role === 'classroom_staff'
+        ? '/handover'
+        : role === 'super_admin' || role === 'kitchen'
+          ? '/operations'
+          : `/${firstPageFor(role)}`;
+  return <Navigate to={destination} replace />;
 }
 
 export default function App() {
@@ -318,14 +348,11 @@ export default function App() {
                 </Page>
               }
             />
-            <Route
-              path="/deliveries"
-              element={
-                <Page page="deliveries">
-                  <DeliveriesPage />
-                </Page>
-              }
-            />
+            {/* The Deliveries shell said dispatch and handover "are not
+                built" — true when it was written, false since 0052. Old links
+                and bookmarks still resolve, to the screen that role actually
+                works in rather than to a page contradicting the product. */}
+            <Route path="/deliveries" element={<DeliveriesRedirect />} />
             <Route
               path="/reports"
               element={

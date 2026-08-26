@@ -24,7 +24,6 @@ export type Resource =
   | 'today'
   | 'kitchen'
   | 'kitchens'
-  | 'deliveries'
   | 'reports'
   | 'ops'
   | 'absences'
@@ -134,7 +133,6 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
   // institutions. Not the production-demand screen above. Archive-only, as for
   // Meals and Menus (0034).
   kitchens: { super_admin: ['view', 'create', 'update'] },
-  deliveries: { super_admin: ['view'], school_admin: ['view'], driver: ['view'] },
   reports: {
     super_admin: ['view'],
     school_admin: ['view'],
@@ -205,7 +203,7 @@ const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
   },
 
   // A Driver's own assigned work. Deliberately its own resource rather than a
-  // wider 'deliveries' grant, so it cannot drift into meaning anything else.
+  // wider grant, so it cannot drift into meaning anything else.
   mydeliveries: {
     super_admin: ['view'],
     driver: ['view', 'update'],

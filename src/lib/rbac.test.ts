@@ -102,10 +102,15 @@ describe('rbac matrix (9 role domains — docs/02)', () => {
     expect(can('kitchen', 'kitchens', 'view')).toBe(false);
   });
 
-  it('driver is scoped to assigned deliveries (AT-033)', () => {
-    expect(can('driver', 'deliveries', 'view')).toBe(true);
+  it('driver is scoped to their OWN assigned deliveries (AT-033)', () => {
+    // `mydeliveries`, not a wider deliveries grant. The distinction is the
+    // point of the resource: a Driver reads the manifests assigned to them and
+    // has no standing to browse the delivery record generally.
+    expect(can('driver', 'mydeliveries', 'view')).toBe(true);
+    expect(can('driver', 'mydeliveries', 'update')).toBe(true);
     expect(can('driver', 'today', 'view')).toBe(false);
     expect(can('driver', 'students', 'view')).toBe(false);
+    expect(can('driver', 'handover', 'update')).toBe(false);
   });
 
   it('finance_owner is reports only (AT-035) and viewer is read-only (AT-036)', () => {

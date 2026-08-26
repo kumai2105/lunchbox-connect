@@ -1,20 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   adjustFinalDemand,
+  advanceIssue,
   buildManifests,
   classroomCompletion,
   closeOperationalDay,
+  correctOperationalRecord,
   demandDrift,
   demandForDate,
   finalDemandForDate,
   finalizeDemand,
   keepFinalDemand,
   listIssues,
+  manifestsForDate,
   reconciliation,
 } from '../lib/api';
 import { PERIOD_LABEL } from '../lib/periods';
 import { operationalToday } from '../lib/format';
+import { useRole } from '../lib/auth';
 import type {
+  DeliveryManifest,
   DemandDriftRow,
   DemandRow,
   FinalDemand,
@@ -32,6 +37,7 @@ import {
   Pill,
   Spinner,
 } from '../components/ui';
+import { IssueActionDialog, IssueCloseDialog } from '../components/issues';
 
 /**
  * OPERATIONS — the day, from calculated demand to a closed logistics day.
@@ -52,22 +58,39 @@ export default function OperationsPage() {
     Array<{ institution_name: string; period: string; entitled: number; recorded: number }>
   >([]);
   const [issues, setIssues] = useState<OperationalIssue[]>([]);
+  const [manifests, setManifests] = useState<DeliveryManifest[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const role = useRole();
+  const isSuper = role === 'super_admin';
   const [dialog, setDialog] = useState<
-    { kind: 'drift'; row: DemandDriftRow } | { kind: 'close' } | null
+    | { kind: 'drift'; row: DemandDriftRow }
+    | { kind: 'close' }
+    | { kind: 'action'; issue: OperationalIssue }
+    | { kind: 'closeIssue'; issue: OperationalIssue }
+    | {
+        kind: 'correct';
+        entity: string;
+        id: string;
+        field: string;
+        fieldLabel: string;
+        subject: string;
+        currentValue: string;
+      }
+    | null
   >(null);
 
   const load = useCallback(async () => {
     setError(null);
-    const [d, f, dr, rc, cc, is] = await Promise.all([
+    const [d, f, dr, rc, cc, is, mf] = await Promise.all([
       demandForDate(date),
       finalDemandForDate(date),
       demandDrift(date),
       reconciliation(date),
       classroomCompletion(date),
       listIssues(date),
+      manifestsForDate(date),
     ]);
     if (d.error) setError(d.error);
     setDemand(d.data ?? []);
@@ -83,6 +106,7 @@ export default function OperationsPage() {
       })),
     );
     setIssues(is.data ?? []);
+    setManifests(mf.data ?? []);
   }, [date]);
 
   useEffect(() => {
@@ -251,6 +275,53 @@ export default function OperationsPage() {
               </div>
             );
           })}
+
+          {manifests.length > 0 && (
+            <div className="table-wrap" style={{ marginTop: 10 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Institution</th>
+                    <th>Run</th>
+                    <th>Delivery point</th>
+                    <th>State</th>
+                    {isSuper && <th style={{ textAlign: 'right' }}>Correct</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {manifests.map((m) => (
+                    <tr key={m.id}>
+                      <td>{m.institution_name}</td>
+                      <td>{m.run_number}</td>
+                      <td>{m.delivery_point ?? '—'}</td>
+                      <td>{m.state.replace(/_/g, ' ')}</td>
+                      {isSuper && (
+                        <td style={{ textAlign: 'right' }}>
+                          <Btn
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              setDialog({
+                                kind: 'correct',
+                                entity: 'delivery_manifests',
+                                id: m.id,
+                                field: 'delivery_point',
+                                fieldLabel: 'Delivery point',
+                                subject: `${m.institution_name} run ${m.run_number}`,
+                                currentValue: m.delivery_point ?? '',
+                              })
+                            }
+                          >
+                            Correct record
+                          </Btn>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       )}
 
@@ -341,7 +412,10 @@ export default function OperationsPage() {
         </p>
       </Card>
 
-      <Card title="Issues">
+      <Card
+        title="Issues"
+        hint="Open → actioned → (the institution acknowledges a delivery issue) → closed"
+      >
         {issues.length === 0 ? (
           <EmptyState text="No issues raised for this date." />
         ) : (
@@ -352,7 +426,9 @@ export default function OperationsPage() {
                   <th>Stage</th>
                   <th>Category</th>
                   <th>What happened</th>
+                  <th>What was done</th>
                   <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -361,10 +437,76 @@ export default function OperationsPage() {
                     <td>{i.stage}</td>
                     <td>{i.category}</td>
                     <td>{i.description}</td>
+                    <td>{i.resolution ?? <span className="muted">—</span>}</td>
                     <td>
                       <Pill variant={i.status === 'CLOSED' ? 'green' : 'amber'}>
                         {i.status.replace(/_/g, ' ')}
                       </Pill>
+                    </td>
+                    <td style={{ textAlign: 'right' }} className="row-actions">
+                      {i.status === 'OPEN' && (
+                        <Btn
+                          size="sm"
+                          variant="brand"
+                          disabled={busy}
+                          onClick={() => setDialog({ kind: 'action', issue: i })}
+                        >
+                          Action issue
+                        </Btn>
+                      )}
+                      {(i.status === 'LUNCHBOX_ACTIONED' ||
+                        i.status === 'INSTITUTION_ACKNOWLEDGED') && (
+                        <Btn
+                          size="sm"
+                          variant="brand"
+                          disabled={busy}
+                          onClick={() => setDialog({ kind: 'closeIssue', issue: i })}
+                        >
+                          Close issue
+                        </Btn>
+                      )}
+                      {i.status === 'LUNCHBOX_ACTIONED' && i.stage === 'DELIVERY' && (
+                        <span className="muted"> awaiting the institution</span>
+                      )}
+                      {isSuper && i.status !== 'CLOSED' && (
+                        <>
+                          {' '}
+                          <Btn
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              setDialog({
+                                kind: 'correct',
+                                entity: 'operational_issues',
+                                id: i.id,
+                                field: 'description',
+                                fieldLabel: 'What happened',
+                                subject: `${i.stage} — ${i.category}`,
+                                currentValue: i.description,
+                              })
+                            }
+                          >
+                            Correct description
+                          </Btn>{' '}
+                          <Btn
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              setDialog({
+                                kind: 'correct',
+                                entity: 'operational_issues',
+                                id: i.id,
+                                field: 'category',
+                                fieldLabel: 'Category',
+                                subject: `${i.stage} — ${i.category}`,
+                                currentValue: i.category,
+                              })
+                            }
+                          >
+                            Correct category
+                          </Btn>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -372,6 +514,10 @@ export default function OperationsPage() {
             </table>
           </div>
         )}
+        <p className="hint">
+          A delivery issue is closed after the institution has acknowledged the resolution. An
+          internal production or packing issue never reaches them and closes once actioned.
+        </p>
       </Card>
 
       <Card title="End of day">
@@ -400,6 +546,56 @@ export default function OperationsPage() {
             run(
               () => keepFinalDemand(dialog.row.final_demand_id, reason),
               'Finalised demand kept, and the decision recorded.',
+            )
+          }
+        />
+      )}
+
+      {dialog?.kind === 'action' && (
+        <IssueActionDialog
+          issue={dialog.issue}
+          busy={busy}
+          onClose={() => setDialog(null)}
+          onAction={(resolution) =>
+            run(
+              () => advanceIssue(dialog.issue.id, 'LUNCHBOX_ACTIONED', resolution),
+              dialog.issue.stage === 'DELIVERY'
+                ? 'Issue actioned. The institution can now acknowledge it.'
+                : 'Issue actioned.',
+            )
+          }
+        />
+      )}
+
+      {dialog?.kind === 'closeIssue' && (
+        <IssueCloseDialog
+          issue={dialog.issue}
+          busy={busy}
+          onClose={() => setDialog(null)}
+          onConfirm={(note) =>
+            run(() => advanceIssue(dialog.issue.id, 'CLOSED', note), 'Issue closed.')
+          }
+        />
+      )}
+
+      {dialog?.kind === 'correct' && (
+        <CorrectDialog
+          subject={dialog.subject}
+          fieldLabel={dialog.fieldLabel}
+          currentValue={dialog.currentValue}
+          busy={busy}
+          onClose={() => setDialog(null)}
+          onCorrect={(value, reason) =>
+            run(
+              () =>
+                correctOperationalRecord({
+                  entity: dialog.entity,
+                  id: dialog.id,
+                  field: dialog.field,
+                  value,
+                  reason,
+                }),
+              'Record corrected. The previous value is preserved in Audit.',
             )
           }
         />
@@ -474,6 +670,74 @@ function DriftDialog({
       <Field label="Reason (required either way)">
         <input value={reason} onChange={(e) => setReason(e.target.value)} autoFocus />
       </Field>
+    </Modal>
+  );
+}
+
+/**
+ * CORRECT RECORD — deliberately not a row editor.
+ *
+ * Every call site names ONE entity and ONE field, both from the database's own
+ * allow-list. There is no field picker here, because a field picker is how a
+ * correction facility becomes a database console with an audit row attached.
+ * The previous value is shown, not editable, and the reason is required.
+ */
+function CorrectDialog({
+  subject,
+  fieldLabel,
+  currentValue,
+  busy,
+  onClose,
+  onCorrect,
+}: {
+  subject: string;
+  fieldLabel: string;
+  currentValue: string;
+  busy: boolean;
+  onClose: () => void;
+  onCorrect: (value: string, reason: string) => Promise<boolean>;
+}) {
+  const [value, setValue] = useState(currentValue);
+  const [reason, setReason] = useState('');
+  const valid = value.trim().length > 0 && value.trim() !== currentValue && reason.trim().length > 0;
+  return (
+    <Modal
+      title={`Correct record — ${subject}`}
+      onClose={onClose}
+      footer={
+        <>
+          <Btn variant="ghost" onClick={onClose}>
+            Cancel
+          </Btn>
+          <Btn
+            variant="brand"
+            disabled={!valid || busy}
+            onClick={() => void onCorrect(value.trim(), reason)}
+          >
+            {busy ? 'Correcting…' : 'Correct record'}
+          </Btn>
+        </>
+      }
+    >
+      <Banner kind="info">
+        The original value is <b>kept in Audit</b> alongside the correction, who made it and why.
+        Nothing is overwritten silently. Demand is corrected by adjusting it, and a completed
+        handover by raising an issue — neither is correctable here.
+      </Banner>
+      <Field label={`${fieldLabel} — current value`}>
+        <input value={currentValue} readOnly />
+      </Field>
+      <Field label={`${fieldLabel} — corrected value`}>
+        <input value={value} onChange={(e) => setValue(e.target.value)} autoFocus />
+      </Field>
+      <Field label="Reason (required)">
+        <input value={reason} onChange={(e) => setReason(e.target.value)} />
+      </Field>
+      {!valid && (
+        <p className="hint">
+          A corrected value that differs from the current one, and a reason, are both required.
+        </p>
+      )}
     </Modal>
   );
 }
