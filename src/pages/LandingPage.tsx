@@ -474,11 +474,11 @@ export default function LandingPage() {
                 meal journey and show where LunchBox Connect fits.
               </p>
               <div className="lp-cta-row">
-                <a className="lp-btn lp-btn-gold lp-btn-lg" href="mailto:kumai@lunchboxconnect.com">
+                <a className="lp-btn lp-btn-gold lp-btn-lg" href="mailto:info@lunchboxconnect.com">
                   Talk to us
                 </a>
                 <div className="lp-cta-direct">
-                  <a href="mailto:kumai@lunchboxconnect.com">kumai@lunchboxconnect.com</a>
+                  <a href="mailto:info@lunchboxconnect.com">info@lunchboxconnect.com</a>
                   <a href="tel:+971559933354">+971 55 993 3354</a>
                 </div>
               </div>
@@ -503,7 +503,7 @@ export default function LandingPage() {
               Built in the UAE.
             </p>
             <p className="lp-footer-contact">
-              <a href="mailto:kumai@lunchboxconnect.com">kumai@lunchboxconnect.com</a>
+              <a href="mailto:info@lunchboxconnect.com">info@lunchboxconnect.com</a>
               <a href="tel:+971559933354">+971 55 993 3354</a>
             </p>
           </div>
