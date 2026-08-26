@@ -23,8 +23,61 @@
  * is. There is no children count, no meals-served counter, no compliance
  * percentage and no score anywhere on this page.
  */
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import logoUrl from '../assets/lunchbox-connect-logo.png';
+
+/**
+ * OPTIONAL BRAND IMAGERY.
+ *
+ * The page is composed image-led, but it does not depend on any image
+ * existing. Drop `hero.jpg`, `parents.webp` etc. into src/assets/marketing/
+ * and the matching slot picks it up at build time with no code change; leave
+ * the directory empty and every slot renders its designed fallback instead.
+ * There is never a broken image and never an empty grey box.
+ *
+ * What may go in there is governed by src/assets/marketing/README.md: these
+ * are editorial illustrations of a STAKEHOLDER TYPE. Nothing on this page
+ * captions an image as a customer, a partner Institution, a testimonial or a
+ * real family, and the alt text below is deliberately generic so that it
+ * cannot start doing so by accident.
+ */
+const PHOTOS = import.meta.glob('../assets/marketing/*.{jpg,jpeg,png,webp}', {
+  eager: true,
+  import: 'default',
+}) as Record<string, string>;
+
+function photo(name: string): string | undefined {
+  const hit = Object.keys(PHOTOS).find((k) => {
+    const file = k.slice(k.lastIndexOf('/') + 1);
+    return file.slice(0, file.lastIndexOf('.')) === name;
+  });
+  return hit ? PHOTOS[hit] : undefined;
+}
+
+/**
+ * One media area. Renders the photograph when the slot is filled, and the
+ * supplied fallback composition when it is not. `alt` stays empty because the
+ * image is decorative in both cases — the panel's own heading carries the
+ * meaning, and an image that described itself as "a nursery manager" would be
+ * asserting something about a person we know nothing about.
+ */
+function Slot({
+  name,
+  className = '',
+  children,
+}: {
+  name: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  const src = photo(name);
+  return (
+    <div className={`lp-slot ${className} ${src ? 'has-photo' : 'is-drawn'}`}>
+      {src ? <img src={src} alt="" loading="lazy" decoding="async" /> : children}
+    </div>
+  );
+}
 
 const NAV = [
   { href: '#why', label: 'Why LunchBox' },
@@ -230,6 +283,13 @@ export default function LandingPage() {
             </div>
 
             <div className="lp-hero-art">
+              {/* The child-and-meal context sits behind the software, so the
+                  first screen says "real children's meals" and "real operating
+                  platform" at the same time. With the slot empty the product
+                  stack simply stands on the brand ground on its own. */}
+              <Slot name="hero" className="lp-hero-photo">
+                <TrayMotif className="is-hero" />
+              </Slot>
               <div className="lp-stack">
                 <AdminFrame />
                 <KitchenFrame />
@@ -261,7 +321,7 @@ export default function LandingPage() {
                   Manage the parts of the meal programme that belong to your Institution —
                   Students, staff, published service, dietary requirements and delivery handover.
                 </p>
-                <div className="lp-aud-art"><AdminFrame /></div>
+                <Slot name="institutions" className="lp-aud-art"><AdminFrame /></Slot>
               </article>
 
               <article className="lp-aud is-primary">
@@ -271,7 +331,7 @@ export default function LandingPage() {
                   See the part of the meal journey that belongs to your child: published meals and
                   the intake information recorded by the Classroom.
                 </p>
-                <div className="lp-aud-art"><ParentFrame /></div>
+                <Slot name="parents" className="lp-aud-art"><ParentFrame /></Slot>
               </article>
 
               <article className="lp-aud is-primary">
@@ -281,7 +341,7 @@ export default function LandingPage() {
                   Turn published service and child entitlement into exact Demand, production,
                   packing, dispatch and recorded handover.
                 </p>
-                <div className="lp-aud-art"><KitchenFrame /></div>
+                <Slot name="operations" className="lp-aud-art"><KitchenFrame /></Slot>
               </article>
 
               <article className="lp-aud is-wide">
@@ -293,7 +353,9 @@ export default function LandingPage() {
                     outcome — without exposing the Kitchen&rsquo;s internal operation.
                   </p>
                 </div>
-                <TrayMotif className="is-wide" />
+                <Slot name="classroom" className="lp-aud-wide-art">
+                  <TrayMotif className="is-wide" />
+                </Slot>
               </article>
             </div>
           </div>
@@ -385,7 +447,9 @@ export default function LandingPage() {
                 Institutions through one controlled operational model. The food service and the
                 operating system are one offer today.
               </p>
-              <TrayMotif className="is-corner" />
+              <Slot name="food" className="lp-hz-art">
+                <TrayMotif className="is-corner" />
+              </Slot>
             </article>
 
             <article className="lp-hz lp-hz-next">
