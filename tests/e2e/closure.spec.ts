@@ -636,7 +636,10 @@ test.describe('operability closure', () => {
     // follow the same order the work does.
     await run1.getByRole('button', { name: 'View / print labels', exact: true }).click();
     await expect(page.locator('.modal')).toContainText(INST, { timeout: 20_000 });
-    await page.locator('.modal').getByRole('button', { name: 'Close' }).click();
+    // Scoped to the footer: the dialog has a Close BUTTON there, and the modal
+    // chrome has an X carrying aria-label="Close", so both share the accessible
+    // name. The footer one is what a person clicks.
+    await page.locator('.modal-foot').getByRole('button', { name: 'Close', exact: true }).click();
     await expect(page.locator('.modal')).toHaveCount(0, { timeout: 20_000 });
 
     await run1.getByRole('button', { name: 'Release to driver', exact: true }).click();
