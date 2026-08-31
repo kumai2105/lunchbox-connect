@@ -20,7 +20,7 @@ const FIELDSETS: Record<
 };
 
 const field =
-  "w-full rounded-[--radius-card] border border-brand-line bg-brand-surface px-3 py-2.5 text-base text-brand-ink placeholder:text-brand-ink-soft/60 focus:border-brand-accent";
+  "w-full border border-brand-rule bg-brand-linen px-4 py-3 text-base text-brand-ink focus:border-brand-teal";
 
 function SubmitButton({ label, busyLabel }: { label: string; busyLabel: string }) {
   const { pending } = useFormStatus();
@@ -28,7 +28,7 @@ function SubmitButton({ label, busyLabel }: { label: string; busyLabel: string }
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex min-h-11 items-center justify-center rounded-[--radius-card] bg-brand-accent px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:cursor-progress disabled:opacity-70"
+      className="label inline-flex min-h-12 items-center justify-center bg-brand-teal px-8 py-3.5 text-white transition-colors hover:bg-brand-ink disabled:cursor-progress disabled:opacity-70"
     >
       {pending ? busyLabel : label}
     </button>
@@ -75,9 +75,9 @@ export function EnquiryForm({
         ref={headingRef}
         tabIndex={-1}
         role="status"
-        className="rounded-[--radius-card] border border-state-success/30 bg-state-success-bg p-6"
+        className="border-s-4 border-state-success bg-state-success-bg p-7"
       >
-        <h3 className="text-lg font-semibold text-state-success">{t.form.successTitle}</h3>
+        <h3 className="display text-2xl text-state-success">{t.form.successTitle}</h3>
         <p className="mt-2 text-sm text-brand-ink">
           {t.form.successBody}{" "}
           <strong className="font-semibold" dir="ltr">
@@ -110,7 +110,7 @@ export function EnquiryForm({
           ref={headingRef}
           tabIndex={-1}
           role="alert"
-          className="mb-6 rounded-[--radius-card] border border-state-error/30 bg-state-error-bg p-4"
+          className="mb-7 border-s-4 border-state-error bg-state-error-bg p-5"
         >
           <p className="font-semibold text-state-error">{t.form.errorTitle}</p>
           <p className="mt-1 text-sm text-brand-ink">
@@ -132,7 +132,7 @@ export function EnquiryForm({
       <div className="grid gap-5 sm:grid-cols-2">
         {allowTypeChange ? (
           <div className="sm:col-span-2">
-            <label htmlFor={id("type")} className="mb-1.5 block text-sm font-medium">
+            <label htmlFor={id("type")} className="label mb-2 block text-brand-ink-soft">
               {t.form.eventType}
             </label>
             <select
@@ -154,8 +154,8 @@ export function EnquiryForm({
         )}
 
         <div>
-          <label htmlFor={id("name")} className="mb-1.5 block text-sm font-medium">
-            {t.form.name} <span className="text-brand-ink-soft">({t.form.required})</span>
+          <label htmlFor={id("name")} className="label mb-2 block text-brand-ink-soft">
+            {t.form.name} <span className="text-brand-teal">*</span>
           </label>
           <input
             id={id("name")}
@@ -176,8 +176,8 @@ export function EnquiryForm({
         </div>
 
         <div>
-          <label htmlFor={id("phone")} className="mb-1.5 block text-sm font-medium">
-            {t.form.phone} <span className="text-brand-ink-soft">({t.form.required})</span>
+          <label htmlFor={id("phone")} className="label mb-2 block text-brand-ink-soft">
+            {t.form.phone} <span className="text-brand-teal">*</span>
           </label>
           <input
             id={id("phone")}
@@ -200,7 +200,7 @@ export function EnquiryForm({
         </div>
 
         <div className={shape.company ? "" : "sm:col-span-2"}>
-          <label htmlFor={id("email")} className="mb-1.5 block text-sm font-medium">
+          <label htmlFor={id("email")} className="label mb-2 block text-brand-ink-soft">
             {t.form.emailOptional}
           </label>
           <input
@@ -224,7 +224,7 @@ export function EnquiryForm({
 
         {shape.company ? (
           <div>
-            <label htmlFor={id("company")} className="mb-1.5 block text-sm font-medium">
+            <label htmlFor={id("company")} className="label mb-2 block text-brand-ink-soft">
               {t.form.company}
             </label>
             <input
@@ -240,7 +240,7 @@ export function EnquiryForm({
 
         {shape.date ? (
           <div>
-            <label htmlFor={id("eventDate")} className="mb-1.5 block text-sm font-medium">
+            <label htmlFor={id("eventDate")} className="label mb-2 block text-brand-ink-soft">
               {t.form.eventDate}
             </label>
             <input
@@ -265,7 +265,7 @@ export function EnquiryForm({
 
         {shape.guests ? (
           <div>
-            <label htmlFor={id("guests")} className="mb-1.5 block text-sm font-medium">
+            <label htmlFor={id("guests")} className="label mb-2 block text-brand-ink-soft">
               {t.form.guests}
             </label>
             <input
@@ -290,7 +290,7 @@ export function EnquiryForm({
 
         {shape.service ? (
           <div className="sm:col-span-2">
-            <label htmlFor={id("serviceStyle")} className="mb-1.5 block text-sm font-medium">
+            <label htmlFor={id("serviceStyle")} className="label mb-2 block text-brand-ink-soft">
               {t.form.serviceStyle}
             </label>
             <select id={id("serviceStyle")} name="serviceStyle" className={field} defaultValue="unset">
@@ -313,7 +313,7 @@ export function EnquiryForm({
                 <input
                   type="checkbox"
                   name="venueRequired"
-                  className="mt-0.5 size-4 accent-[--color-brand-accent]"
+                  className="mt-1 size-4 accent-[--color-brand-teal]"
                 />
                 <span>{t.form.venueRequired}</span>
               </label>
@@ -321,7 +321,7 @@ export function EnquiryForm({
                 <input
                   type="checkbox"
                   name="cateringRequired"
-                  className="mt-0.5 size-4 accent-[--color-brand-accent]"
+                  className="mt-1 size-4 accent-[--color-brand-teal]"
                 />
                 <span>{t.form.cateringRequired}</span>
               </label>
@@ -330,7 +330,7 @@ export function EnquiryForm({
         ) : null}
 
         <div className="sm:col-span-2">
-          <label htmlFor={id("message")} className="mb-1.5 block text-sm font-medium">
+          <label htmlFor={id("message")} className="label mb-2 block text-brand-ink-soft">
             {t.form.message}
           </label>
           <textarea id={id("message")} name="message" rows={4} maxLength={4000} className={field} />
@@ -342,7 +342,7 @@ export function EnquiryForm({
               type="checkbox"
               name="consent"
               required
-              className="mt-0.5 size-4 accent-[--color-brand-accent]"
+              className="mt-1 size-4 accent-[--color-brand-teal]"
               aria-invalid={err.consent ? true : undefined}
               aria-describedby={err.consent ? `${id("consent")}-error` : undefined}
             />

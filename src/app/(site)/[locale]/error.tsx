@@ -16,26 +16,26 @@ export default function SiteError({
   }, [error]);
 
   return (
-    <div className="flex min-h-dvh flex-col justify-center bg-brand-paper py-20">
+    <div className="night-ground grain on-dark flex min-h-dvh flex-col justify-center py-20 text-brand-bone">
       <Container size="narrow">
-        <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold">
+        <h1 className="display text-4xl">
           Something went wrong
         </h1>
-        <p className="mt-3 text-brand-ink-soft">
+        <p className="mt-4 text-brand-bone/75">
           Please try again. If the problem continues, please call the restaurant.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <button
             type="button"
             onClick={reset}
-            className="inline-flex min-h-11 items-center rounded-[--radius-card] bg-brand-accent px-5 py-3 text-sm font-semibold text-white"
+            className="label inline-flex min-h-12 items-center bg-brand-bone px-6 py-3.5 text-brand-night hover:bg-brand-gold"
           >
             Try again
           </button>
           <a
             href={telHref()}
             dir="ltr"
-            className="inline-flex min-h-11 items-center rounded-[--radius-card] border border-brand-line bg-brand-surface px-5 py-3 text-sm font-semibold"
+            className="label inline-flex min-h-12 items-center border border-brand-bone/35 px-6 py-3.5 text-brand-bone hover:border-brand-gold hover:text-brand-gold"
           >
             {FACTS.phoneDisplay.value}
           </a>

@@ -35,6 +35,10 @@ export function buildMetadata({
       canonical: absoluteUrl(path),
       languages: { ...languages, "x-default": absoluteUrl(hrefFor(routeKey, "en")) },
     },
+    icons: {
+      icon: [{ url: "/favicon.png", type: "image/png", sizes: "32x32" }],
+      apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+    },
     openGraph: {
       type: "website",
       siteName: FACTS.nameEn.value,
@@ -42,8 +46,16 @@ export function buildMetadata({
       description: description ?? undefined,
       url: absoluteUrl(path),
       locale: localeMeta[locale].htmlLang.replace("-", "_"),
+      // The owner's logo on the brand ground. Deliberately not a photograph: no
+      // photography of Jazeel exists, and a stock image here would misrepresent it.
+      images: [{ url: absoluteUrl("/brand/og.png"), width: 1200, height: 630, alt: FACTS.nameEn.value }],
     },
-    twitter: { card: "summary", title, description: description ?? undefined },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description: description ?? undefined,
+      images: [absoluteUrl("/brand/og.png")],
+    },
     robots: noindex ? { index: false, follow: false } : undefined,
   };
 }
@@ -75,6 +87,9 @@ export function restaurantJsonLd(locale: Locale) {
     name: isAr ? FACTS.nameAr.value : FACTS.nameEn.value,
     alternateName: isAr ? FACTS.nameEn.value : FACTS.nameAr.value,
     url: absoluteUrl(hrefFor("home", locale)),
+    // Owner-supplied asset, so it can be asserted. Note there is still no `image` here:
+    // that property means a photograph of the place, and none exists.
+    logo: absoluteUrl("/brand/logo.png"),
     telephone: FACTS.phone.value,
     priceRange: FACTS.priceRange.value,
     servesCuisine: FACTS.cuisines.value,

@@ -36,8 +36,8 @@ is missing, the corresponding part of the site is absent, not empty.
 
 | # | Item | Why it matters | Where it appears | Public/internal | Format |
 |---|---|---|---|---|---|
-| 11 | **Logo files** | No logo could be retrieved anywhere in Phase 1. The site currently sets the name typographically rather than inventing a mark. | Header, footer, social sharing, favicon | Public | SVG preferred (or PDF/EPS). Horizontal and stacked versions, plus an Arabic or bilingual lockup if one exists. |
-| 12 | **Brand colours and typefaces, if any exist** | The palette in `globals.css` is explicitly provisional and labelled as such in the code. It is designed to be replaced in one file. | Everywhere | Internal spec, public result | Hex values, and font files with a licence permitting web use. |
+| ~~11~~ | ~~**Logo files**~~ | **Supplied 31 Aug 2026.** See section 5. | | | |
+| ~~12~~ | ~~**Brand colours and typefaces**~~ | **Colours supplied 31 Aug 2026**, measured from the logo. Typefaces are still ours — see section 2a. | | | |
 | 13 | **Restaurant and café photography** | The site has composed image areas where photographs belong. No stock and no AI imagery has been used, and none will be. | Homepage, `/restaurant`, `/about` | Public | JPEG or WebP, at least 2000px on the long edge, landscape. Interior, the family hall, the outdoor area, the storefront and signage, and the venue after dark. |
 | 14 | **Food photography** | Menu items currently carry no images. | `/menu`, homepage | Public | Same format. Ideally the grills, mezze, manakeesh and one sharing platter. |
 | 15 | **Wedding and celebration photography** | The weddings page is the highest-value page on the site and currently has no imagery of real events. | `/weddings`, gallery | Public | Same format. **Only real Jazeel events**, and only where you have permission to publish them. |
@@ -46,6 +46,15 @@ is missing, the corresponding part of the site is absent, not empty.
 | 18 | **Sunday brunch photography** | Same, for brunch. | `/brunch`, gallery | Public | Same format. |
 | 19 | **Approved Arabic copy** | The Arabic site is fully built, routed and tested, and every Arabic page works today by falling back to the English text. Nothing has been machine-translated. | Every page, in Arabic | Public | Arabic for each page's kicker, title, intro, body and search description. Enter it in **Admin → Page content**, then tick "Arabic text approved". |
 | 20 | **Confirmed map pin** | Two published coordinate pairs sit about 1.3 km apart, so no coordinates are published and no map is embedded. "Get directions" currently searches by the written address, which works. | Contact, directions links, structured data | Public | A Google Maps share link for the correct entrance. |
+
+---
+
+## 2a. Still outstanding from the identity
+
+| # | Item | Why it matters | Format |
+|---|---|---|---|
+| 12a | **Brand typefaces, if any exist** | The colours are now Jazeel's own, but the type is still our choice: Fraunces for English display, Karla for text, Amiri and IBM Plex Sans Arabic for Arabic. If a designer specified faces for the logo, send them and they replace ours in one file. | Font files with a web licence, or the names. |
+| 12b | **The logo's original vector file** | The logo has been rebuilt from the 373 px JPEG you sent, which is the only version we have. It is clean at every size the site uses, but the original AI, EPS, PDF or SVG from whoever drew it would be better still — and is needed for print, signage and large formats. | AI, EPS, PDF or SVG. |
 
 ---
 
@@ -94,3 +103,5 @@ Established in Phase 1 and already live on the site:
 - The Deliveroo and Talabat storefront links.
 - The Instagram, Facebook and TikTok accounts.
 - The cuisine: Arabic, Levantine, Middle Eastern and international.
+- **The logo**, supplied 31 August 2026 — now in the header, footer, browser tab and social card, with a reversed version for dark grounds.
+- **The brand colours**, measured from that logo: petrol teal `#1d4a4e` and antique gold `#a08d4c`. The whole site is built from them.

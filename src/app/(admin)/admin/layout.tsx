@@ -3,6 +3,7 @@ import Link from "next/link";
 import "../../globals.css";
 import { getAdmin } from "@/lib/auth";
 import { logoutAction } from "@/app/actions/admin";
+import { fontVariables } from "@/lib/fonts";
 
 export const metadata: Metadata = {
   title: "Jazeel — site administration",
@@ -27,7 +28,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const admin = await getAdmin();
 
   return (
-    <html lang="en" dir="ltr">
+    <html lang="en" dir="ltr" className={fontVariables}>
       <body className="min-h-dvh bg-brand-paper antialiased">
         {admin ? (
           <div className="flex min-h-dvh flex-col">

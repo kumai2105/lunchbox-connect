@@ -3,6 +3,7 @@ import "../../globals.css";
 import { isLocale, localeMeta, locales, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { SITE_URL } from "@/lib/seo";
+import { fontVariables } from "@/lib/fonts";
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
@@ -25,7 +26,7 @@ export default async function LocaleLayout({
   const t = getDictionary(l);
 
   return (
-    <html lang={localeMeta[l].htmlLang} dir={localeMeta[l].dir}>
+    <html lang={localeMeta[l].htmlLang} dir={localeMeta[l].dir} className={fontVariables}>
       <body className="min-h-dvh antialiased">
         <a href="#main" className="skip-link">
           {t.skipToContent}

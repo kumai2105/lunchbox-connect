@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+export type LangAttrs = { lang?: string; dir?: "ltr" | "rtl" };
+
 /* ------------------------------------------------------------------ layout */
 
 export function Container({
@@ -12,30 +14,37 @@ export function Container({
   className?: string;
   size?: "default" | "narrow" | "wide";
 }) {
-  const max =
-    size === "narrow" ? "max-w-3xl" : size === "wide" ? "max-w-7xl" : "max-w-6xl";
-  return <div className={`${max} mx-auto px-5 sm:px-8 ${className}`}>{children}</div>;
+  const max = size === "narrow" ? "max-w-2xl" : size === "wide" ? "max-w-6xl" : "max-w-5xl";
+  return <div className={`${max} mx-auto px-6 sm:px-10 ${className}`}>{children}</div>;
 }
 
-export function Section({
+/**
+ * Full-bleed bands, not boxed sections. Dark bands carry `.on-dark` so nested
+ * components can pick the right rule and focus colours.
+ */
+export function Band({
   children,
+  tone = "bone",
   className = "",
-  tone = "paper",
   id,
+  size = "normal",
 }: {
   children: ReactNode;
+  tone?: "bone" | "linen" | "ember" | "char";
   className?: string;
-  tone?: "paper" | "surface" | "deep" | "accent";
   id?: string;
+  size?: "tight" | "normal" | "tall";
 }) {
   const tones = {
-    paper: "bg-brand-paper text-brand-ink",
-    surface: "bg-brand-surface text-brand-ink",
-    deep: "bg-brand-deep text-white",
-    accent: "bg-brand-accent-soft text-brand-ink",
+    bone: "bg-brand-bone text-brand-ink",
+    linen: "bg-brand-linen text-brand-ink",
+    ember: "night-ground grain on-dark text-brand-bone",
+    char: "pine-ground on-dark text-brand-bone",
   } as const;
+  const pad =
+    size === "tight" ? "py-14 sm:py-16" : size === "tall" ? "py-24 sm:py-36" : "py-20 sm:py-28";
   return (
-    <section id={id} className={`${tones[tone]} py-14 sm:py-20 ${className}`}>
+    <section id={id} className={`${tones[tone]} ${pad} ${className}`}>
       {children}
     </section>
   );
@@ -43,47 +52,69 @@ export function Section({
 
 /* --------------------------------------------------------------- typography */
 
-type LangAttrs = { lang?: string; dir?: "ltr" | "rtl" };
-
-export function SectionHeading({
-  kicker,
+/**
+ * A heading that sets the Latin and Arabic forms together — the device Bait Maryam
+ * and Al Safadi use, where the two scripts read as one piece of design rather than
+ * two separate translations of a page.
+ */
+export function BandHeading({
+  label,
   title,
+  titleAlt,
   intro,
-  align = "start",
   as: As = "h2",
+  size = "lg",
+  align = "start",
   titleAttrs,
   introAttrs,
-  kickerAttrs,
+  labelAttrs,
+  onDark = false,
 }: {
-  kicker?: string | null;
+  label?: string | null;
   title: string;
+  /** The same heading in the other script. Decorative in position, accurate in content. */
+  titleAlt?: string | null;
   intro?: string | null;
-  align?: "start" | "center";
   as?: "h1" | "h2" | "h3";
-  /** Set when the text fell back to the other language, so it renders with the right direction. */
+  size?: "sm" | "lg" | "xl";
+  align?: "start" | "center";
   titleAttrs?: LangAttrs;
   introAttrs?: LangAttrs;
-  kickerAttrs?: LangAttrs;
+  labelAttrs?: LangAttrs;
+  onDark?: boolean;
 }) {
-  const alignment = align === "center" ? "text-center mx-auto" : "";
+  const scale = {
+    sm: "text-2xl sm:text-3xl",
+    lg: "text-[2.1rem] leading-[1.06] sm:text-5xl",
+    xl: "text-[2.6rem] leading-[1.03] sm:text-6xl lg:text-7xl",
+  }[size];
+  const softInk = onDark ? "text-brand-bone/70" : "text-brand-ink-soft";
+  const labelInk = onDark ? "text-brand-gold" : "text-brand-teal";
+  const centered = align === "center" ? "items-center text-center mx-auto" : "items-start";
+
   return (
-    <div className={`${alignment} max-w-2xl`}>
-      {kicker ? (
-        <p
-          {...kickerAttrs}
-          className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-accent mb-3"
-        >
-          {kicker}
+    <div className={`flex flex-col ${centered} max-w-3xl`}>
+      {label ? (
+        <p {...labelAttrs} className={`label ${labelInk} mb-4`}>
+          {label}
         </p>
       ) : null}
-      <As
-        {...titleAttrs}
-        className={`font-[family-name:var(--font-display)] rtl:font-[family-name:var(--font-arabic)] text-3xl sm:text-4xl leading-tight tracking-tight text-balance`}
-      >
+      <div className={align === "center" ? "rule-gold mb-6" : "rule-gold mb-6"} />
+      <As {...titleAttrs} className={`display ${scale}`}>
         {title}
       </As>
+      {titleAlt ? (
+        <p
+          lang="ar"
+          dir="rtl"
+          aria-hidden="true"
+          className={`script-pair mt-3 text-xl sm:text-2xl ${onDark ? "text-brand-gold/85" : "text-brand-teal-soft"}`}
+        >
+          {titleAlt}
+        </p>
+      ) : null}
       {intro ? (
-        <p {...introAttrs} className="mt-4 text-lg leading-relaxed text-brand-ink-soft">
+        <p {...introAttrs} className={`mt-6 text-lg leading-relaxed ${softInk} max-w-2xl`}>
           {intro}
         </p>
       ) : null}
@@ -91,21 +122,25 @@ export function SectionHeading({
   );
 }
 
-/** Renders CMS body copy. Supports blank-line paragraphs and `## ` subheadings only. */
 export function Prose({
   text,
   attrs,
+  onDark = false,
 }: {
   text: string | null | undefined;
   attrs?: LangAttrs;
+  onDark?: boolean;
 }) {
   if (!text?.trim()) return null;
   const blocks = text.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
   return (
-    <div {...attrs} className="prose-jazeel text-brand-ink-soft leading-relaxed">
+    <div
+      {...attrs}
+      className={`prose-jazeel leading-relaxed ${onDark ? "text-brand-bone/75" : "text-brand-ink-soft"}`}
+    >
       {blocks.map((block, i) =>
         block.startsWith("## ") ? (
-          <h2 key={i} className="text-brand-ink font-semibold">
+          <h2 key={i} className={onDark ? "text-brand-bone" : "text-brand-ink"}>
             {block.slice(3)}
           </h2>
         ) : (
@@ -116,24 +151,24 @@ export function Prose({
   );
 }
 
-/* ------------------------------------------------------------------ buttons */
+/* ------------------------------------------------------------------ actions */
 
-type ButtonVariant = "primary" | "secondary" | "quiet" | "onDark";
+type ButtonVariant = "solid" | "outline" | "outlineDark" | "bone";
 
-const buttonBase =
-  "inline-flex items-center justify-center gap-2 rounded-[--radius-card] px-5 py-3 text-sm font-semibold transition-colors min-h-11 text-center";
+const base =
+  "inline-flex items-center justify-center gap-2 px-7 py-3.5 min-h-12 text-center label transition-colors";
 
-const buttonVariants: Record<ButtonVariant, string> = {
-  primary: "bg-brand-accent text-white hover:bg-brand-deep",
-  secondary: "border border-brand-line bg-brand-surface text-brand-ink hover:border-brand-accent",
-  quiet: "text-brand-accent underline underline-offset-4 hover:text-brand-deep px-0 py-1",
-  onDark: "bg-white text-brand-deep hover:bg-brand-accent-soft",
+const variants: Record<ButtonVariant, string> = {
+  solid: "bg-brand-teal text-white hover:bg-brand-ink",
+  outline: "border border-brand-ink/25 text-brand-ink hover:border-brand-teal hover:text-brand-teal",
+  outlineDark: "border border-brand-bone/35 text-brand-bone hover:border-brand-gold hover:text-brand-gold",
+  bone: "bg-brand-bone text-brand-night hover:bg-brand-gold hover:text-brand-night",
 };
 
 export function ButtonLink({
   href,
   children,
-  variant = "primary",
+  variant = "solid",
   external = false,
   className = "",
   ariaLabel,
@@ -145,16 +180,10 @@ export function ButtonLink({
   className?: string;
   ariaLabel?: string;
 }) {
-  const cls = `${buttonBase} ${buttonVariants[variant]} ${className}`;
+  const cls = `${base} ${variants[variant]} ${className}`;
   if (external) {
     return (
-      <a
-        href={href}
-        className={cls}
-        aria-label={ariaLabel}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
+      <a href={href} className={cls} aria-label={ariaLabel} target="_blank" rel="noopener noreferrer">
         {children}
       </a>
     );
@@ -166,73 +195,102 @@ export function ButtonLink({
   );
 }
 
-export function buttonClass(variant: ButtonVariant = "primary") {
-  return `${buttonBase} ${buttonVariants[variant]}`;
+export function buttonClass(variant: ButtonVariant = "solid") {
+  return `${base} ${variants[variant]}`;
 }
 
-/* -------------------------------------------------------------------- cards */
-
-export function Card({
+/** A quiet inline link with a gold underline — used where a button would shout. */
+export function TextLink({
+  href,
   children,
-  className = "",
-  as: As = "div",
+  external = false,
+  onDark = false,
 }: {
+  href: string;
   children: ReactNode;
-  className?: string;
-  as?: "div" | "li" | "article";
+  external?: boolean;
+  onDark?: boolean;
 }) {
-  return (
-    <As
-      className={`rounded-[--radius-card] border border-brand-line bg-brand-surface p-6 ${className}`}
-    >
+  const cls = `label underline decoration-brand-gold decoration-2 underline-offset-[6px] ${
+    onDark ? "text-brand-bone hover:text-brand-gold" : "text-brand-ink hover:text-brand-teal"
+  }`;
+  return external ? (
+    <a href={href} className={cls} target="_blank" rel="noopener noreferrer">
       {children}
-    </As>
+    </a>
+  ) : (
+    <Link href={href} className={cls}>
+      {children}
+    </Link>
   );
 }
 
-/**
- * A composed surface standing in for a photograph that does not yet exist.
- * It is intentionally abstract: no stock image, no AI-generated food or venue picture, and
- * no "image coming soon" text. If a real image is supplied it replaces this entirely.
- */
-export function MediaSlot({
-  className = "",
-  ratio = "aspect-[4/3]",
-  label,
-}: {
-  className?: string;
-  ratio?: string;
-  label?: string;
-}) {
-  return (
-    <div
-      className={`media-slot rounded-[--radius-card] ${ratio} ${className}`}
-      role={label ? "img" : "presentation"}
-      aria-label={label}
-      aria-hidden={label ? undefined : true}
-    />
-  );
-}
+/* -------------------------------------------------------------------- parts */
 
-/* ------------------------------------------------------------------- pieces */
-
-export function Pill({ children }: { children: ReactNode }) {
+export function Pill({ children, onDark = false }: { children: ReactNode; onDark?: boolean }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-brand-line bg-brand-surface px-3 py-1 text-xs font-medium text-brand-ink-soft">
+    <span
+      className={`inline-flex items-center px-2.5 py-1 text-xs font-medium ${
+        onDark
+          ? "border border-brand-bone/25 text-brand-bone/80"
+          : "border border-brand-rule text-brand-ink-soft"
+      }`}
+    >
       {children}
     </span>
   );
 }
 
-export function DefinitionRow({ term, children }: { term: string; children: ReactNode }) {
+/** Facility / fact list rendered as gold-marked lines rather than a bordered table. */
+export function MarkedList({
+  items,
+  onDark = false,
+  columns = 1,
+}: {
+  items: { term?: string; value: string }[];
+  onDark?: boolean;
+  columns?: 1 | 2;
+}) {
   return (
-    <div className="border-t border-brand-line-soft py-3 sm:grid sm:grid-cols-3 sm:gap-4">
-      <dt className="text-sm font-semibold text-brand-ink">{term}</dt>
-      <dd className="mt-1 text-sm text-brand-ink-soft sm:col-span-2 sm:mt-0">{children}</dd>
-    </div>
+    <ul
+      className={`${columns === 2 ? "sm:grid sm:grid-cols-2 sm:gap-x-10" : ""} divide-y ${
+        onDark ? "divide-brand-bone/15" : "divide-brand-rule"
+      }`}
+    >
+      {items.map((it) => (
+        <li key={it.term ? `${it.term}-${it.value}` : it.value} className="py-3.5">
+          {it.term ? (
+            <span className={`label mb-1 block ${onDark ? "text-brand-gold" : "text-brand-teal"}`}>
+              {it.term}
+            </span>
+          ) : null}
+          <span className={onDark ? "text-brand-bone/85" : "text-brand-ink-soft"}>{it.value}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
-export function Divider() {
-  return <hr className="border-brand-line-soft" />;
+/**
+ * Where a photograph will sit. On dark bands it is the band itself — so when the owner
+ * uploads a picture it simply becomes the background and nothing else moves. No stock
+ * image, no AI-generated food, no "image coming soon".
+ */
+export function MediaFrame({
+  ratio = "aspect-[4/5]",
+  className = "",
+}: {
+  ratio?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      className={`night-ground grain ${ratio} ${className} border border-brand-gold/25`}
+    />
+  );
+}
+
+export function Divider({ onDark = false }: { onDark?: boolean }) {
+  return <hr className={onDark ? "border-brand-bone/15" : "border-brand-rule"} />;
 }

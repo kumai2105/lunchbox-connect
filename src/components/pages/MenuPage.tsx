@@ -1,12 +1,12 @@
 import Image from "next/image";
 import { PageShell } from "@/components/PageShell";
-import { ButtonLink, Card, Container, Pill, Section, SectionHeading } from "@/components/ui";
+import { Hero } from "@/components/Hero";
+import { Band, BandHeading, ButtonLink, Container, Pill } from "@/components/ui";
 import {
   fallbackAttrs,
   formatPrice,
   getPage,
   getPublishedMenu,
-  getSettings,
   isFallback,
   localized,
   parseList,
@@ -16,15 +16,16 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 import { hrefFor, type Locale } from "@/lib/i18n/config";
 
 /**
- * The menu page.
+ * The menu, set as a printed menu: large category headings, dotted leaders, prices in
+ * tabular figures on the right. Not bordered item cards.
  *
- * When no menu item has been published, this page does NOT show an empty grid or a
- * "coming soon" panel. It shows a complete, purposeful page: what the kitchen cooks
- * (VERIFIED from Phase 1), how to call, and the verified delivery storefronts where a
- * live menu genuinely exists today. That is an honest, finished state — not a placeholder.
+ * When nothing is published this page does not show an empty grid or a "coming soon"
+ * panel. It shows what the kitchen cooks (verified in Phase 1) and sends the visitor to
+ * the live delivery menus — a finished, honest page rather than a placeholder.
  */
 export async function MenuPage({ locale }: { locale: Locale }) {
   const t = getDictionary(locale);
+  const isAr = locale === "ar";
   const [page, groups] = await Promise.all([getPage("menu"), getPublishedMenu()]);
 
   const title = localized(locale, page?.titleEn, page?.titleAr) ?? t.nav.menu;
@@ -37,44 +38,58 @@ export async function MenuPage({ locale }: { locale: Locale }) {
     intro: fallbackAttrs(locale, isFallback(locale, page?.introEn, page?.introAr)),
   };
 
+  const kitchen = isAr
+    ? [
+        "مشاوي على الفحم — مشاوي مشكلة، كباب، شيش طاووق، ريش غنم",
+        "مقبلات باردة وساخنة وسلطات",
+        "مناقيش وفطائر من الفرن",
+        "أطباق عالمية وباستا",
+        "أرز وأطباق جانبية",
+      ]
+    : [
+        "Charcoal grills — mixed grills, kebab, shish taouk, lamb chops",
+        "Cold and hot mezze, and salads",
+        "Manakeesh and fatayer from the oven",
+        "International dishes and pasta",
+        "Rice and sides",
+      ];
+
   return (
     <PageShell locale={locale} routeKey="menu" breadcrumbLabel={title}>
-      <Section tone="surface" className="!pb-10">
-        <Container size="wide">
-          <SectionHeading
-            as="h1"
-            kicker={kicker}
-            title={title}
-            intro={intro}
-            kickerAttrs={attrs.kicker}
-            titleAttrs={attrs.title}
-            introAttrs={attrs.intro}
-          />
-          <div className="mt-8 flex flex-wrap gap-3">
-            <ButtonLink href={telHref()}>
+      <Hero
+        underSolidHeader
+        label={kicker}
+        labelAttrs={attrs.kicker}
+        title={title}
+        titleAttrs={attrs.title}
+        titleAlt={isAr ? null : "قائمة الطعام"}
+        intro={intro}
+        introAttrs={attrs.intro}
+        actions={
+          <>
+            <ButtonLink href={telHref()} variant="bone">
               {t.actions.callShort} <span dir="ltr">{FACTS.phoneDisplay.value}</span>
             </ButtonLink>
             {FACTS.deliveryPartners.value.map((d) => (
-              <ButtonLink key={d.id} href={d.url} external variant="secondary">
+              <ButtonLink key={d.id} href={d.url} external variant="outlineDark">
                 {d.name}
               </ButtonLink>
             ))}
-          </div>
-        </Container>
-      </Section>
+          </>
+        }
+      />
 
       {hasMenu ? (
         <>
-          {/* In-page category jump list — no JavaScript required. */}
-          <div className="sticky top-[57px] z-30 border-y border-brand-line bg-brand-paper/95 backdrop-blur">
+          <div className="sticky top-0 z-30 border-b border-brand-rule bg-brand-bone/95 backdrop-blur">
             <Container size="wide">
-              <nav aria-label={t.labels.category} className="overflow-x-auto py-3">
-                <ul className="flex gap-x-5 gap-y-2 whitespace-nowrap text-sm">
+              <nav aria-label={t.labels.category} className="overflow-x-auto py-4">
+                <ul className="flex gap-x-7 whitespace-nowrap">
                   {groups.map(({ category }) => (
                     <li key={category.id}>
                       <a
                         href={`#cat-${category.slug}`}
-                        className="text-brand-ink-soft underline-offset-4 hover:text-brand-ink hover:underline"
+                        className="label text-brand-ink-soft hover:text-brand-teal"
                       >
                         {localized(locale, category.nameEn, category.nameAr)}
                       </a>
@@ -85,35 +100,32 @@ export async function MenuPage({ locale }: { locale: Locale }) {
             </Container>
           </div>
 
-          <Section tone="paper">
-            <Container size="wide">
-              <div className="space-y-14">
+          <Band tone="bone">
+            <Container>
+              <div className="space-y-20">
                 {groups.map(({ category, items }) => (
                   <section key={category.id} id={`cat-${category.slug}`} aria-labelledby={`h-${category.slug}`}>
-                    <h2
-                      id={`h-${category.slug}`}
-                      className="font-[family-name:var(--font-display)] rtl:font-[family-name:var(--font-arabic)] text-2xl font-semibold"
-                    >
+                    <div className="rule-gold mb-5" />
+                    <h2 id={`h-${category.slug}`} className="display text-3xl sm:text-4xl">
                       {localized(locale, category.nameEn, category.nameAr)}
                     </h2>
                     {localized(locale, category.descriptionEn, category.descriptionAr) ? (
-                      <p className="mt-2 max-w-2xl text-sm text-brand-ink-soft">
+                      <p className="mt-3 max-w-xl text-brand-ink-soft">
                         {localized(locale, category.descriptionEn, category.descriptionAr)}
                       </p>
                     ) : null}
 
-                    <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <ul className="mt-9 space-y-7">
                       {items.map((item) => {
-                        const name = localized(locale, item.nameEn, item.nameAr);
                         const desc = localized(locale, item.descriptionEn, item.descriptionAr);
                         const portion = localized(locale, item.portionEn, item.portionAr);
                         const price = formatPrice(item.priceFils, item.currency, locale);
                         const dietary = parseList(item.dietary);
                         const allergens = parseList(item.allergens);
                         return (
-                          <Card key={item.id} as="li" className="flex gap-4 p-4">
+                          <li key={item.id} className="flex gap-5">
                             {item.imagePath ? (
-                              <div className="relative size-20 shrink-0 overflow-hidden rounded">
+                              <div className="relative size-20 shrink-0 overflow-hidden">
                                 <Image
                                   src={item.imagePath}
                                   alt={localized(locale, item.imageAltEn, item.imageAltAr) ?? ""}
@@ -125,24 +137,30 @@ export async function MenuPage({ locale }: { locale: Locale }) {
                               </div>
                             ) : null}
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-baseline justify-between gap-3">
-                                <h3 className="font-medium leading-snug">{name}</h3>
+                              <p className="menu-row">
+                                <span className="text-lg font-semibold">
+                                  {localized(locale, item.nameEn, item.nameAr)}
+                                </span>
+                                <span className="menu-leader" aria-hidden="true" />
                                 {price ? (
-                                  <span className="shrink-0 text-sm font-semibold" dir="ltr">
+                                  <span className="menu-price text-lg font-semibold" dir="ltr">
                                     {price}
                                   </span>
-                                ) : null}
-                              </div>
+                                ) : (
+                                  <span />
+                                )}
+                              </p>
                               {portion ? (
-                                <p className="mt-0.5 text-xs text-brand-ink-soft">{portion}</p>
+                                <p className="mt-0.5 text-sm text-brand-ink-soft">{portion}</p>
                               ) : null}
                               {desc ? (
-                                <p className="mt-1.5 text-sm leading-relaxed text-brand-ink-soft">
-                                  {desc}
-                                </p>
+                                <p className="mt-1.5 max-w-xl text-brand-ink-soft">{desc}</p>
                               ) : null}
-                              {(dietary.length > 0 || !item.inStock || !item.availableDelivery || !item.availableDineIn) && (
-                                <div className="mt-2 flex flex-wrap gap-1.5">
+                              {dietary.length > 0 ||
+                              !item.inStock ||
+                              !item.availableDelivery ||
+                              !item.availableDineIn ? (
+                                <div className="mt-2.5 flex flex-wrap gap-2">
                                   {!item.inStock ? <Pill>{t.labels.unavailable}</Pill> : null}
                                   {item.inStock && !item.availableDelivery ? (
                                     <Pill>{t.labels.dineInOnly}</Pill>
@@ -154,14 +172,14 @@ export async function MenuPage({ locale }: { locale: Locale }) {
                                     <Pill key={d}>{d}</Pill>
                                   ))}
                                 </div>
-                              )}
+                              ) : null}
                               {allergens.length > 0 ? (
                                 <p className="mt-2 text-xs text-brand-ink-soft">
                                   {t.labels.contains}: {allergens.join(", ")}
                                 </p>
                               ) : null}
                             </div>
-                          </Card>
+                          </li>
                         );
                       })}
                     </ul>
@@ -169,73 +187,55 @@ export async function MenuPage({ locale }: { locale: Locale }) {
                 ))}
               </div>
             </Container>
-          </Section>
+          </Band>
         </>
       ) : (
-        <Section tone="paper">
+        <Band tone="bone">
           <Container size="wide">
-            <div className="grid gap-10 lg:grid-cols-2 lg:gap-16">
+            <div className="grid gap-14 lg:grid-cols-2 lg:gap-20">
               <div>
-                <h2 className="font-[family-name:var(--font-display)] rtl:font-[family-name:var(--font-arabic)] text-2xl font-semibold">
-                  {locale === "ar" ? "ماذا يقدّم المطبخ" : "What the kitchen cooks"}
-                </h2>
-                <ul className="mt-5 space-y-2.5 text-brand-ink-soft">
-                  {(locale === "ar"
-                    ? [
-                        "مشاوي على الفحم — مشاوي مشكلة، كباب، شيش طاووق، ريش غنم",
-                        "مقبلات باردة وساخنة وسلطات",
-                        "مناقيش وفطائر من الفرن",
-                        "أطباق عالمية وباستا",
-                        "أرز وأطباق جانبية",
-                      ]
-                    : [
-                        "Charcoal grills — mixed grills, kebab, shish taouk, lamb chops",
-                        "Cold and hot mezze, and salads",
-                        "Manakeesh and fatayer from the oven",
-                        "International dishes and pasta",
-                        "Rice and sides",
-                      ]
-                  ).map((line) => (
-                    <li key={line} className="flex gap-3">
-                      <span aria-hidden="true" className="text-brand-accent">
-                        ·
-                      </span>
-                      <span>{line}</span>
+                <BandHeading
+                  title={isAr ? "ماذا يقدّم المطبخ" : "What the kitchen cooks"}
+                  titleAlt={isAr ? null : "ماذا يقدّم المطبخ"}
+                  size="lg"
+                />
+                <ul className="mt-9 divide-y divide-brand-rule border-t border-brand-rule">
+                  {kitchen.map((line) => (
+                    <li key={line} className="py-4 text-lg">
+                      {line}
                     </li>
                   ))}
                 </ul>
               </div>
-              <Card>
-                <h2 className="text-lg font-semibold">
-                  {locale === "ar" ? "اطلب الآن" : "Order now"}
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-brand-ink-soft">
-                  {locale === "ar"
-                    ? "قائمة التوصيل الكاملة والأسعار الحالية متاحة لدى شركاء التوصيل، أو اتصل بنا مباشرة."
-                    : "Our full delivery menu and current prices are live with our delivery partners. For dine-in, catering or anything else, calling is the quickest route."}
+              <div className="night-ground grain on-dark p-10 sm:p-12">
+                <h2 className="label text-brand-gold">{isAr ? "اطلب الآن" : "Order now"}</h2>
+                <p className="mt-5 text-lg leading-relaxed text-brand-bone/85">
+                  {isAr
+                    ? "قائمة التوصيل الكاملة والأسعار الحالية متاحة لدى شركاء التوصيل. ولتناول الطعام في المطعم أو للضيافة، الاتصال هو الأسرع."
+                    : "The full delivery menu and current prices are live with our delivery partners. For dine-in, catering or anything else, calling is the quickest route."}
                 </p>
-                <div className="mt-6 flex flex-wrap gap-3">
+                <div className="mt-9 flex flex-wrap gap-3">
+                  <ButtonLink href={telHref()} variant="bone">
+                    {t.actions.callShort} <span dir="ltr">{FACTS.phoneDisplay.value}</span>
+                  </ButtonLink>
                   {FACTS.deliveryPartners.value.map((d) => (
-                    <ButtonLink key={d.id} href={d.url} external variant="secondary">
+                    <ButtonLink key={d.id} href={d.url} external variant="outlineDark">
                       {d.name}
                     </ButtonLink>
                   ))}
-                  <ButtonLink href={telHref()}>
-                    {t.actions.callShort} <span dir="ltr">{FACTS.phoneDisplay.value}</span>
-                  </ButtonLink>
                 </div>
-                <p className="mt-6 border-t border-brand-line-soft pt-4 text-sm">
+                <p className="mt-9 border-t border-brand-bone/20 pt-6">
                   <a
                     href={hrefFor("catering", locale)}
-                    className="font-semibold text-brand-accent underline underline-offset-4"
+                    className="label text-brand-gold underline decoration-brand-gold underline-offset-[6px]"
                   >
                     {t.actions.enquireCatering}
                   </a>
                 </p>
-              </Card>
+              </div>
             </div>
           </Container>
-        </Section>
+        </Band>
       )}
     </PageShell>
   );

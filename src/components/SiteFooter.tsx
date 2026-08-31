@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { hrefFor, type Locale, type RouteKey } from "@/lib/i18n/config";
@@ -17,15 +18,19 @@ export function SiteFooter({
   const isAr = locale === "ar";
 
   const addr = isAr
-    ? [FACTS.addressLine1Ar.value, FACTS.addressLine2Ar.value, FACTS.cityAr.value, FACTS.countryAr.value]
-    : [FACTS.addressLine1En.value, FACTS.addressLine2En.value, FACTS.cityEn.value, FACTS.countryEn.value];
+    ? [FACTS.addressLine1Ar.value, FACTS.addressLine2Ar.value, FACTS.cityAr.value]
+    : [FACTS.addressLine1En.value, FACTS.addressLine2En.value, FACTS.cityEn.value];
+
+  const whatsapp = settings.whatsapp?.trim();
+  const email = settings.email?.trim();
+  const hoursNote = (isAr ? settings.hours_note_ar : settings.hours_note_en)?.trim();
 
   const cols: { heading: string; links: { key: RouteKey; label: string }[] }[] = [
     {
-      heading: t.nav.restaurant,
+      heading: isAr ? "تناول الطعام" : "Dining",
       links: [
-        { key: "restaurant", label: t.nav.restaurant },
         { key: "menu", label: t.nav.menu },
+        { key: "restaurant", label: t.nav.restaurant },
         { key: "brunch", label: t.nav.brunch },
       ],
     },
@@ -38,7 +43,7 @@ export function SiteFooter({
       ],
     },
     {
-      heading: t.brand,
+      heading: isAr ? "المزيد" : "More",
       links: [
         { key: "about", label: t.nav.about },
         ...(showGallery ? [{ key: "gallery" as RouteKey, label: t.nav.gallery }] : []),
@@ -48,71 +53,83 @@ export function SiteFooter({
     },
   ];
 
-  // Only render optional contact rows when the value actually exists.
-  const whatsapp = settings.whatsapp?.trim();
-  const email = settings.email?.trim();
-  const hoursNote = (isAr ? settings.hours_note_ar : settings.hours_note_en)?.trim();
-
   return (
-    <footer className="bg-brand-deep text-white/85">
+    <footer className="pine-ground on-dark text-brand-bone/75">
       <Container size="wide">
-        <div className="grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-12 py-20 lg:grid-cols-[1.3fr_repeat(3,minmax(0,1fr))]">
           <div>
-            <p className="font-[family-name:var(--font-display)] rtl:font-[family-name:var(--font-arabic)] text-lg font-semibold text-white">
-              {isAr ? FACTS.nameAr.value : FACTS.nameEn.value}
-            </p>
-            <address className="mt-3 not-italic text-sm leading-relaxed">
-              {addr.map((line) => (
-                <span key={line} className="block">
-                  {line}
+            <Image
+              src="/brand/logo-reversed.png"
+              alt={isAr ? FACTS.nameAr.value : FACTS.nameEn.value}
+              width={1600}
+              height={811}
+              sizes="228px"
+              className="h-[116px] w-auto"
+            />
+            {!isAr ? (
+              <p lang="ar" dir="rtl" aria-hidden="true" className="script-pair mt-4 text-xl text-brand-gold/85">
+                مطعم ومقهى جزيل
+              </p>
+            ) : null}
+            <address className="mt-6 not-italic leading-relaxed">
+              {addr.map((l) => (
+                <span key={l} className="block">
+                  {l}
                 </span>
               ))}
             </address>
-            <p className="mt-4 text-sm">
-              <a href={telHref()} className="font-semibold text-white underline underline-offset-4">
-                <span dir="ltr">{FACTS.phoneDisplay.value}</span>
+            <p className="mt-5">
+              <a
+                href={telHref()}
+                dir="ltr"
+                className="display text-2xl text-brand-bone hover:text-brand-gold"
+              >
+                {FACTS.phoneDisplay.value}
               </a>
             </p>
-            {whatsapp ? (
-              <p className="mt-1 text-sm">
+            <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+              <li>
                 <a
-                  href={`https://wa.me/${whatsapp.replace(/\D/g, "")}`}
+                  href={directionsUrl()}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline underline-offset-4"
+                  className="underline decoration-brand-gold underline-offset-4 hover:text-brand-bone"
                 >
-                  WhatsApp
+                  {t.actions.directions}
                 </a>
-              </p>
-            ) : null}
-            {email ? (
-              <p className="mt-1 text-sm">
-                <a href={`mailto:${email}`} className="underline underline-offset-4">
-                  {email}
-                </a>
-              </p>
-            ) : null}
-            <p className="mt-4 text-sm">
-              <a
-                href={directionsUrl()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline underline-offset-4"
-              >
-                {t.actions.directions}
-              </a>
-            </p>
+              </li>
+              {whatsapp ? (
+                <li>
+                  <a
+                    href={`https://wa.me/${whatsapp.replace(/\D/g, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline decoration-brand-gold underline-offset-4 hover:text-brand-bone"
+                  >
+                    WhatsApp
+                  </a>
+                </li>
+              ) : null}
+              {email ? (
+                <li>
+                  <a
+                    href={`mailto:${email}`}
+                    className="underline decoration-brand-gold underline-offset-4 hover:text-brand-bone"
+                  >
+                    {email}
+                  </a>
+                </li>
+              ) : null}
+            </ul>
           </div>
 
           {cols.map((col) => (
             <nav key={col.heading} aria-label={col.heading}>
-              <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-white/60">
-                {col.heading}
-              </h2>
-              <ul className="mt-3 space-y-2 text-sm">
+              <h2 className="label text-brand-gold">{col.heading}</h2>
+              <ul className="mt-5 space-y-3 text-sm">
                 {col.links.map((l) => (
                   <li key={l.key}>
-                    <Link href={hrefFor(l.key, locale)} className="hover:text-white hover:underline underline-offset-4">
+                    <Link href={hrefFor(l.key, locale)} className="hover:text-brand-bone">
                       {l.label}
                     </Link>
                   </li>
@@ -122,50 +139,44 @@ export function SiteFooter({
           ))}
         </div>
 
-        <div className="border-t border-white/15 py-8">
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div>
-              <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-white/60">
-                {t.labels.hours}
-              </h2>
-              <p className="mt-2 text-sm">
-                {t.labels.everyDay}{" "}
-                <span dir="ltr">
-                  {FACTS.hoursOpen.value} – {FACTS.hoursClose.value}
-                </span>
-              </p>
-              {hoursNote ? <p className="mt-1 text-sm text-white/70">{hoursNote}</p> : null}
-            </div>
-            <div>
-              <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-white/60">
-                {t.labels.deliveryPartners}
-              </h2>
-              <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm">
-                {FACTS.deliveryPartners.value.map((d) => (
-                  <li key={d.id}>
-                    <a
-                      href={d.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline underline-offset-4"
-                    >
-                      {d.name}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
+        <div className="grid gap-8 border-t border-brand-bone/15 py-10 sm:grid-cols-2">
+          <div>
+            <h2 className="label text-brand-gold">{t.labels.hours}</h2>
+            <p className="mt-3 text-lg text-brand-bone">
+              {t.labels.everyDay}{" "}
+              <span dir="ltr" className="font-semibold">
+                {FACTS.hoursOpen.value} – {FACTS.hoursClose.value}
+              </span>
+            </p>
+            {hoursNote ? <p className="mt-1 text-sm">{hoursNote}</p> : null}
+          </div>
+          <div>
+            <h2 className="label text-brand-gold">{t.labels.deliveryPartners}</h2>
+            <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+              {FACTS.deliveryPartners.value.map((d) => (
+                <li key={d.id}>
+                  <a
+                    href={d.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline decoration-brand-gold underline-offset-4 hover:text-brand-bone"
+                  >
+                    {d.name}
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-white/15 py-6 text-xs text-white/60 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 border-t border-brand-bone/15 py-8 text-xs text-brand-bone/55 sm:flex-row sm:items-center sm:justify-between">
           <p>
             © {new Date().getFullYear()} {isAr ? FACTS.nameAr.value : FACTS.nameEn.value}
           </p>
-          <ul className="flex flex-wrap gap-x-5 gap-y-1">
+          <ul className="flex flex-wrap gap-x-6 gap-y-1">
             {FACTS.social.value.map((s) => (
               <li key={s.id}>
-                <a href={s.url} target="_blank" rel="noopener noreferrer" className="hover:text-white">
+                <a href={s.url} target="_blank" rel="noopener noreferrer" className="hover:text-brand-bone">
                   {s.name}
                 </a>
               </li>

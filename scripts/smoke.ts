@@ -171,12 +171,37 @@ async function main() {
       els.map((e) => (e as HTMLAnchorElement).getAttribute("href")).filter(Boolean),
     );
     await page.close();
-    assert(hrefs.length >= 8, `only ${hrefs.length} nav links found`);
+    // Seven by design: Menu, Restaurant, Weddings, Corporate, Catering, Brunch, Contact.
+    // About and Gallery live in the footer — verified separately below.
+    assert(hrefs.length === 7, `expected 7 nav links, found ${hrefs.length}`);
     for (const href of hrefs) {
       const res = await fetch(`${BASE}${href}`);
       assert(res.status === 200, `${href} returned ${res.status}`);
     }
     return `${hrefs.length} links`;
+  });
+
+  await check("The three pillars each keep their own top-level nav slot", async () => {
+    const html = await (await fetch(`${BASE}/en`)).text();
+    const nav = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
+    for (const path of ["/en/weddings", "/en/corporate", "/en/catering"]) {
+      assert(nav.includes(`href="${path}"`), `${path} is not in the header`);
+    }
+    assert(!/Services/i.test(nav), "the pillars were folded into a Services item");
+    return "weddings, corporate, catering";
+  });
+
+  await check("Nothing became unreachable when the nav was trimmed", async () => {
+    const page = await browser.newPage();
+    await page.goto(`${BASE}/en`, { waitUntil: "domcontentloaded" });
+    const footer = await page.locator("footer a").evaluateAll((els) =>
+      els.map((e) => (e as HTMLAnchorElement).getAttribute("href") ?? ""),
+    );
+    await page.close();
+    for (const path of ["/en/about", "/en/privacy", "/en/contact"]) {
+      assert(footer.includes(path), `${path} is reachable from neither the header nor the footer`);
+    }
+    return "about, privacy, contact all in the footer";
   });
 
   await check("No dead or empty links anywhere on the homepage", async () => {
@@ -616,16 +641,33 @@ async function main() {
   });
 
   await check("Mobile navigation opens without JavaScript enabled", async () => {
-    const ctx = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 844 } });
+    const ctx = await browser.newContext({
+      javaScriptEnabled: false,
+      viewport: { width: 390, height: 844 },
+    });
     const page = await ctx.newPage();
     await page.goto(`${BASE}/en`, { waitUntil: "domcontentloaded" });
-    const before = await page.locator("header nav").isVisible();
-    await page.locator("summary").click();
-    const after = await page.locator("header nav").isVisible();
+    const panel = page.locator("header details ul");
+    const before = await panel.isVisible();
+    await page.locator("header details summary").click();
+    const after = await panel.isVisible();
+    const links = await panel.locator("a").count();
     await ctx.close();
-    assert(!before, "nav was already visible on mobile");
-    assert(after, "nav did not open");
-    return "opens with JS disabled";
+    assert(!before, "the menu was already open on mobile");
+    assert(after, "the menu did not open");
+    assert(links === 7, `expected 7 links in the mobile menu, found ${links}`);
+    return "opens with JS disabled, 7 links";
+  });
+
+  await check("Only one navigation landmark is exposed at each breakpoint", async () => {
+    for (const width of [390, 1280]) {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      await page.goto(`${BASE}/en`, { waitUntil: "domcontentloaded" });
+      const visible = await page.locator("header nav:visible").count();
+      await page.close();
+      assert(visible <= 1, `${visible} header nav landmarks visible at ${width}px`);
+    }
+    return "one at 390px, one at 1280px";
   });
 
   await check("No horizontal overflow at 320px, 390px, 768px, 1280px", async () => {

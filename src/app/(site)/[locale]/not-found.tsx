@@ -16,38 +16,38 @@ export default function LocaleNotFound() {
   const ar = getDictionary("ar");
 
   return (
-    <div className="flex min-h-dvh flex-col justify-center bg-brand-paper py-20">
+    <div className="night-ground grain on-dark flex min-h-dvh flex-col justify-center py-20 text-brand-bone">
       <Container size="narrow">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-accent">404</p>
-        <h1 className="mt-3 font-[family-name:var(--font-display)] text-3xl font-semibold sm:text-4xl">
+        <p className="label text-brand-gold">404</p>
+        <h1 className="display mt-5 text-4xl sm:text-5xl">
           {en.errors.notFoundTitle}
         </h1>
-        <p className="mt-3 text-brand-ink-soft">{en.errors.notFoundBody}</p>
+        <p className="mt-4 text-brand-bone/75">{en.errors.notFoundBody}</p>
 
-        <div className="mt-6 border-t border-brand-line pt-6" dir="rtl" lang="ar">
-          <h2 className="font-[family-name:var(--font-arabic)] text-2xl font-semibold">
+        <div className="mt-8 border-t border-brand-bone/20 pt-8" dir="rtl" lang="ar">
+          <h2 className="display-ar text-3xl">
             {ar.errors.notFoundTitle}
           </h2>
-          <p className="mt-2 text-brand-ink-soft">{ar.errors.notFoundBody}</p>
+          <p className="mt-3 text-brand-bone/75">{ar.errors.notFoundBody}</p>
         </div>
 
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href={hrefFor("home", defaultLocale)}
-            className="inline-flex min-h-11 items-center rounded-[--radius-card] bg-brand-accent px-5 py-3 text-sm font-semibold text-white"
+            className="label inline-flex min-h-12 items-center bg-brand-bone px-6 py-3.5 text-brand-night hover:bg-brand-gold"
           >
             {en.actions.backHome}
           </Link>
           <Link
             href={hrefFor("home", "ar")}
             lang="ar"
-            className="inline-flex min-h-11 items-center rounded-[--radius-card] border border-brand-line bg-brand-surface px-5 py-3 text-sm font-semibold"
+            className="label inline-flex min-h-12 items-center border border-brand-bone/35 px-6 py-3.5 text-brand-bone hover:border-brand-gold hover:text-brand-gold"
           >
             {ar.actions.backHome}
           </Link>
           <a
             href={telHref()}
-            className="inline-flex min-h-11 items-center rounded-[--radius-card] border border-brand-line bg-brand-surface px-5 py-3 text-sm font-semibold"
+            className="label inline-flex min-h-12 items-center border border-brand-bone/35 px-6 py-3.5 text-brand-bone hover:border-brand-gold hover:text-brand-gold"
             dir="ltr"
           >
             {FACTS.phoneDisplay.value}

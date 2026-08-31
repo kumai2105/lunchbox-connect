@@ -151,12 +151,40 @@ describe("no stock or generated imagery ships with the build", () => {
     expect(files).toEqual([]);
   });
 
-  it("ships no bundled image assets in public/", () => {
-    const dir = path.join(process.cwd(), "public");
-    const imgs = fs
-      .readdirSync(dir)
-      .filter((f) => /\.(jpe?g|png|webp|avif|gif)$/i.test(f));
-    expect(imgs).toEqual([]);
+  /*
+    The only bitmaps allowed to ship are the ones derived from the logo the owner
+    supplied. Nothing here may be a photograph, and nothing may be generated imagery
+    of food, the venue or an event. Adding a file to public/ fails this test on
+    purpose: a new image has to be justified by editing this list.
+  */
+  const OWNER_BRAND_ASSETS = [
+    "apple-touch-icon.png",
+    "favicon.png",
+    "brand/logo.png",
+    "brand/logo-reversed.png",
+    "brand/mark.png",
+    "brand/og.png",
+  ];
+
+  it("ships no bundled images beyond the owner's own logo", () => {
+    const root = path.join(process.cwd(), "public");
+    const walk = (dir: string): string[] =>
+      fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) return walk(full);
+        return /\.(jpe?g|png|webp|avif|gif)$/i.test(e.name)
+          ? [path.relative(root, full).split(path.sep).join("/")]
+          : [];
+      });
+    expect(walk(root).sort()).toEqual([...OWNER_BRAND_ASSETS].sort());
+  });
+
+  it("every shipped brand asset traces to the supplied logo file", () => {
+    for (const rel of OWNER_BRAND_ASSETS) {
+      const full = path.join(process.cwd(), "public", rel);
+      expect(fs.existsSync(full), `${rel} is listed but missing`).toBe(true);
+      expect(fs.statSync(full).size, `${rel} is empty`).toBeGreaterThan(500);
+    }
   });
 });
 
