@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Jazeel Restaurant & Café — website
 
-## Getting Started
+A bilingual (English / Arabic) website for Jazeel Restaurant & Café, Semmer Villas Community
+Centre, Dubai Silicon Oasis.
 
-First, run the development server:
+Built as **Phase 2** of an evidence-led engagement. Phase 1 was a public-record research dossier;
+this site is derived from it. The governing rule throughout: **nothing is published that the
+research verified as unknown, and nothing is invented to fill a gap.**
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run setup     # database + seed
+npm run dev       # http://localhost:3000  ·  admin at /admin
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Documentation
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Document | What it covers |
+|---|---|
+| [`docs/BLUEPRINT.md`](docs/BLUEPRINT.md) | Objectives, audiences, journeys, information architecture, content model, publication gates, SEO, accessibility, architecture decisions, risks |
+| [`docs/CONTENT-REGISTER.md`](docs/CONTENT-REGISTER.md) | Everything the owner must supply, what it unlocks, and whether it blocks launch |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Environment, enquiry email activation, hosting, pre-deployment checklist |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## What it does
 
-## Learn More
+Three commercial pillars, each with its own top-level route, metadata and enquiry type:
 
-To learn more about Next.js, take a look at the following resources:
+- **Restaurant & Café** — daily dining, menu, facilities, delivery partners
+- **Weddings & Celebrations** — hosted or catered
+- **Corporate Events** — meetings, gatherings, product and company launches
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+plus **Catering**, **Sunday Brunch**, **Gallery** (hidden until real photographs exist),
+**About**, **Contact** and a **Privacy notice**.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Stack
 
-## Deploy on Vercel
+Next.js 16 (App Router) · TypeScript · Tailwind CSS v4 · SQLite via Drizzle ORM · Zod ·
+Vitest + a Playwright-driven end-to-end suite. Reasoning for each choice is in the blueprint.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Conventions worth knowing before editing
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **`src/lib/facts.ts` is the only place business facts live.** Every entry carries its evidence
+  class and source. Anything unverified is `null`, and nothing renders from a null.
+- **Arabic is never machine-translated.** `src/lib/i18n/dictionaries.ts` holds interface strings
+  only; all marketing copy lives in the database with separate English and Arabic columns. Empty
+  Arabic falls back to English, tagged with the correct `lang`/`dir`, and the admin flags the gap.
+- **Publication gates are enforced in code, not by editorial discipline.** Empty optional content
+  removes its block entirely; there is no "TBC", no placeholder and no empty state pretending to
+  be content.
+- **No stock photography and no generated imagery.** `MediaSlot` is a composed surface, not a
+  picture of food. `tests/evidence.test.ts` fails the build if an image is ever bundled.
+- **Structured data omissions are deliberate and commented.** See the block comment in
+  `src/lib/seo.ts` for what is left out and why.
+
+## Verification
+
+```bash
+npm test        # 61 unit tests
+npm run build   # production build
+npm start &     # then, against the running server:
+npm run smoke   # 72 end-to-end checks in a real browser
+```
+
+## Status
+
+**Not deployed.** The site has only run locally. See `docs/DEPLOYMENT.md`.
