@@ -120,6 +120,23 @@ describe("published copy makes no unsupported claim", () => {
     });
   }
 
+  /*
+    Cabinet Resolution 24/2013 Arts. 5–8 name "the internet" expressly, and Dubai
+    Municipality DM-HSD-GU118-SSP2 Annex 13 prohibits displaying tobacco products by
+    electronic means. Phase 1 could not establish what a restaurant may say about shisha
+    on its own site, so the seeded copy says nothing and the master switch ships off. If
+    counsel clears it, the sentence goes back through the admin — not through the seed.
+  */
+  it("the seeded copy makes no reference to shisha", () => {
+    expect(allCopy).not.toContain("shisha");
+    expect(allCopy).not.toContain("شيشة");
+  });
+
+  it("the shisha master switch ships off", async () => {
+    const src = fs.readFileSync(path.join(process.cwd(), "scripts", "seed.ts"), "utf8");
+    expect(src).toMatch(/key:\s*"shisha_visible",\s*value:\s*"false"/);
+  });
+
   it("never quotes a customer or a rating", () => {
     expect(allCopy).not.toMatch(/\b\d\.\d\s*(\/|out of)\s*5\b/);
     expect(allCopy).not.toContain("testimonial");

@@ -17,7 +17,15 @@ const LABELS: Record<string, { label: string; hint?: string; dir?: "ltr" | "rtl"
   hours_note_en: { label: "Note about hours (English)", hint: "e.g. different hours during Ramadan. Leave empty and nothing shows." },
   hours_note_ar: { label: "Note about hours (Arabic)", dir: "rtl" },
   shisha_hours: { label: "Shisha service hours", hint: "Not published anywhere yet — see the note below." },
-  shisha_visible: { label: "Mention shisha on the site", hint: 'Type "false" to remove every mention of shisha from the public site at once. Anything else keeps it.' },
+  shisha_visible: {
+    label: "Mention shisha on the site",
+    hint:
+      'Currently "false", which hides shisha from the facility lists everywhere on the site. ' +
+      "It is off by default because four UAE instruments bear on referring to tobacco online " +
+      "and Phase 1 could not establish what a restaurant may say on its own website — take " +
+      'legal advice before turning it on. Note this switch controls the facility lists only: ' +
+      "if you type the word into a page yourself, it stays until you remove it.",
+  },
   map_url: { label: "Map link", dir: "ltr", hint: "Optional. Directions currently use the written address." },
   brunch_time_en: { label: "Sunday brunch times (English)", hint: "e.g. Every Sunday, 12:00–16:00" },
   brunch_time_ar: { label: "Sunday brunch times (Arabic)", dir: "rtl" },

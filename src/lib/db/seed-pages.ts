@@ -40,7 +40,7 @@ export const seedPages: SeedPage[] = [
     introEn:
       "A neighbourhood restaurant in the community centre at Semmer Villas, serving Arabic and international food from late morning until the early hours.",
     bodyEn:
-      "The kitchen works over charcoal — mixed grills, kebabs, shish taouk, lamb chops and boneless chicken — alongside cold and hot mezze, salads, manakeesh and fatayer from the oven, and a set of international dishes including escalopes, cordon bleu and pasta.\n\nThere is an indoor dining room with a family hall, an outdoor seating area, and a children's area. Shisha is served. Alcohol is not served.\n\nYou can eat in, collect a takeaway order, or have delivery brought to you through our delivery partners.",
+      "The kitchen works over charcoal — mixed grills, kebabs, shish taouk, lamb chops and boneless chicken — alongside cold and hot mezze, salads, manakeesh and fatayer from the oven, and a set of international dishes including escalopes, cordon bleu and pasta.\n\nThere is an indoor dining room with a family hall, an outdoor seating area, and a children's area. Alcohol is not served.\n\nYou can eat in, collect a takeaway order, or have delivery brought to you through our delivery partners.",
     seoTitleEn: "Restaurant & Café in Dubai Silicon Oasis | Jazeel",
     seoDescriptionEn:
       "Charcoal grills, mezze, manakeesh and international dishes at Semmer Villas, Dubai Silicon Oasis. Indoor family hall, outdoor seating, children's area. Open daily 10:00–02:00.",
@@ -119,7 +119,7 @@ export const seedPages: SeedPage[] = [
     introEn:
       "Jazeel is a restaurant and café in the community centre at Semmer Villas, Dubai Silicon Oasis, serving Arabic and international food every day from 10:00 until 02:00.",
     bodyEn:
-      "The menu is built around a charcoal grill, with Levantine mezze, salads, manakeesh and fatayer from the oven, and a range of international dishes.\n\nThere is an indoor dining room with a family hall, outdoor seating, and a children's area. Shisha is served. Alcohol is not served. You can eat in, order takeaway, or have delivery brought to you through our delivery partners.\n\nAlongside the restaurant, Jazeel caters and hosts occasions — weddings, private celebrations, Sunday brunch, and corporate meetings, gatherings and launches.",
+      "The menu is built around a charcoal grill, with Levantine mezze, salads, manakeesh and fatayer from the oven, and a range of international dishes.\n\nThere is an indoor dining room with a family hall, outdoor seating, and a children's area. Alcohol is not served. You can eat in, order takeaway, or have delivery brought to you through our delivery partners.\n\nAlongside the restaurant, Jazeel caters and hosts occasions — weddings, private celebrations, Sunday brunch, and corporate meetings, gatherings and launches.",
     seoTitleEn: "About Jazeel Restaurant & Café | Dubai Silicon Oasis",
     seoDescriptionEn:
       "An Arabic and international restaurant and café at Semmer Villas, Dubai Silicon Oasis, open daily 10:00–02:00 — also catering weddings, celebrations and corporate events.",

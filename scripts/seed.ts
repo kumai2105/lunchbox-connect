@@ -39,7 +39,13 @@ const settingRows: { key: string; value: string | null; evidence: string; note: 
   { key: "hours_note_en", value: null, evidence: "UNKNOWN", note: "Per-day / Ramadan variation unknown." },
   { key: "hours_note_ar", value: null, evidence: "UNKNOWN", note: "" },
   { key: "shisha_hours", value: null, evidence: "UNKNOWN", note: "Dossier C-02 — open legal question. Do not publish without advice." },
-  { key: "shisha_visible", value: "true", evidence: "VERIFIED", note: "Master switch: hides every shisha mention site-wide when set to false." },
+  // Defaults to OFF. Shisha at the venue is VERIFIED (Dossier §2.5), but four instruments
+  // bear on referring to it online — Cabinet Resolution 24/2013 Arts. 5–8 name "the internet"
+  // expressly, and Dubai Municipality DM-HSD-GU118-SSP2 Annex 13 prohibits "Displaying
+  // tobacco and related products via internet or any electronic means". Phase 1 could not
+  // resolve what a restaurant may say on its own site, and the penalty band is AED 100k–1m.
+  // Turn it on in Admin → Details & hours once counsel has advised. Register item 10.
+  { key: "shisha_visible", value: "false", evidence: "VERIFIED", note: "Master switch: hides every shisha mention site-wide. Default off pending legal advice." },
   { key: "map_url", value: null, evidence: "UNVERIFIED", note: "Coordinates contradicted (C-01). Directions currently use the textual address." },
   { key: "brunch_time_en", value: null, evidence: "UNKNOWN", note: "Owner to supply brunch service times." },
   { key: "brunch_time_ar", value: null, evidence: "UNKNOWN", note: "" },
