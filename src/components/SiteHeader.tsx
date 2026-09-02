@@ -114,7 +114,10 @@ export function SiteHeader({
             this keeps the markup honest and needs no JavaScript.
           */}
           <nav aria-label={t.nav.primaryLabel} className="hidden lg:block">
-            <ul className="flex flex-wrap items-center justify-between gap-x-6 border-t pb-5 pt-4"
+            {/* justify-between spreads the seven items, but the gap is still a minimum, and
+                at 1280px the row sat about six pixels from wrapping — a very common laptop
+                width to be that close to. A smaller minimum gap gives it real headroom. */}
+            <ul className="flex flex-wrap items-center justify-between gap-x-4 whitespace-nowrap border-t pb-5 pt-4 xl:gap-x-6"
                 style={{ borderColor: onDark ? "rgba(246,241,232,0.2)" : "var(--color-brand-rule)" }}>
               {primary.map(({ key, label }) => {
                 const active = currentRoute === key;
