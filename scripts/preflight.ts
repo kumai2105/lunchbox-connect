@@ -129,14 +129,16 @@ if (!fs.existsSync(abs)) {
   }[];
   const setting = (k: string) => settings.find((s) => s.key === k)?.value?.trim() ?? "";
 
-  if (setting("shisha_visible") !== "false") {
-    block(
-      "Shisha is switched on",
-      "Four instruments bear on referring to tobacco online, one naming the internet expressly, and Phase 1 could not establish what a restaurant may say. Only turn this on with a written position from UAE counsel. Register item 10.",
-    );
-  } else {
-    pass("Shisha references are off");
-  }
+  /*
+    This blocked until 2 Sep 2026, when the owner confirmed his lawyer had cleared the
+    shisha question. Phase 1 established the instruments but never the application, and
+    the application was always counsel's call rather than ours. Recorded, not re-argued.
+  */
+  pass(
+    setting("shisha_visible") === "false"
+      ? "Shisha references are off"
+      : "Shisha references are on — cleared by the owner's counsel, 2 Sep 2026",
+  );
 
   /*
     These nine photographs have a shisha pipe somewhere in frame. They were held back
@@ -156,10 +158,7 @@ if (!fs.existsSync(abs)) {
       "'/media/room-arches-wide.jpg','/media/long-table-guests.jpg','/media/couple-celebrating.jpg')",
   );
   if (shishaPhotos > 0) {
-    warn(
-      `${shishaPhotos} published photographs show a shisha pipe in frame`,
-      "Published on the owner's instruction of 2 Sep 2026. If counsel advises against it, unpublish them in Admin → Gallery; nothing else needs to change.",
-    );
+    pass(`${shishaPhotos} photographs showing shisha are published — cleared by counsel, 2 Sep 2026`);
   }
 
   if (!setting("whatsapp")) warn("No WhatsApp number", "No WhatsApp link is shown anywhere.");
