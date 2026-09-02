@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { PageShell } from "@/components/PageShell";
 import { Hero } from "@/components/Hero";
 import { Band, BandHeading, ButtonLink, Container, Pill } from "@/components/ui";
@@ -18,6 +17,16 @@ import { hrefFor, type Locale } from "@/lib/i18n/config";
 /**
  * The menu, set as a printed menu: large category headings, dotted leaders, prices in
  * tabular figures on the right. Not bordered item cards.
+ *
+ * NO PER-ITEM PHOTOGRAPHS, by the owner's decision (2 Sep 2026): there is no food
+ * photography he considers good enough, and a menu with a photograph on some items and
+ * not others reads worse than one with none. The typeset menu is the stronger form
+ * regardless — it is what a printed menu does.
+ *
+ * To restore them later: put the <Image> back on the item row here, and re-add the
+ * "Photograph" and "Image alt text" fields to src/app/(admin)/admin/menu/item/page.tsx.
+ * The database columns (image_path, image_alt_en, image_alt_ar) were left in place and
+ * the server action still accepts them, so nothing needs a migration.
  *
  * When nothing is published this page does not show an empty grid or a "coming soon"
  * panel. It shows what the kitchen cooks (verified in Phase 1) and sends the visitor to
@@ -123,19 +132,7 @@ export async function MenuPage({ locale }: { locale: Locale }) {
                         const dietary = parseList(item.dietary);
                         const allergens = parseList(item.allergens);
                         return (
-                          <li key={item.id} className="flex gap-5">
-                            {item.imagePath ? (
-                              <div className="relative size-20 shrink-0 overflow-hidden">
-                                <Image
-                                  src={item.imagePath}
-                                  alt={localized(locale, item.imageAltEn, item.imageAltAr) ?? ""}
-                                  fill
-                                  sizes="80px"
-                                  className="object-cover"
-                                  loading="lazy"
-                                />
-                              </div>
-                            ) : null}
+                          <li key={item.id}>
                             <div className="min-w-0 flex-1">
                               <p className="menu-row">
                                 <span className="text-lg font-semibold">

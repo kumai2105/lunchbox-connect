@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { getAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { galleryImages, menuCategories, menuItems } from "@/lib/db/schema";
+import { menuCategories, menuItems } from "@/lib/db/schema";
 import { deleteMenuItemAction, saveMenuItemAction } from "@/app/actions/admin";
 import { ActionForm, Checkbox, Field, Select, SubmitButton, TextArea } from "@/components/admin/AdminUI";
 import { parseList } from "@/lib/content";
@@ -17,7 +17,7 @@ export default async function ItemEditor({
   const { id, category } = await searchParams;
   const row = id ? db.select().from(menuItems).where(eq(menuItems.id, Number(id))).all()[0] : null;
   const cats = db.select().from(menuCategories).orderBy(asc(menuCategories.sort)).all();
-  const images = db.select().from(galleryImages).orderBy(asc(galleryImages.id)).all();
+
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -87,18 +87,13 @@ export default async function ItemEditor({
                 hint="One per line. Dubai Municipality requires nine allergen categories to be declared or available on request — confirm your list with your food-safety adviser."
               />
             </div>
-            <Select
-              label="Photograph"
-              name="imagePath"
-              defaultValue={row?.imagePath ?? ""}
-              options={[
-                { value: "", label: "None" },
-                ...images.map((i) => ({ value: i.filePath, label: i.altEn })),
-              ]}
-            />
+            {/*
+              The photograph and alt-text fields were removed on the owner's instruction
+              (2 Sep 2026): the menu is typeset as a printed menu, with no per-item
+              images. The columns and the server action still accept them, so restoring
+              the fields here is all that is needed to bring photographs back.
+            */}
             <Field label="Sort order" name="sort" type="number" dir="ltr" defaultValue={row?.sort ?? 0} />
-            <Field label="Image alt text (English)" name="imageAltEn" defaultValue={row?.imageAltEn} />
-            <Field label="Image alt text (Arabic)" name="imageAltAr" dir="rtl" defaultValue={row?.imageAltAr} />
             <div className="sm:col-span-2">
               <Field
                 label="Internal source note"
