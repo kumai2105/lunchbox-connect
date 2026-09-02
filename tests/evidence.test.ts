@@ -169,8 +169,8 @@ describe("no stock or generated imagery ships with the build", () => {
     table. A file dropped into uploads/ that nothing references is exactly how a stock
     image would arrive, so that fails.
   */
-  it("every file in uploads/ is a registered gallery image", async () => {
-    const dir = path.join(process.cwd(), "public", "uploads");
+  it("every shipped photograph is a registered gallery image", async () => {
+    const dir = path.join(process.cwd(), "public", "media");
     const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f !== ".gitkeep") : [];
     // Read the database file directly: src/lib/db is server-only and cannot be imported here.
     const { default: Database } = await import("better-sqlite3");
@@ -181,13 +181,13 @@ describe("no stock or generated imagery ships with the build", () => {
     sqlite.close();
     const known = new Set(rows.map((r) => path.basename(r.filePath).replace(/\.jpg$/, "")));
     const orphans = files.filter((f) => !known.has(f.replace(/\.(jpe?g|webp|avif|png)$/i, "")));
-    expect(orphans, `unreferenced files in public/uploads: ${orphans.join(", ")}`).toEqual([]);
+    expect(orphans, `unreferenced files in public/media: ${orphans.join(", ")}`).toEqual([]);
   });
 
   it("no shipped photograph carries EXIF metadata", () => {
     // The originals held capture timestamps and camera serial numbers. The import strips
     // them; this checks the marker bytes are actually gone.
-    const dir = path.join(process.cwd(), "public", "uploads");
+    const dir = path.join(process.cwd(), "public", "media");
     if (!fs.existsSync(dir)) return;
     const withExif = fs
       .readdirSync(dir)
@@ -216,8 +216,8 @@ describe("no stock or generated imagery ships with the build", () => {
     const walk = (dir: string): string[] =>
       fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
         const full = path.join(dir, e.name);
-        // uploads/ holds the owner's photographs and is covered by its own test above.
-        if (e.isDirectory()) return e.name === "uploads" ? [] : walk(full);
+        // media/ and uploads/ hold photographs and are covered by their own tests above.
+        if (e.isDirectory()) return ["media", "uploads"].includes(e.name) ? [] : walk(full);
         return /\.(jpe?g|png|webp|avif|gif)$/i.test(e.name)
           ? [path.relative(root, full).split(path.sep).join("/")]
           : [];

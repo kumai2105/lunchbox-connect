@@ -12,7 +12,7 @@ import { chromium, type Browser, type Page } from "playwright";
 import Database from "better-sqlite3";
 import path from "node:path";
 
-const BASE = process.env.SMOKE_BASE ?? "http://127.0.0.1:3000";
+const BASE = process.env.BASE ?? process.env.SMOKE_BASE ?? "http://127.0.0.1:3000";
 const DB_PATH = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "jazeel.db");
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "owner@jazeel.local";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "ChangeMe!Jazeel2026";
@@ -109,7 +109,7 @@ async function main() {
     const res = await fetch(`${BASE}/en/gallery`);
     assert(res.status === 200, `expected 200, got ${res.status}`);
     const html = await res.text();
-    const srcs = [...html.matchAll(/\/uploads\/([a-z0-9-]+)\.(?:jpg|webp)/g)].map((m) => m[1]);
+    const srcs = [...html.matchAll(/%2Fmedia%2F([a-z0-9-]+)\.jpg|\/media\/([a-z0-9-]+)\.jpg/g)].map((m) => m[1] ?? m[2]);
     assert(srcs.length > 0, "gallery renders no images");
     return `${new Set(srcs).size} images`;
   });

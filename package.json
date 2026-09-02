@@ -12,7 +12,10 @@
     "setup": "npm run db:push -- --force && npm run db:seed",
     "test": "vitest run",
     "test:watch": "vitest",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "preflight": "tsx scripts/preflight.ts",
+    "perf": "node scripts/perf.mjs",
+    "backup": "tsx scripts/backup.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

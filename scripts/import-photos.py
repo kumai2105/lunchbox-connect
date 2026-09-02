@@ -1,5 +1,11 @@
 """
-Import the owner-supplied photographs into public/uploads and the gallery table.
+Import the owner-supplied photographs into public/media and the gallery table.
+
+They live in public/media, not public/uploads, and the difference matters: uploads/ is
+gitignored because it is where anything added through the admin at runtime lands, and that
+is data to be backed up rather than code to be committed. These twenty-one are seed content
+the site ships with — without them in the repository, a fresh clone would have gallery rows
+pointing at files that do not exist.
 
 Everything here is one of the 21 files the owner sent on 2 September 2026. Nothing is
 stock, nothing is generated, and nothing is used that he did not send.
@@ -26,7 +32,7 @@ from PIL import Image
 
 ROOT = "/home/claude/projects/jazeel-web"
 SRC = "/home/claude/photos"
-OUT = os.path.join(ROOT, "public/uploads")
+OUT = os.path.join(ROOT, "public/media")
 DB = os.path.join(ROOT, "data/jazeel.db")
 MAX_EDGE = 2400
 
@@ -152,7 +158,7 @@ for i, (rel, slug, pillar, alt_en, alt_ar, cap_en, cap_ar, pub) in enumerate(PHO
            (pillar, file_path, width, height, alt_en, alt_ar, caption_en, caption_ar,
             credit, sort, published, updated_at)
            values (?,?,?,?,?,?,?,?,?,?,?,?)""",
-        (pillar, f"/uploads/{slug}.jpg", w, h, alt_en, alt_ar, cap_en, cap_ar,
+        (pillar, f"/media/{slug}.jpg", w, h, alt_en, alt_ar, cap_en, cap_ar,
          None, (i + 1) * 10, 1 if pub else 0, now),
     )
     flag = "" if pub else "   [HELD — shisha in frame]"

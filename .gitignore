@@ -47,3 +47,6 @@ next-env.d.ts
 *.db-wal
 /public/uploads/*
 !/public/uploads/.gitkeep
+
+# Backups are data, not code — never commit them.
+backups/

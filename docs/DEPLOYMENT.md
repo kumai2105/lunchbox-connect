@@ -1,4 +1,7 @@
-# Running and deploying the site
+# Running the site locally
+
+> **Deploying is in [LAUNCH.md](./LAUNCH.md)** — hosting, domain, environment, pre-flight,
+> backups and the post-launch list. This file covers running it on your own machine.
 
 **Nothing has been deployed.** The site has only ever run on this machine, on `localhost:3000`.
 Publishing it requires an explicit instruction and the items marked *blocks launch* in
@@ -27,7 +30,7 @@ npm start
 Verification:
 
 ```bash
-npm test           # 61 unit tests — validation, i18n, evidence rules
+npm test           # 65 unit tests — validation, i18n, evidence rules
 npm run smoke      # 72 end-to-end checks against a running server
 ```
 
