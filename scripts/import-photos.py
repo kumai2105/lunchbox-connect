@@ -20,10 +20,18 @@ Three things happen to each file:
      would never be served.
   3. It is registered in the gallery table with alt text in both languages.
 
-HELD BACK: nine files show shisha pipes in frame. Referring to tobacco online is the
-open legal question in the content register (item 10), and a photograph of a pipe is a
-more literal display than the word. They are listed at the bottom with the reason, and
-are imported as UNPUBLISHED so they are one switch away once counsel has answered.
+SHISHA — OWNER DECISION, 2 September 2026. Nine of these show a shisha pipe somewhere in
+frame. They were held back on my initiative while the advertising question was open. The
+owner has instructed that they be used, on the basis that the venue holds a shisha licence.
+
+That licence permits serving, which is not the same permission as displaying a tobacco
+product online (Cabinet Resolution 24/2013 Arts. 5-8; DM-HSD-GU118-SSP2 Annex 13), and he
+has been told so plainly. The decision is his to make and it is recorded here.
+
+The line now drawn is between incidental presence and promotion. A photograph of a full
+dining room in which a pipe happens to stand is documentation of an evening. A facility
+list that names shisha, or a shisha menu, is promoting the product. So these photographs
+are published and `shisha_visible` stays off: no page names it, no menu carries it.
 """
 import os
 import sqlite3
@@ -92,43 +100,43 @@ PHOTOS = [
      "A singer on the stage during a celebration, with guests seated at the tables",
      "مطربة على المسرح خلال حفل والضيوف حول الطاولات",
      None, None, True),
-    # ------------------------------------------------- held: shisha visible in frame
+    # --------------------------- shisha visible in frame — published by owner decision
     ("batch1/05-room-B-full-stage.jpg", "room-full-stage", "restaurant",
      "The indoor dining room full for an evening, with a singer on the stage",
      "صالة المطعم ممتلئة في إحدى الأمسيات والمطربة على المسرح",
-     "The dining room", "صالة المطعم", False),
+     "The dining room", "صالة المطعم", True),
     ("batch1/06-room-B-band-crowd.jpg", "room-band-crowd", "restaurant",
      "The dining room during a live performance, guests seated throughout",
      "الصالة أثناء وصلة حيّة والضيوف حول الطاولات",
-     None, None, False),
+     None, None, True),
     ("batch1/07-room-B-wide.jpg", "room-wide", "restaurant",
      "A wide view of the indoor dining room during an evening",
      "منظر واسع لصالة المطعم في إحدى الأمسيات",
-     None, None, False),
+     None, None, True),
     ("batch1/03-room-A-dancing.jpg", "room-dancing", "wedding",
      "Guests up and dancing between the tables during a celebration",
      "الضيوف يرقصون بين الطاولات خلال حفل",
-     None, None, False),
+     None, None, True),
     ("batch1/09-dabke-drummer.jpg", "dabke-drummer", "wedding",
      "A drummer playing as a guest dances during a celebration",
      "عازف الطبل يرافق أحد الضيوف في الرقص خلال حفل",
-     None, None, False),
+     None, None, True),
     ("batch1/04-guests-group-portrait.jpg", "guests-portrait", "wedding",
      "Guests posing together during a celebration",
      "ضيوف يلتقطون صورة تذكارية خلال حفل",
-     None, None, False),
+     None, None, True),
     ("batch2/12-room-C-wide-packed.jpg", "room-arches-wide", "restaurant",
      "The dining room full during an evening with live music",
      "الصالة ممتلئة في أمسية بموسيقى حيّة",
-     None, None, False),
+     None, None, True),
     ("batch2/13-long-table-guests.jpg", "long-table-guests", "wedding",
      "A long table of guests during a celebration",
      "طاولة طويلة من الضيوف خلال حفل",
-     None, None, False),
+     None, None, True),
     ("batch2/16-couple-celebrating.jpg", "couple-celebrating", "wedding",
      "Guests celebrating together at the table",
      "ضيوف يحتفلون حول الطاولة",
-     None, None, False),
+     None, None, True),
 ]
 
 
@@ -161,7 +169,7 @@ for i, (rel, slug, pillar, alt_en, alt_ar, cap_en, cap_ar, pub) in enumerate(PHO
         (pillar, f"/media/{slug}.jpg", w, h, alt_en, alt_ar, cap_en, cap_ar,
          None, (i + 1) * 10, 1 if pub else 0, now),
     )
-    flag = "" if pub else "   [HELD — shisha in frame]"
+    flag = "" if pub else "   [held]"
     print(f"{slug:22} {w}x{h}  {sj/1024:6.0f} KB{flag}")
 conn.commit()
 

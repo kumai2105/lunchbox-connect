@@ -138,6 +138,17 @@ if (!fs.existsSync(abs)) {
     pass("Shisha references are off");
   }
 
+  /*
+    These nine photographs have a shisha pipe somewhere in frame. They were held back
+    while the advertising question was open; the owner instructed on 2 Sep 2026 that they
+    be used, on the basis that the venue is licensed for shisha. He was told, and it is
+    worth repeating here, that a licence to serve is not a permission to display online.
+
+    They are a warning rather than a blocker, because the decision is the owner's and he
+    has made it knowingly. What stays blocking is the text switch: a photograph in which a
+    pipe is incidentally present is not the same act as a page that names shisha as a
+    facility.
+  */
   const { n: shishaPhotos } = one<{ n: number }>(
     "select count(*) as n from gallery_images where published = 1 and file_path in " +
       "('/media/room-full-stage.jpg','/media/room-band-crowd.jpg','/media/room-wide.jpg'," +
@@ -145,12 +156,10 @@ if (!fs.existsSync(abs)) {
       "'/media/room-arches-wide.jpg','/media/long-table-guests.jpg','/media/couple-celebrating.jpg')",
   );
   if (shishaPhotos > 0) {
-    block(
-      `${shishaPhotos} published photographs show a shisha pipe`,
-      "Same question as the copy, and a photograph is the more literal display. Hold them until counsel answers.",
+    warn(
+      `${shishaPhotos} published photographs show a shisha pipe in frame`,
+      "Published on the owner's instruction of 2 Sep 2026. If counsel advises against it, unpublish them in Admin → Gallery; nothing else needs to change.",
     );
-  } else {
-    pass("No published photograph shows shisha");
   }
 
   if (!setting("whatsapp")) warn("No WhatsApp number", "No WhatsApp link is shown anywhere.");
