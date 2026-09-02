@@ -162,10 +162,38 @@ describe("draft menu import", () => {
 });
 
 describe("no stock or generated imagery ships with the build", () => {
-  it("has an empty uploads directory apart from its placeholder file", () => {
+  /*
+    Until 2 September 2026 this asserted that uploads/ was empty, because no photograph of
+    Jazeel existed anywhere. The owner has now supplied 21 of his own, so the guarantee has
+    to be enforced differently: every image served must correspond to a row in the gallery
+    table. A file dropped into uploads/ that nothing references is exactly how a stock
+    image would arrive, so that fails.
+  */
+  it("every file in uploads/ is a registered gallery image", async () => {
     const dir = path.join(process.cwd(), "public", "uploads");
     const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f !== ".gitkeep") : [];
-    expect(files).toEqual([]);
+    // Read the database file directly: src/lib/db is server-only and cannot be imported here.
+    const { default: Database } = await import("better-sqlite3");
+    const sqlite = new Database(path.join(process.cwd(), "data", "jazeel.db"), { readonly: true });
+    const rows = sqlite.prepare("select file_path as filePath from gallery_images").all() as {
+      filePath: string;
+    }[];
+    sqlite.close();
+    const known = new Set(rows.map((r) => path.basename(r.filePath).replace(/\.jpg$/, "")));
+    const orphans = files.filter((f) => !known.has(f.replace(/\.(jpe?g|webp|avif|png)$/i, "")));
+    expect(orphans, `unreferenced files in public/uploads: ${orphans.join(", ")}`).toEqual([]);
+  });
+
+  it("no shipped photograph carries EXIF metadata", () => {
+    // The originals held capture timestamps and camera serial numbers. The import strips
+    // them; this checks the marker bytes are actually gone.
+    const dir = path.join(process.cwd(), "public", "uploads");
+    if (!fs.existsSync(dir)) return;
+    const withExif = fs
+      .readdirSync(dir)
+      .filter((f) => /\.jpe?g$/i.test(f))
+      .filter((f) => fs.readFileSync(path.join(dir, f)).subarray(0, 4096).includes(Buffer.from("Exif")));
+    expect(withExif).toEqual([]);
   });
 
   /*
@@ -188,7 +216,8 @@ describe("no stock or generated imagery ships with the build", () => {
     const walk = (dir: string): string[] =>
       fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
         const full = path.join(dir, e.name);
-        if (e.isDirectory()) return walk(full);
+        // uploads/ holds the owner's photographs and is covered by its own test above.
+        if (e.isDirectory()) return e.name === "uploads" ? [] : walk(full);
         return /\.(jpe?g|png|webp|avif|gif)$/i.test(e.name)
           ? [path.relative(root, full).split(path.sep).join("/")]
           : [];

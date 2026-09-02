@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -279,10 +280,21 @@ export function MarkedList({
 export function MediaFrame({
   ratio = "aspect-[4/5]",
   className = "",
+  image,
 }: {
   ratio?: string;
   className?: string;
+  /** When a real photograph exists it fills the frame; otherwise the frame stands alone. */
+  image?: { src: string; alt: string } | null;
 }) {
+  if (image) {
+    return (
+      <div className={`relative overflow-hidden ${ratio} ${className} border border-brand-gold/25`}>
+        <Image src={image.src} alt={image.alt} fill sizes="(min-width: 1024px) 40vw, 100vw"
+               className="object-cover" loading="lazy" />
+      </div>
+    );
+  }
   return (
     <div
       aria-hidden="true"

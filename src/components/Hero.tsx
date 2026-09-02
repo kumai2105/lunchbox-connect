@@ -48,7 +48,7 @@ export function Hero({
       : "min-h-[clamp(420px,58svh,620px)] pt-40 pb-16 sm:pt-44";
 
   return (
-    <section className={`night-ground grain on-dark relative flex items-end ${height}`}>
+    <section className={`night-ground grain on-dark relative flex items-end ${height} ${image ? "has-photo" : ""}`}>
       {image ? (
         <>
           <Image
@@ -59,9 +59,15 @@ export function Hero({
             priority
             className="-z-20 object-cover"
           />
+          {/* Bottom scrim carries the headline; the top one keeps the header and the
+              navigation readable, since the picture is brightest exactly where they sit. */}
           <div
             aria-hidden="true"
-            className="absolute inset-0 -z-10 bg-gradient-to-t from-brand-night via-brand-night/75 to-brand-night/35"
+            className="absolute inset-0 -z-10 bg-gradient-to-t from-brand-night via-brand-night/70 to-brand-night/25"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-0 top-0 -z-10 h-64 bg-gradient-to-b from-brand-night/85 to-transparent"
           />
         </>
       ) : null}

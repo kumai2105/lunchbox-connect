@@ -43,11 +43,25 @@ function pageAttrs(locale: Locale, page: PageRowLike) {
 export async function RestaurantPage({ locale }: { locale: Locale }) {
   const t = getDictionary(locale);
   const isAr = locale === "ar";
-  const [page, settings, images] = await Promise.all([
+  const [page, settings, restaurantImages, venueImages] = await Promise.all([
     getPage("restaurant"),
     getSettings(),
     getGallery("restaurant"),
+    getGallery("venue"),
   ]);
+  /*
+    The page covers both spaces the owner has: the indoor room and the outdoor terrace.
+    The terrace leads, for two reasons — the only photographs of the indoor room as it
+    looks today are the ones held back over the shisha question, and the homepage already
+    opens on the wide terrace shot, so this page takes the seating view instead of
+    repeating the same frame two clicks apart.
+  */
+  const preferred = ["/uploads/terrace-tables.jpg", "/uploads/terrace-umbrellas.jpg"];
+  const venueOrdered = [...venueImages].sort(
+    (a, b) =>
+      (preferred.indexOf(a.filePath) + 1 || 99) - (preferred.indexOf(b.filePath) + 1 || 99),
+  );
+  const images = [...venueOrdered, ...restaurantImages];
 
   const title = localized(locale, page?.titleEn, page?.titleAr) ?? t.nav.restaurant;
   const attrs = pageAttrs(locale, page);
@@ -157,9 +171,15 @@ export async function RestaurantPage({ locale }: { locale: Locale }) {
 export async function AboutPage({ locale }: { locale: Locale }) {
   const t = getDictionary(locale);
   const isAr = locale === "ar";
-  const page = await getPage("about");
+  const [page, teamImages] = await Promise.all([getPage("about"), getGallery("restaurant")]);
   const title = localized(locale, page?.titleEn, page?.titleAr) ?? t.nav.about;
   const attrs = pageAttrs(locale, page);
+  const portrait = teamImages[0]
+    ? {
+        src: teamImages[0].filePath,
+        alt: localized(locale, teamImages[0].altEn, teamImages[0].altAr) ?? "",
+      }
+    : null;
 
   return (
     <PageShell locale={locale} routeKey="about" breadcrumbLabel={title}>
@@ -177,7 +197,7 @@ export async function AboutPage({ locale }: { locale: Locale }) {
         <Container size="wide">
           <div className="grid gap-14 lg:grid-cols-[1.1fr_0.9fr] lg:gap-20">
             <Prose text={localized(locale, page?.bodyEn, page?.bodyAr)} attrs={attrs.body} />
-            <MediaFrame ratio="aspect-[4/5]" />
+            <MediaFrame ratio="aspect-[4/5]" image={portrait} />
           </div>
           <div className="mt-14 flex flex-wrap gap-3">
             <ButtonLink href={hrefFor("menu", locale)}>{t.actions.viewMenu}</ButtonLink>

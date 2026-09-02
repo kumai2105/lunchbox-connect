@@ -49,11 +49,15 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const t = getDictionary(locale);
   const isAr = locale === "ar";
 
-  const [page, settings, heroImages] = await Promise.all([
+  const [page, settings, venueImages, restaurantImages] = await Promise.all([
     getPage("home"),
     getSettings(),
+    getGallery("venue"),
     getGallery("restaurant"),
   ]);
+  // The opening frame prefers the terrace: it is the one space that looks like nowhere
+  // else, and it is the only daylight photograph of the venue that exists.
+  const heroImages = [...venueImages, ...restaurantImages];
 
   const title = localized(locale, page?.titleEn, page?.titleAr) ?? FACTS.nameEn.value;
   const kicker = localized(locale, page?.kickerEn, page?.kickerAr);

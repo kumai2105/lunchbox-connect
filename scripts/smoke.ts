@@ -103,10 +103,15 @@ async function main() {
     return loc;
   });
 
-  await check("Gallery 404s while no photograph exists", async () => {
+  // The gallery route is gated on real, owner-supplied photographs. It 404'd until
+  // 2 Sep 2026; now that twelve are published it must be reachable and must show them.
+  await check("Gallery is reachable and shows only owner photographs", async () => {
     const res = await fetch(`${BASE}/en/gallery`);
-    assert(res.status === 404, `expected 404, got ${res.status}`);
-    return "404";
+    assert(res.status === 200, `expected 200, got ${res.status}`);
+    const html = await res.text();
+    const srcs = [...html.matchAll(/\/uploads\/([a-z0-9-]+)\.(?:jpg|webp)/g)].map((m) => m[1]);
+    assert(srcs.length > 0, "gallery renders no images");
+    return `${new Set(srcs).size} images`;
   });
 
   await check("Unknown page returns a real 404", async () => {
@@ -562,11 +567,11 @@ async function main() {
     return "og:title, og:url";
   });
 
-  await check("Sitemap lists both languages and excludes the hidden gallery", async () => {
+  await check("Sitemap lists both languages and the now-live gallery", async () => {
     const xml = await (await fetch(`${BASE}/sitemap.xml`)).text();
     assert(xml.includes("/en/weddings"), "English weddings missing");
     assert(xml.includes("/ar/"), "no Arabic URLs");
-    assert(!xml.includes("/gallery"), "hidden gallery is in the sitemap");
+    assert(xml.includes("/gallery"), "gallery is live but missing from the sitemap");
     const count = (xml.match(/<url>/g) ?? []).length;
     return `${count} URLs`;
   });
