@@ -67,7 +67,7 @@ export function SiteFooter({
               className="h-[116px] w-auto"
             />
             {!isAr ? (
-              <p lang="ar" dir="rtl" aria-hidden="true" className="script-pair mt-4 text-xl text-brand-gold/85">
+              <p lang="ar" dir="rtl" aria-hidden="true" className="script-pair mt-4 text-xl text-brand-gold">
                 مطعم ومقهى جزيل
               </p>
             ) : null}
@@ -169,7 +169,7 @@ export function SiteFooter({
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-brand-bone/15 py-8 text-xs text-brand-bone/55 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 border-t border-brand-bone/15 py-8 text-xs text-brand-bone/75 sm:flex-row sm:items-center sm:justify-between">
           <p>
             © {new Date().getFullYear()} {isAr ? FACTS.nameAr.value : FACTS.nameEn.value}
           </p>

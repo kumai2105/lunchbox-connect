@@ -44,8 +44,10 @@ export function SiteHeader({
   const shell = onDark
     ? "on-dark text-brand-bone"
     : "bg-brand-bone/95 backdrop-blur border-b border-brand-rule text-brand-ink";
-  const linkIdle = onDark ? "text-brand-bone/75 hover:text-brand-gold" : "text-brand-ink-soft hover:text-brand-teal";
-  const linkOn = onDark ? "text-brand-gold" : "text-brand-teal";
+  const linkIdle = onDark ? "text-brand-bone hover:text-brand-gold" : "text-brand-ink-soft hover:text-brand-teal";
+  const linkOn = onDark
+    ? "text-brand-gold underline decoration-2 underline-offset-[7px]"
+    : "text-brand-teal underline decoration-2 underline-offset-[7px]";
   const chip = onDark
     ? "border border-brand-bone/35 text-brand-bone hover:border-brand-gold hover:text-brand-gold"
     : "border border-brand-ink/20 text-brand-ink hover:border-brand-teal hover:text-brand-teal";
@@ -64,7 +66,7 @@ export function SiteHeader({
             <Link href={hrefFor("home", locale)} className="block shrink-0">
               <Image
                 src={onDark ? "/brand/logo-reversed.png" : "/brand/logo.png"}
-                alt={FACTS.nameEn.value}
+                alt={locale === "ar" ? FACTS.nameAr.value : FACTS.nameEn.value}
                 width={1600}
                 height={811}
                 priority

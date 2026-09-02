@@ -67,15 +67,17 @@ export function Hero({
           />
           <div
             aria-hidden="true"
-            className="absolute inset-x-0 top-0 -z-10 h-64 bg-gradient-to-b from-brand-night/85 to-transparent"
+            className="absolute inset-x-0 top-0 -z-10 h-80 bg-gradient-to-b from-brand-night/95 via-brand-night/70 to-transparent"
           />
         </>
       ) : null}
 
       <Container size="wide" className="w-full">
         <div className="max-w-3xl">
+          {/* Gold measures as low as 1.6:1 where a bright photograph sits behind it.
+              Over a picture the eyebrow takes bone, which holds against anything. */}
           {label ? (
-            <p {...labelAttrs} className="label text-brand-gold">
+            <p {...labelAttrs} className={`label ${image ? "text-brand-bone" : "text-brand-gold"}`}>
               {label}
             </p>
           ) : null}
@@ -95,7 +97,7 @@ export function Hero({
               lang="ar"
               dir="rtl"
               aria-hidden="true"
-              className="script-pair mt-4 text-2xl text-brand-gold/85 sm:text-3xl"
+              className={`script-pair mt-4 text-2xl sm:text-3xl ${image ? "text-brand-bone/90" : "text-brand-gold"}`}
             >
               {titleAlt}
             </p>

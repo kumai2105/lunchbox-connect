@@ -109,7 +109,7 @@ export function BandHeading({
           lang="ar"
           dir="rtl"
           aria-hidden="true"
-          className={`script-pair mt-3 text-xl sm:text-2xl ${onDark ? "text-brand-gold/85" : "text-brand-teal-soft"}`}
+          className={`script-pair mt-3 text-xl sm:text-2xl ${onDark ? "text-brand-gold" : "text-brand-teal"}`}
         >
           {titleAlt}
         </p>
@@ -248,7 +248,7 @@ export function MarkedList({
   onDark = false,
   columns = 1,
 }: {
-  items: { term?: string; value: string }[];
+  items: { term?: string; value: string; valueDir?: "ltr" | "rtl" }[];
   onDark?: boolean;
   columns?: 1 | 2;
 }) {
@@ -265,7 +265,9 @@ export function MarkedList({
               {it.term}
             </span>
           ) : null}
-          <span className={onDark ? "text-brand-bone/85" : "text-brand-ink-soft"}>{it.value}</span>
+          <span dir={it.valueDir} className={onDark ? "text-brand-bone/85" : "text-brand-ink-soft"}>
+            {it.value}
+          </span>
         </li>
       ))}
     </ul>

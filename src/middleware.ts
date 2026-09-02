@@ -27,14 +27,44 @@ export function middleware(request: NextRequest) {
 
   const hasLocale = locales.some((l) => pathname === `/${l}` || pathname.startsWith(`/${l}/`));
   if (!hasLocale) {
-    const accept = request.headers.get("accept-language") ?? "";
-    const preferred = /(^|,|\s)ar\b/i.test(accept) ? "ar" : defaultLocale;
+    const preferred = negotiateLocale(request.headers.get("accept-language"));
     const url = request.nextUrl.clone();
     url.pathname = `/${preferred}${pathname === "/" ? "" : pathname}`;
     return withSecurityHeaders(NextResponse.redirect(url), request);
   }
 
   return withSecurityHeaders(NextResponse.next(), request);
+}
+
+/*
+  Accept-Language, with quality values respected.
+
+  A substring test for "ar" was sending anyone whose browser lists Arabic as a *secondary*
+  language to the Arabic site — "en-US,en;q=0.9,ar;q=0.1" is a common UAE configuration and
+  it was landing on /ar. Parse the list, sort by q, and take whichever of our two locales
+  ranks highest.
+*/
+function negotiateLocale(header: string | null): (typeof locales)[number] {
+  if (!header) return defaultLocale;
+  const ranked = header
+    .split(",")
+    .map((part) => {
+      const [tag, ...params] = part.trim().split(";");
+      const q = params
+        .map((p) => /^\s*q\s*=\s*([\d.]+)/i.exec(p)?.[1])
+        .find(Boolean);
+      return { tag: tag.trim().toLowerCase(), q: q === undefined ? 1 : Number(q) };
+    })
+    .filter((e) => e.tag && Number.isFinite(e.q) && e.q > 0)
+    .sort((a, b) => b.q - a.q);
+
+  for (const { tag } of ranked) {
+    const base = tag.split("-")[0];
+    if (base === "ar") return "ar";
+    if (base === "en") return defaultLocale;
+    if (tag === "*") return defaultLocale;
+  }
+  return defaultLocale;
 }
 
 /*

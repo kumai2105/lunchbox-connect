@@ -343,7 +343,7 @@ export async function PillarPage({
               <div className="mt-10">
                 <MarkedList
                   items={[
-                    { term: t.labels.phone, value: FACTS.phoneDisplay.value },
+                    { term: t.labels.phone, value: FACTS.phoneDisplay.value, valueDir: "ltr" as const },
                     {
                       term: t.labels.hours,
                       value: `${t.labels.everyDay} ${FACTS.hoursOpen.value} – ${FACTS.hoursClose.value}`,

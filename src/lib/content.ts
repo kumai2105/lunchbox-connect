@@ -105,7 +105,18 @@ export async function getSetting(key: string): Promise<string | null> {
 /* --------------------------------------------------------------- page copy */
 
 export async function getPage(slug: string): Promise<PageRow | null> {
-  const [row] = await db.select().from(pages).where(eq(pages.slug, slug)).limit(1);
+  /*
+    `published` is honoured here. It was not until 2 Sep 2026: the admin showed a
+    Published checkbox, saved it, reported success, and the page kept rendering to the
+    public regardless. A control that silently does nothing is worse than no control,
+    and this one is how the owner would withdraw a page whose copy turned out to be
+    wrong. Unpublishing now yields null, and the route renders a 404.
+  */
+  const [row] = await db
+    .select()
+    .from(pages)
+    .where(and(eq(pages.slug, slug), eq(pages.published, true)))
+    .limit(1);
   return row ?? null;
 }
 

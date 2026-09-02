@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
@@ -15,14 +16,18 @@ import {
   menuItems,
   packages,
   pages,
+  rateLimits,
   settings,
   venueSpaces,
 } from "@/lib/db/schema";
 import { hrefFor, locales, routeKeys } from "@/lib/i18n/config";
 import {
   assertSameOrigin,
+  clientAddress,
   createSession,
   destroySession,
+  hashIp,
+  hashPassword,
   requireAdmin,
   verifyPassword,
 } from "@/lib/auth";
@@ -73,10 +78,61 @@ const list = (fd: FormData, k: string) =>
 
 /* ------------------------------------------------------------------- auth */
 
+/*
+  Login throttling.
+
+  There is one account, and until 2 Sep 2026 nothing counted failed attempts: an attacker
+  could guess passwords as fast as the server would answer. Worse, verifyPassword is a
+  synchronous scrypt costing ~50ms of blocked event loop, and `npm start` is a single
+  process — so a few dozen login POSTs per second took the *public* site down without any
+  credential at all.
+
+  Ten failures per address per fifteen minutes, counted before any hashing happens, closes
+  both. The window is deliberately short: this protects one owner logging in from a phone,
+  not a login page with thousands of users.
+*/
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 10;
+
+function loginThrottled(key: string): boolean {
+  const row = db.select().from(rateLimits).where(eq(rateLimits.key, key)).all()[0];
+  if (!row) return false;
+  if (Date.now() - row.windowStart > LOGIN_WINDOW_MS) {
+    db.delete(rateLimits).where(eq(rateLimits.key, key)).run();
+    return false;
+  }
+  return row.count >= LOGIN_MAX_ATTEMPTS;
+}
+
+function recordLoginFailure(key: string): void {
+  const now = Date.now();
+  const row = db.select().from(rateLimits).where(eq(rateLimits.key, key)).all()[0];
+  if (!row || now - row.windowStart > LOGIN_WINDOW_MS) {
+    db.insert(rateLimits)
+      .values({ key, count: 1, windowStart: now })
+      .onConflictDoUpdate({ target: rateLimits.key, set: { count: 1, windowStart: now } })
+      .run();
+    return;
+  }
+  db.update(rateLimits).set({ count: row.count + 1 }).where(eq(rateLimits.key, key)).run();
+}
+
+/*
+  A dummy hash in the same format, so a miss costs the same scrypt as a hit. The previous
+  code skipped verifyPassword entirely when no row matched, and the comment above it
+  claimed the opposite — a ~50ms gap that told an attacker which address was real.
+*/
+const DUMMY_HASH = hashPassword("not-a-real-password-timing-equaliser");
+
 export async function loginAction(_prev: ActionState | null, fd: FormData): Promise<ActionState> {
   await assertSameOrigin();
   const parsed = loginSchema.safeParse({ email: str(fd, "email"), password: str(fd, "password") });
   if (!parsed.success) return { error: "Enter a valid email address and password." };
+
+  const throttleKey = `login:${hashIp(clientAddress(await headers()))}`;
+  if (loginThrottled(throttleKey)) {
+    return { error: "Too many attempts. Wait fifteen minutes and try again." };
+  }
 
   const user = db
     .select()
@@ -84,9 +140,13 @@ export async function loginAction(_prev: ActionState | null, fd: FormData): Prom
     .where(eq(adminUsers.email, parsed.data.email.toLowerCase()))
     .all()[0];
 
-  // Constant-ish work whether or not the user exists, so the response does not reveal it.
-  const ok = user ? verifyPassword(parsed.data.password, user.passwordHash) : false;
-  if (!user || !ok) return { error: "Those details were not recognised." };
+  // Hash on both paths, so the response time does not reveal whether the address exists.
+  const ok = verifyPassword(parsed.data.password, user?.passwordHash ?? DUMMY_HASH);
+  if (!user || !ok) {
+    recordLoginFailure(throttleKey);
+    return { error: "Those details were not recognised." };
+  }
+  db.delete(rateLimits).where(eq(rateLimits.key, throttleKey)).run();
 
   db.update(adminUsers)
     .set({ lastLoginAt: new Date().toISOString() })

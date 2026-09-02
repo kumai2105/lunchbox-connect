@@ -112,7 +112,9 @@ export async function assertSameOrigin(): Promise<void> {
   const h = await headers();
   const origin = h.get("origin");
   const host = h.get("host");
-  if (!origin) return; // non-browser or same-origin GET
+  // A missing Origin used to pass. Next 16 sets it on every same-origin server action, so
+  // absence means a non-browser client and the guard should close, not open.
+  if (!origin) throw new Error("BAD_ORIGIN");
   try {
     if (new URL(origin).host !== host) throw new Error("BAD_ORIGIN");
   } catch {
@@ -120,10 +122,43 @@ export async function assertSameOrigin(): Promise<void> {
   }
 }
 
-/** Deterministic, salted, non-reversible client identifier for rate limiting and audit. */
+/**
+ * Deterministic, salted, non-reversible client identifier for rate limiting and audit.
+ *
+ * The salt has no default in production. It used to fall back to a literal in this file,
+ * which meant an unset or empty variable silently turned the stored hashes into a public
+ * function of the address: the whole IPv4 space is 2^32 HMACs, so anyone holding a copy of
+ * the database could recover every enquirer's real IP. Failing loudly at boot is better
+ * than a promise the schema makes and the code quietly breaks.
+ */
 export function hashIp(ip: string): string {
-  const salt = process.env.IP_HASH_SALT ?? "jazeel-dev-salt";
+  const salt = process.env.IP_HASH_SALT?.trim();
+  if (!salt) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("IP_HASH_SALT is not set. Refusing to hash client addresses with a known key.");
+    }
+    return crypto.createHmac("sha256", "jazeel-dev-only").update(ip).digest("hex").slice(0, 32);
+  }
   return crypto.createHmac("sha256", salt).update(ip).digest("hex").slice(0, 32);
+}
+
+/**
+ * The client's address, as far as it can be trusted.
+ *
+ * X-Forwarded-For is a list the client can start: a browser can send its own header and
+ * nginx's standard `$proxy_add_x_forwarded_for` appends the real peer rather than replacing
+ * it, so the leftmost entry is attacker-chosen. Counting from the right is what is actually
+ * verifiable — the last entry was written by our own proxy. TRUSTED_PROXY_HOPS says how
+ * many proxies sit in front of the app; the default of 1 matches the documented topology.
+ */
+export function clientAddress(h: Headers): string {
+  const hops = Math.max(1, Number(process.env.TRUSTED_PROXY_HOPS ?? "1") || 1);
+  const chain = (h.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (chain.length > 0) return chain[Math.max(0, chain.length - hops)];
+  return h.get("x-real-ip")?.trim() || "unknown";
 }
 
 export { SESSION_COOKIE };

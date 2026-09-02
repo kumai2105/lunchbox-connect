@@ -56,7 +56,7 @@ export async function RestaurantPage({ locale }: { locale: Locale }) {
     opens on the wide terrace shot, so this page takes the seating view instead of
     repeating the same frame two clicks apart.
   */
-  const preferred = ["/uploads/terrace-tables.jpg", "/uploads/terrace-umbrellas.jpg"];
+  const preferred = ["/media/terrace-tables.jpg", "/media/terrace-umbrellas.jpg"];
   const venueOrdered = [...venueImages].sort(
     (a, b) =>
       (preferred.indexOf(a.filePath) + 1 || 99) - (preferred.indexOf(b.filePath) + 1 || 99),
@@ -303,7 +303,7 @@ export async function ContactPage({ locale }: { locale: Locale }) {
   const hoursNote = localized(locale, settings.hours_note_en, settings.hours_note_ar);
 
   const details = [
-    { term: t.labels.phone, value: FACTS.phoneDisplay.value },
+    { term: t.labels.phone, value: FACTS.phoneDisplay.value, valueDir: "ltr" as const },
     ...(whatsapp ? [{ term: "WhatsApp", value: whatsapp }] : []),
     ...(email ? [{ term: "Email", value: email }] : []),
     {

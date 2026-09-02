@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { enquiries, rateLimits } from "@/lib/db/schema";
 import { enquirySchema } from "@/lib/validation";
-import { hashIp } from "@/lib/auth";
+import { clientAddress, hashIp } from "@/lib/auth";
 import { notifyEnquiry } from "@/lib/notify";
 
 export interface EnquiryState {
@@ -20,10 +20,7 @@ const WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const MAX_PER_WINDOW = 6;
 
 async function clientKey(): Promise<string> {
-  const h = await headers();
-  const ip =
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip")?.trim() || "unknown";
-  return hashIp(ip);
+  return hashIp(clientAddress(await headers()));
 }
 
 function rateLimited(key: string): boolean {
