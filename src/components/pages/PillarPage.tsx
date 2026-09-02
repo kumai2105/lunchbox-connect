@@ -53,13 +53,25 @@ export async function PillarPage({
 }) {
   const t = getDictionary(locale);
   const isAr = locale === "ar";
-  const [page, pkgs, spaces, images, settings] = await Promise.all([
+  const [page, pkgs, spaces, pillarImages, venueImages, roomImages, settings] = await Promise.all([
     getPage(slug),
     getPackages(pillar),
     getVenueSpaces(),
     getGallery(pillar),
+    getGallery("venue"),
+    getGallery("restaurant"),
     getSettings(),
   ]);
+
+  /*
+    Corporate and brunch have no photographs of their own — no corporate event and no
+    brunch has ever been shot. Rather than leave those pages bare, they fall back to
+    pictures of the spaces themselves: the terrace, and the room on a full evening. That
+    is honest, because the claim a venue photograph makes is "this is the room", not
+    "this was a corporate event". Nothing here implies an event that did not happen, and
+    the alt text on each image says what it actually shows.
+  */
+  const images = pillarImages.length > 0 ? pillarImages : [...venueImages, ...roomImages];
 
   const title = localized(locale, page?.titleEn, page?.titleAr) ?? t.nav[routeKey as "weddings"];
   const kicker = localized(locale, page?.kickerEn, page?.kickerAr);
