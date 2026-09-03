@@ -245,7 +245,6 @@ export default function StudentsPage() {
           <table>
             <thead>
               <tr>
-                <th>Photo</th>
                 <th>Student</th>
                 <th>ID</th>
                 {isGlobalOperator && <th>Institution</th>}
@@ -258,36 +257,39 @@ export default function StudentsPage() {
               {filtered.map((s) => {
                 return (
                   <tr key={s.id}>
-                    <td>
-                      {canUpdate ? (
-                        <label
-                          style={{ cursor: 'pointer', display: 'inline-block' }}
-                          title="Upload photo"
-                        >
-                          <Avatar
-                            photoUrl={photoUrls[s.id]}
-                            initials={initials(`${s.given_name} ${s.family_name}`)}
-                            size="sm"
-                          />
-                          <input
-                            type="file"
-                            accept="image/*"
-                            style={{ display: 'none' }}
-                            onChange={(e) => void onPhotoChange(s, e.target.files?.[0])}
-                          />
-                        </label>
-                      ) : (
-                        <Avatar
-                          photoUrl={photoUrls[s.id]}
-                          initials={initials(`${s.given_name} ${s.family_name}`)}
-                          size="sm"
-                        />
-                      )}
-                    </td>
+                    {/* The photo is part of recognising the child, not a column
+                        of its own — it sits with the name it belongs to. The
+                        upload affordance is unchanged: the same label, the same
+                        hidden file input, gated by the same canUpdate. */}
                     <td className="cell-name">
-                      <Link to={`/students/${s.id}`}>
-                        {s.given_name} {s.family_name}
-                      </Link>
+                      <span className="cell-person">
+                        {canUpdate ? (
+                          <label className="cell-person-photo" title="Upload photo">
+                            <Avatar
+                              photoUrl={photoUrls[s.id]}
+                              initials={initials(`${s.given_name} ${s.family_name}`)}
+                              size="sm"
+                            />
+                            <input
+                              type="file"
+                              accept="image/*"
+                              style={{ display: 'none' }}
+                              onChange={(e) => void onPhotoChange(s, e.target.files?.[0])}
+                            />
+                          </label>
+                        ) : (
+                          <span className="cell-person-photo">
+                            <Avatar
+                              photoUrl={photoUrls[s.id]}
+                              initials={initials(`${s.given_name} ${s.family_name}`)}
+                              size="sm"
+                            />
+                          </span>
+                        )}
+                        <Link to={`/students/${s.id}`}>
+                          {s.given_name} {s.family_name}
+                        </Link>
+                      </span>
                     </td>
                     <td className="mono cell-sub">{s.student_no}</td>
                     {isGlobalOperator && (
@@ -328,7 +330,7 @@ export default function StudentsPage() {
                       {Array.isArray(s.medical_notes) && s.medical_notes.length > 0 ? (
                         // Amber, not green. A green dot reads as "fine" and this
                         // is allergy/dietary safety data that staff must notice.
-                        <span>
+                        <span className="safety-cell">
                           <StatusDot color="amber" />
                           {s.medical_notes.map((m) => m.text).join(' · ')}
                         </span>

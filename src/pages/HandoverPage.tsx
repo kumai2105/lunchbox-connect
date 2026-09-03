@@ -141,12 +141,12 @@ export default function HandoverPage() {
                   : undefined
               }
             >
-              <p>
+              <div className="delivery-body delivery-state">
                 <Pill variant={m.state === 'HANDED_OVER' ? 'green' : 'amber'}>
                   {m.state.replace(/_/g, ' ')}
                 </Pill>
-                {m.handover_with_issue && <Pill variant="amber"> accepted with an issue</Pill>}
-              </p>
+                {m.handover_with_issue && <Pill variant="amber">accepted with an issue</Pill>}
+              </div>
 
               <div className="table-wrap">
                 <table>
@@ -175,41 +175,53 @@ export default function HandoverPage() {
                 </table>
               </div>
 
-              {m.state === 'ARRIVED' && (
-                <>
-                  <Btn
-                    variant="brand"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(() => confirmHandover(m.id, false), 'Delivery received. Thank you.')
-                    }
-                  >
-                    {busy ? 'Saving…' : 'Confirm full delivery received'}
-                  </Btn>{' '}
-                  <Btn variant="ghost" disabled={busy} onClick={() => setDialog({ manifest: m })}>
-                    Report delivery issue
-                  </Btn>
-                  <p className="hint">
-                    You do not need to retype the quantities — the manifest above is what was sent.
-                  </p>
-                </>
-              )}
+              <div className="delivery-body">
+                {m.state === 'ARRIVED' && (
+                  <>
+                    <div className="delivery-actions">
+                      <Btn
+                        variant="brand"
+                        disabled={busy}
+                        onClick={() =>
+                          void run(
+                            () => confirmHandover(m.id, false),
+                            'Delivery received. Thank you.',
+                          )
+                        }
+                      >
+                        {busy ? 'Saving…' : 'Confirm full delivery received'}
+                      </Btn>
+                      <Btn
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => setDialog({ manifest: m })}
+                      >
+                        Report delivery issue
+                      </Btn>
+                    </div>
+                    <p className="hint">
+                      You do not need to retype the quantities — the manifest above is what was
+                      sent.
+                    </p>
+                  </>
+                )}
 
-              {m.state === 'HANDED_OVER' && (
-                <Banner kind="ok">
-                  Received{m.handed_over_at ? ` at ${m.handed_over_at.slice(11, 16)}` : ''}.
-                </Banner>
-              )}
+                {m.state === 'HANDED_OVER' && (
+                  <Banner kind="ok">
+                    Received{m.handed_over_at ? ` at ${m.handed_over_at.slice(11, 16)}` : ''}.
+                  </Banner>
+                )}
 
-              {m.state !== 'ARRIVED' && m.state !== 'HANDED_OVER' && (
-                <Banner kind="info">
-                  This delivery has not arrived yet. The confirmation appears once the driver
-                  records arrival.
-                </Banner>
-              )}
+                {m.state !== 'ARRIVED' && m.state !== 'HANDED_OVER' && (
+                  <Banner kind="info">
+                    This delivery has not arrived yet. The confirmation appears once the driver
+                    records arrival.
+                  </Banner>
+                )}
+              </div>
 
               {mine.length > 0 && (
-                <div className="table-wrap" style={{ marginTop: 10 }}>
+                <div className="table-wrap">
                   <table>
                     <thead>
                       <tr>
@@ -259,11 +271,14 @@ export default function HandoverPage() {
           title="Who may receive a delivery"
           hint="Your own Admin and Classroom Staff — a capability, not a role"
         >
-          <Banner kind="info">
-            Authorising someone lets them accept custody of a delivery <b>for this institution</b>{' '}
-            and widens nothing else. A Parent is never eligible, and nobody from another institution
-            appears here. Delivery times, runs and the delivery point are set by LunchBox.
-          </Banner>
+          <div className="delivery-body">
+            <Banner kind="info">
+              Authorising someone lets them accept custody of a delivery <b>for this institution</b>{' '}
+              and widens nothing else. A Parent is never eligible, and nobody from another
+              institution appears here. Delivery times, runs and the delivery point are set by
+              LunchBox.
+            </Banner>
+          </div>
           {staff.filter(
             (u) =>
               u.active !== false && (u.role === 'school_admin' || u.role === 'classroom_staff'),
@@ -299,8 +314,7 @@ export default function HandoverPage() {
                               disabled={busy}
                               onClick={() =>
                                 void run(
-                                  () =>
-                                    setDeliveryReceiver(myInstitution, u.user_id, !isReceiver),
+                                  () => setDeliveryReceiver(myInstitution, u.user_id, !isReceiver),
                                   isReceiver
                                     ? 'Receiver authorisation removed.'
                                     : 'Authorised to receive deliveries.',

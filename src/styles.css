@@ -538,22 +538,44 @@ textarea {
 }
 
 /* ---------- page pieces ---------- */
+
+/* Three utility classes the markup has always used and the sheet never
+   defined: a bare .hint outside a page or card header fell through to body
+   copy, .muted was not muted at all, and .table-wrap did nothing — so a wide
+   table inside a card had no scroller of its own. */
+.hint {
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.55;
+  color: var(--ink-3);
+}
+.muted {
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.table-wrap {
+  overflow-x: auto;
+}
+
 .page-head {
   display: flex;
   align-items: flex-end;
   gap: 12px;
   margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
   flex-wrap: wrap;
 }
 .page-head h1 {
-  font-size: 20px;
-  letter-spacing: -0.02em;
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
 }
 .page-head .hint {
   color: var(--ink-3);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
-  padding-bottom: 2px;
+  padding-bottom: 3px;
 }
 .page-head .spacer {
   flex: 1;
@@ -668,7 +690,7 @@ th {
   white-space: nowrap;
 }
 td {
-  padding: 11px 18px;
+  padding: 13px 18px;
   border-bottom: 1px solid #f1f4f3;
   vertical-align: middle;
 }
@@ -680,6 +702,60 @@ tbody tr:last-child td {
 }
 .cell-name {
   font-weight: 700;
+  white-space: nowrap;
+}
+
+/* OPERATIONAL TABLES — VISUAL PASS.
+   These rules are shared by every admin list (students, guardians, staff,
+   classes, handover). Nothing structural: spacing, link colour and the
+   person/name pairing. */
+
+/* Links inside a table were falling all the way through to the browser
+   default — underlined #0000EE — because nothing in this sheet ever styled a
+   bare <a> outside the sidebar. Scoped to .content so the sidebar rail and the
+   Parent portal keep their own treatments. */
+.content a {
+  color: var(--brand-dark);
+  text-decoration: none;
+}
+.content a:hover {
+  text-decoration: underline;
+}
+.content .cell-name a {
+  color: var(--ink);
+}
+.content .cell-name a:hover {
+  color: var(--brand-dark);
+}
+/* A person is a face and a name together, not two columns that have to be
+   read across. */
+.cell-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.cell-person-photo {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+label.cell-person-photo {
+  cursor: pointer;
+}
+/* An identifier is one token. Wrapping "LBC-0001" onto two lines turns a
+   scannable column into a puzzle. */
+.mono {
+  white-space: nowrap;
+}
+/* Interim free-text safety notes. Amber, and never rendered as a plain
+   sentence in a cell — a member of staff scanning the list has to see it. */
+.safety-cell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #92400e;
 }
 .cell-sub {
   color: var(--ink-3);
@@ -743,6 +819,13 @@ tbody tr:last-child td {
 .pill.red {
   background: var(--red-soft);
   color: var(--red);
+}
+/* `amber` was used in eleven places and defined in none of them, so every
+   in-progress state — an arrived delivery, an open issue — printed as bare
+   bold text with no pill behind it at all. */
+.pill.amber {
+  background: #fef3c7;
+  color: #92400e;
 }
 .status-dot {
   width: 8px;
@@ -1095,32 +1178,40 @@ tbody tr:last-child td {
 /* ---------- serving ---------- */
 .period-bar {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: stretch;
   margin-bottom: 16px;
 }
 .period-btn {
   padding: 10px 18px;
-  border: 1px solid #dde3e1;
-  border-radius: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
   background: #fff;
   font-size: 13.5px;
   font-weight: 700;
   color: var(--ink-2);
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  min-width: 0;
 }
 .period-btn small {
   font-weight: 600;
   color: var(--ink-3);
   font-size: 11px;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .period-btn.active {
   background: var(--brand);
   border-color: var(--brand);
   color: #fff;
+  box-shadow: 0 6px 16px -8px rgba(37, 99, 235, 0.8);
 }
 .period-btn.active small {
   color: #bfdbfe;
@@ -1484,8 +1575,12 @@ tbody tr:last-child td {
    targets, colour used to carry meaning rather than to decorate.
    ========================================================================== */
 
-.parent-shell { background: #f7f9fd; }
-.parent-body { padding: 18px 16px 104px; }
+.parent-shell {
+  background: #f7f9fd;
+}
+.parent-body {
+  padding: 18px 16px 104px;
+}
 
 /* Hero. Deeper gradient and a rounder skirt so the white content below reads
    as sitting on top of it rather than butting into it. */
@@ -1496,9 +1591,19 @@ tbody tr:last-child td {
   margin: -18px -16px 20px;
   box-shadow: 0 18px 34px -24px rgba(29, 78, 216, 0.9);
 }
-.parent-greeting { font-size: 13.5px; opacity: 0.9; }
-.parent-child-name { font-size: 25px; font-weight: 800; margin: 3px 0; }
-.parent-date { font-size: 12.5px; opacity: 0.82; }
+.parent-greeting {
+  font-size: 13.5px;
+  opacity: 0.9;
+}
+.parent-child-name {
+  font-size: 25px;
+  font-weight: 800;
+  margin: 3px 0;
+}
+.parent-date {
+  font-size: 12.5px;
+  opacity: 0.82;
+}
 
 /* The child's avatar is the one portrait on the screen: round it and ring it
    so it reads as a person rather than as another tile. */
@@ -1528,9 +1633,15 @@ tbody tr:last-child td {
    conic gradient off --pct, which ParentHome sets inline. When the value is
    absent the variable is unset, the ring falls back to 0% and reads as an
    empty track, which is the honest state for "not recorded yet". */
-.parent-progress { padding: 20px 20px 14px; }
-.parent-progress-value { font-size: 30px; }
-.parent-progress-value span { font-size: 15px; }
+.parent-progress {
+  padding: 20px 20px 14px;
+}
+.parent-progress-value {
+  font-size: 30px;
+}
+.parent-progress-value span {
+  font-size: 15px;
+}
 .parent-ring {
   position: relative;
   width: 92px;
@@ -1549,14 +1660,31 @@ tbody tr:last-child td {
   border-radius: 50%;
   background: #fff;
 }
-.parent-ring-value { position: relative; font-size: 20px; line-height: 1.1; }
-.parent-ring .cell-sub { position: relative; font-size: 9px; max-width: 70px; line-height: 1.25; margin-top: 1px; }
+.parent-ring-value {
+  position: relative;
+  font-size: 20px;
+  line-height: 1.1;
+}
+.parent-ring .cell-sub {
+  position: relative;
+  font-size: 9px;
+  max-width: 70px;
+  line-height: 1.25;
+  margin-top: 1px;
+}
 
-.parent-bar { height: 10px; margin: 4px 20px 20px; }
+.parent-bar {
+  height: 10px;
+  margin: 4px 20px 20px;
+}
 
 /* Meal cards. Bigger, calmer, and the status colour is carried by the whole
    left edge and the period label rather than by a 4px hairline alone. */
-.today-meal-list { display: flex; flex-direction: column; gap: 10px; }
+.today-meal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 .today-meal-card {
   gap: 14px;
   padding: 15px 16px;
@@ -1572,20 +1700,45 @@ tbody tr:last-child td {
   background: var(--slate-soft);
   color: var(--ink-2);
 }
-.today-meal-card.ok .tmc-icon { background: var(--green-soft); color: #15803d; }
-.today-meal-card.warn .tmc-icon { background: #fef3c7; color: #b45309; }
-.today-meal-card.danger .tmc-icon { background: var(--red-soft); color: #b91c1c; }
-.tmc-period { font-size: 14.5px; }
-.tmc-meta { font-size: 12.5px; }
-.tmc-result { font-weight: 650; }
-.today-meal-card.ok .tmc-result { color: #15803d; }
-.today-meal-card.warn .tmc-result { color: #b45309; }
-.today-meal-card.danger .tmc-result { color: #b91c1c; }
-.tmc-note { font-size: 12.5px; }
+.today-meal-card.ok .tmc-icon {
+  background: var(--green-soft);
+  color: #15803d;
+}
+.today-meal-card.warn .tmc-icon {
+  background: #fef3c7;
+  color: #b45309;
+}
+.today-meal-card.danger .tmc-icon {
+  background: var(--red-soft);
+  color: #b91c1c;
+}
+.tmc-period {
+  font-size: 14.5px;
+}
+.tmc-meta {
+  font-size: 12.5px;
+}
+.tmc-result {
+  font-weight: 650;
+}
+.today-meal-card.ok .tmc-result {
+  color: #15803d;
+}
+.today-meal-card.warn .tmc-result {
+  color: #b45309;
+}
+.today-meal-card.danger .tmc-result {
+  color: #b91c1c;
+}
+.tmc-note {
+  font-size: 12.5px;
+}
 
 /* Quick links: a coloured icon tile each, so the three destinations are told
    apart at a glance rather than read one by one. */
-.quick-links { gap: 10px; }
+.quick-links {
+  gap: 10px;
+}
 .quick-link {
   padding: 15px 16px;
   border-radius: 14px;
@@ -1607,13 +1760,26 @@ tbody tr:last-child td {
   box-sizing: border-box;
 }
 .quick-link:nth-child(2) > svg:first-child,
-.quick-link:nth-child(2) > span:first-child { background: #ede9fe; color: #6d28d9; }
+.quick-link:nth-child(2) > span:first-child {
+  background: #ede9fe;
+  color: #6d28d9;
+}
 .quick-link:nth-child(3) > svg:first-child,
-.quick-link:nth-child(3) > span:first-child { background: var(--green-soft); color: #15803d; }
+.quick-link:nth-child(3) > span:first-child {
+  background: var(--green-soft);
+  color: #15803d;
+}
 /* The trailing chevron stays a chevron. */
-.quick-link > svg:last-child { flex: none; color: var(--ink-3); }
-.quick-link b { font-size: 14.5px; }
-.quick-link span { font-size: 12.5px; }
+.quick-link > svg:last-child {
+  flex: none;
+  color: var(--ink-3);
+}
+.quick-link b {
+  font-size: 14.5px;
+}
+.quick-link span {
+  font-size: 12.5px;
+}
 
 /* Bottom bar: taller, with a real resting state, so it survives a thumb. */
 .parent-nav {
@@ -1621,9 +1787,15 @@ tbody tr:last-child td {
   box-shadow: 0 -8px 26px -18px rgba(15, 23, 42, 0.55);
   padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px));
 }
-.parent-nav-item { gap: 5px; font-size: 11px; }
+.parent-nav-item {
+  gap: 5px;
+  font-size: 11px;
+}
 
-.child-chip { padding: 8px 16px; font-size: 13px; }
+.child-chip {
+  padding: 8px 16px;
+  font-size: 13px;
+}
 
 /* Insights: the header band carries the four figures that answer "how is the
    week going" before any chart is read. */
@@ -1635,8 +1807,16 @@ tbody tr:last-child td {
   margin: -18px -16px 20px;
   box-shadow: 0 18px 34px -24px rgba(29, 78, 216, 0.9);
 }
-.parent-head h2 { font-size: 23px; font-weight: 800; letter-spacing: -0.02em; }
-.parent-head > p { font-size: 12.5px; opacity: 0.85; margin-top: 3px; }
+.parent-head h2 {
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.parent-head > p {
+  font-size: 12.5px;
+  opacity: 0.85;
+  margin-top: 3px;
+}
 .parent-head-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1651,9 +1831,24 @@ tbody tr:last-child td {
   text-align: center;
   background: rgba(255, 255, 255, 0.06);
 }
-.parent-head-stats b { display: block; font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
-.parent-head-stats b i { font-style: normal; font-size: 12px; opacity: 0.75; }
-.parent-head-stats span { display: block; font-size: 9.5px; opacity: 0.85; margin-top: 3px; line-height: 1.2; }
+.parent-head-stats b {
+  display: block;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.parent-head-stats b i {
+  font-style: normal;
+  font-size: 12px;
+  opacity: 0.75;
+}
+.parent-head-stats span {
+  display: block;
+  font-size: 9.5px;
+  opacity: 0.85;
+  margin-top: 3px;
+  line-height: 1.2;
+}
 
 /* Donut + legend. */
 .intake-overview {
@@ -1663,8 +1858,15 @@ tbody tr:last-child td {
   padding: 18px;
   flex-wrap: wrap;
 }
-.donut { position: relative; flex: none; display: grid; place-items: center; }
-.donut svg { display: block; }
+.donut {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+.donut svg {
+  display: block;
+}
 .donut-centre {
   position: absolute;
   inset: 0;
@@ -1672,16 +1874,50 @@ tbody tr:last-child td {
   place-content: center;
   text-align: center;
 }
-.donut-centre b { display: block; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
-.donut-centre span { display: block; font-size: 9.5px; color: var(--ink-3); margin-top: 1px; }
-.donut-legend { list-style: none; flex: 1; min-width: 150px; display: grid; gap: 9px; }
-.donut-legend li { display: flex; align-items: center; gap: 9px; font-size: 12.5px; }
-.donut-legend i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
-.donut-legend span { flex: 1; color: var(--ink-2); }
-.donut-legend b { font-weight: 750; }
+.donut-centre b {
+  display: block;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.donut-centre span {
+  display: block;
+  font-size: 9.5px;
+  color: var(--ink-3);
+  margin-top: 1px;
+}
+.donut-legend {
+  list-style: none;
+  flex: 1;
+  min-width: 150px;
+  display: grid;
+  gap: 9px;
+}
+.donut-legend li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+}
+.donut-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+.donut-legend span {
+  flex: 1;
+  color: var(--ink-2);
+}
+.donut-legend b {
+  font-weight: 750;
+}
 
 /* Meals ranked by how well they were eaten, each with its own ring. */
-.meal-rank { list-style: none; padding: 6px 4px; }
+.meal-rank {
+  list-style: none;
+  padding: 6px 4px;
+}
 .meal-rank li {
   display: flex;
   align-items: center;
@@ -1689,10 +1925,21 @@ tbody tr:last-child td {
   padding: 11px 14px;
   border-bottom: 1px solid var(--line);
 }
-.meal-rank li:last-child { border-bottom: none; }
-.meal-rank li > div { flex: 1; min-width: 0; }
-.meal-rank b { display: block; font-size: 13.5px; }
-.meal-rank span:not(.meal-rank-ring) { font-size: 11.5px; color: var(--ink-3); }
+.meal-rank li:last-child {
+  border-bottom: none;
+}
+.meal-rank li > div {
+  flex: 1;
+  min-width: 0;
+}
+.meal-rank b {
+  display: block;
+  font-size: 13.5px;
+}
+.meal-rank span:not(.meal-rank-ring) {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
 /* The hole is punched with a radial gradient rather than a pseudo-element:
    an ::before would paint over the percentage sitting inside it, and the
    label is a bare text node with nothing to raise above it. */
@@ -1714,11 +1961,20 @@ tbody tr:last-child td {
 /* On a phone the shared stat grid drops to one card per row, which turned two
    small figures into two full-width slabs. In the Parent portal they sit
    side by side and stay compact. */
-.parent-body .stat-grid { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
-.parent-body .stat { padding: 13px 14px; border-radius: 14px; }
+.parent-body .stat-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.parent-body .stat {
+  padding: 13px 14px;
+  border-radius: 14px;
+}
 
 /* Menu: day cards and their meal rows. */
-.parent-body .menu-day-list { padding: 4px 0; }
+.parent-body .menu-day-list {
+  padding: 4px 0;
+}
 .parent-body .menu-line {
   gap: 13px;
   padding: 14px 16px;
@@ -1726,7 +1982,9 @@ tbody tr:last-child td {
   width: 100%;
   text-align: left;
 }
-.parent-body .menu-line:last-child { border-bottom: none; }
+.parent-body .menu-line:last-child {
+  border-bottom: none;
+}
 .parent-body .menu-line .tmc-icon {
   width: 38px;
   height: 38px;
@@ -1735,14 +1993,23 @@ tbody tr:last-child td {
   color: var(--brand);
   align-self: flex-start;
 }
-.parent-body .menu-dish { font-size: 15px; font-weight: 700; margin: 2px 0 3px; }
+.parent-body .menu-dish {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 2px 0 3px;
+}
 .parent-body .menu-line .tmc-period {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--ink-3);
 }
-.menu-allergen-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.menu-allergen-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
 
 /* Nutrition as tiles, not a bullet list. */
 .nutrition-tiles {
@@ -1758,11 +2025,25 @@ tbody tr:last-child td {
   padding: 11px 8px;
   text-align: center;
 }
-.nutrition-tiles b { display: block; font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
-.nutrition-tiles span { display: block; font-size: 10px; color: var(--ink-2); margin-top: 2px; }
+.nutrition-tiles b {
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.nutrition-tiles span {
+  display: block;
+  font-size: 10px;
+  color: var(--ink-2);
+  margin-top: 2px;
+}
 
 /* Profile: the child sits in the header band, details read as icon rows. */
-.parent-head-profile { display: flex; align-items: center; gap: 16px; }
+.parent-head-profile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
 .parent-head-profile .photo-avatar,
 .parent-head-profile .photo-avatar-fallback,
 .parent-head-profile .avatar {
@@ -1770,10 +2051,19 @@ tbody tr:last-child td {
   border: 3px solid rgba(255, 255, 255, 0.55);
   flex: none;
 }
-.parent-head-profile h2 { font-size: 22px; }
-.parent-head-profile p { font-size: 12.5px; opacity: 0.85; margin-top: 3px; }
+.parent-head-profile h2 {
+  font-size: 22px;
+}
+.parent-head-profile p {
+  font-size: 12.5px;
+  opacity: 0.85;
+  margin-top: 3px;
+}
 
-.profile-rows { list-style: none; padding: 4px 0; }
+.profile-rows {
+  list-style: none;
+  padding: 4px 0;
+}
 .profile-rows li {
   display: flex;
   align-items: center;
@@ -1781,7 +2071,9 @@ tbody tr:last-child td {
   padding: 14px 16px;
   border-bottom: 1px solid var(--line);
 }
-.profile-rows li:last-child { border-bottom: none; }
+.profile-rows li:last-child {
+  border-bottom: none;
+}
 .profile-row-ico {
   width: 38px;
   height: 38px;
@@ -1793,12 +2085,26 @@ tbody tr:last-child td {
   justify-content: center;
   flex: none;
 }
-.profile-rows li > div { min-width: 0; }
-.profile-rows span { display: block; font-size: 11px; color: var(--ink-3); }
-.profile-rows b { display: block; font-size: 14.5px; margin-top: 1px; }
+.profile-rows li > div {
+  min-width: 0;
+}
+.profile-rows span {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.profile-rows b {
+  display: block;
+  font-size: 14.5px;
+  margin-top: 1px;
+}
 
 /* Safety notes read as amber cards — they are cautionary, not decorative. */
-.parent-body .safety-note-list { padding: 6px 16px 2px; display: grid; gap: 9px; }
+.parent-body .safety-note-list {
+  padding: 6px 16px 2px;
+  display: grid;
+  gap: 9px;
+}
 .parent-body .safety-note-item {
   display: flex;
   gap: 10px;
@@ -1810,7 +2116,11 @@ tbody tr:last-child td {
   font-size: 13px;
   color: #78350f;
 }
-.parent-body .safety-note-item svg { flex: none; margin-top: 1px; color: #b45309; }
+.parent-body .safety-note-item svg {
+  flex: none;
+  margin-top: 1px;
+  color: #b45309;
+}
 
 .parent-profile-head {
   display: flex;
@@ -2057,121 +2367,314 @@ tbody tr:last-child td {
   border-radius: 22px;
 }
 
-/* ---------- fast classroom "Today" workflow (docs/13 Decision 032) ---------- */
-.today-progress {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--ink-2);
-  background: #f0f4f3;
-  padding: 6px 12px;
-  border-radius: 999px;
-}
-.focus-card {
+/* ---------- fast classroom "Today" workflow (docs/13 Decision 032) ----------
+
+   VISUAL PASS. This register is used standing up, one-handed, with a queue of
+   children waiting — so the pass buys legibility and target size, not
+   decoration. Nothing here changes what is recorded: the values, the wording of
+   every control, and the class hooks the E2E suite drives (.roster-chip,
+   .status-badge.sb-*, .period-btn, .plate-quarter.selected) are unchanged. */
+
+.serve-head {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 20px 22px;
+  margin-bottom: 16px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+.serve-head-id {
+  min-width: 0;
+  flex: 1 1 240px;
+}
+.serve-head-id h1 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.serve-head-id p {
+  margin-top: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #bfdbfe;
+}
+.serve-head-side {
+  display: flex;
   align-items: center;
   gap: 14px;
-  padding: 28px 20px;
+  flex-wrap: wrap;
+}
+/* Completion ring. --pct is set inline from the same recordedCount / roster
+   length the header prints, so the two can never disagree. */
+.serve-progress {
+  width: 62px;
+  height: 62px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(#12203c 0 63%, transparent 64%),
+    conic-gradient(#38bdf8 calc(var(--pct, 0) * 1%), rgba(255, 255, 255, 0.16) 0);
+}
+.serve-progress-num {
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+}
+.serve-progress-num i {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  color: #93c5fd;
+}
+.serve-head-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.serve-head-meta b {
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+}
+.today-progress {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #93c5fd;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.focus-card {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 24px;
+  align-items: start;
+  padding: 24px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #fff;
   box-shadow: var(--shadow);
+}
+@media (max-width: 820px) {
+  .focus-card {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 20px 16px;
+  }
+}
+/* Who you are recording. Kept as its own column so it stays on screen while
+   the controls to its right change between steps. */
+.focus-id {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   text-align: center;
+  padding: 18px 14px;
+  border-radius: 14px;
+  background: var(--slate-soft);
 }
 .focus-name {
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 800;
   letter-spacing: -0.01em;
+  line-height: 1.25;
 }
 .focus-sub {
-  font-size: 12.5px;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--ink-3);
+  letter-spacing: 0.04em;
 }
+/* The interim free-text safety note. It is deliberately the loudest thing in
+   the identity column — it is read before food is handed over. */
 .focus-safety-note {
   display: inline-flex;
-  align-items: center;
-  gap: 5px;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
   font-size: 12.5px;
   font-weight: 700;
-  color: #b45309;
+  color: #92400e;
   background: #fef3c7;
-  border: 1px solid #fde68a;
-  border-radius: 999px;
-  padding: 6px 12px;
+  border: 1px solid #fcd34d;
+  border-radius: 12px;
+  padding: 9px 12px;
 }
+.focus-safety-note svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.focus-record {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.focus-step-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+  margin-top: 6px;
+}
+.focus-record > .banner {
+  margin: 0;
+}
+
 .focus-nav {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   justify-content: center;
-  margin: 10px 0;
+  margin: 4px 0 12px;
 }
 .focus-nav-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
   border: 1px solid var(--line);
   background: #fff;
   font-size: 18px;
   font-weight: 700;
   color: var(--ink-2);
+  box-shadow: var(--shadow);
 }
 .focus-nav-btn:disabled {
   opacity: 0.35;
+  box-shadow: none;
 }
 
+/* THE SCALE. Five steps, graded from "none" to "all" in the same colours the
+   Parent portal uses for the same five bands, so a member of staff and a
+   parent are looking at one vocabulary. */
 .plate {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  max-width: 460px;
+  max-width: 520px;
 }
 .plate-quarter {
-  aspect-ratio: 1;
-  border-radius: 999px;
-  border: 3px solid var(--brand);
-  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: none;
+  background: none;
+  --pq: var(--brand);
+}
+.plate-quarter:nth-child(1) {
+  --pq: #dc2626;
+}
+.plate-quarter:nth-child(2) {
+  --pq: #fb923c;
+}
+.plate-quarter:nth-child(3) {
+  --pq: #eab308;
+}
+.plate-quarter:nth-child(4) {
+  --pq: #65a30d;
+}
+.plate-quarter:nth-child(5) {
+  --pq: #16a34a;
+}
+.pq-dish {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--brand-dark);
-  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 84px;
+  border-radius: 999px;
+  border: 3px solid var(--pq);
+  background: #fff;
   overflow: hidden;
 }
 .plate-quarter .fill {
   position: absolute;
   inset: 0;
-  background: var(--brand);
+  background: var(--pq);
   transform-origin: bottom;
+  opacity: 0.16;
 }
-.plate-quarter span {
+.pq-pct {
   position: relative;
   z-index: 1;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--pq);
 }
-.plate-quarter.selected {
-  color: #fff;
+.pq-word {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-3);
+  text-align: center;
+  line-height: 1.2;
 }
-.plate-quarter.selected span {
+.plate-quarter.selected .pq-dish {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--pq) 22%, transparent);
+}
+.plate-quarter.selected .fill {
+  opacity: 1;
+}
+.plate-quarter.selected .pq-pct {
   color: #fff;
+  mix-blend-mode: normal;
+}
+.plate-quarter.selected .pq-word {
+  color: var(--ink);
+}
+/* At 0% there is nothing for the fill to paint, so the selected state has to
+   come from the ring rather than from the (zero-height) fill. */
+.plate-quarter:nth-child(1).selected .pq-dish {
+  background: var(--pq);
+}
+@media (max-width: 480px) {
+  .pq-dish {
+    max-width: 62px;
+    border-width: 2px;
+  }
+  .pq-pct {
+    font-size: 13px;
+  }
+  .pq-word {
+    font-size: 10px;
+  }
 }
 
 .chip-choice {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  justify-content: center;
 }
 .chip-choice button {
-  padding: 10px 16px;
-  border-radius: 999px;
+  padding: 12px 18px;
+  border-radius: 12px;
   border: 1px solid var(--line);
   background: #fff;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--ink-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.chip-choice button:hover {
+  border-color: var(--ink-3);
 }
 .chip-choice button.selected {
   background: var(--brand);
@@ -2186,70 +2689,162 @@ tbody tr:last-child td {
   background: var(--red);
   border-color: var(--red);
 }
-
+.chip-choice button.brand {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+/* Flag / note / not served are corrections, not the main path — they sit
+   under a rule at the foot of the card so a thumb does not find them first. */
+.focus-foot {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.focus-foot button {
+  padding: 10px 14px;
+  font-size: 12.5px;
+}
 .not-served-btn {
-  font-size: 12px;
-  font-weight: 700;
   color: var(--ink-3);
   background: none;
-  border: 1px dashed var(--line);
-  border-radius: 999px;
-  padding: 6px 14px;
+  border: 1px dashed var(--line) !important;
 }
 
+/* Reference information, not a task: the children whose Meal Plan excludes this
+   sitting. It sits in the recording flow, so it is deliberately quiet. */
+.not-on-sitting .cell-sub {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.not-on-sitting .hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+/* THE ROSTER. This is the navigation for the whole screen, so it is legible
+   at a glance rather than a row of faded thumbnails: every child is at full
+   opacity, the one being recorded is ringed, and a recorded child is dimmed
+   only after the fact. */
 .roster-strip {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   overflow-x: auto;
-  padding: 4px 2px 10px;
+  padding: 6px 2px 12px;
+  margin-bottom: 4px;
 }
 .roster-chip {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex-shrink: 0;
-  width: 64px;
-  opacity: 0.6;
+  width: 68px;
   background: none;
   border: none;
+  padding: 0;
 }
-.roster-chip.active {
-  opacity: 1;
-}
-.roster-chip .photo-avatar {
+.roster-face {
+  position: relative;
+  display: block;
+  border-radius: 999px;
+  padding: 3px;
   border: 2px solid transparent;
 }
-.roster-chip.active .photo-avatar {
-  border-color: var(--brand);
+.roster-chip.recorded .roster-face {
+  border-color: var(--green-soft);
 }
+.roster-chip.active .roster-face {
+  border-color: var(--brand);
+  background: #eff6ff;
+}
+.roster-chip .photo-avatar {
+  border: none;
+}
+/* A child with no record yet still carries the element (the workflow and the
+   E2E suite both look for it) — it just has nothing to say, so it reads as a
+   quiet placeholder rather than a fifth status colour. */
 .roster-chip .status-badge {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 12px;
-  color: var(--ink-3);
+  width: 19px;
+  height: 19px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: transparent;
+  font-size: 10px;
+  line-height: 1;
+  box-shadow: inset 0 0 0 3px #fff;
+  background: var(--slate-soft);
 }
 .roster-chip .status-badge.sb-checkCircle {
-  color: var(--green);
+  color: #fff;
+  background: var(--green);
+  border-color: var(--green);
 }
 .roster-chip .status-badge.sb-clock {
-  color: var(--amber);
+  color: #fff;
+  background: var(--amber);
+  border-color: var(--amber);
 }
 .roster-chip .status-badge.sb-xCircle {
-  color: var(--red);
+  color: #fff;
+  background: var(--red);
+  border-color: var(--red);
+}
+.roster-chip .status-badge.sb-x {
+  color: var(--ink-2);
+  background: var(--slate-soft);
+  border-color: var(--line);
 }
 .roster-chip .status-badge.sb-alertTriangle {
-  color: #b45309;
+  color: #fff;
+  background: #b45309;
+  border-color: #b45309;
 }
 .roster-chip .name {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--ink-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 64px;
+  max-width: 68px;
+}
+.roster-chip.active .name {
+  color: var(--brand-dark);
+}
+
+/* ---- Today's delivery (institution side of custody) --------------------
+   Card bodies in this sheet are flush by design so a table can run edge to
+   edge. Everything in this card that is NOT a table needs the same gutter the
+   table cells already have, or the buttons and the state pill sit against the
+   card border. */
+.delivery-body {
+  padding: 14px 18px;
+}
+.delivery-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-bottom: 4px;
+}
+.delivery-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
 }
 
 /* ---- Meal Library (§4) ------------------------------------------------- */
@@ -2668,37 +3263,99 @@ tbody tr:last-child td {
    new screens genuinely need (checkbox rows, a two-field row, printable
    labels). Nothing existing is restyled.
    ===================================================================== */
-.check-row { display: flex; flex-wrap: wrap; gap: 12px; }
-.check-col { display: flex; flex-direction: column; gap: 8px; }
-.check {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-size: 14px; min-height: 32px; cursor: pointer;
+.check-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
-.check input[type='checkbox'] { width: 16px; height: 16px; }
-.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.check-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  min-height: 32px;
+  cursor: pointer;
+}
+.check input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+}
+.row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
 
 .label-sheet {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
 }
 .label {
-  border: 1px solid var(--line); border-radius: 6px; padding: 10px;
-  background: #fff; color: #111; font-size: 12px; line-height: 1.35;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  background: #fff;
+  color: #111;
+  font-size: 12px;
+  line-height: 1.35;
 }
 .label-brand {
-  font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--brand); font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand);
+  font-weight: 700;
 }
-.label-special .label-brand { color: #8a5a00; }
-.label-special { border-width: 2px; border-color: #8a5a00; }
-.label-main { font-weight: 700; font-size: 14px; margin: 2px 0; }
-.label-prep { margin-top: 4px; font-weight: 600; }
-.label-qty { margin-top: 6px; font-weight: 700; }
+.label-special .label-brand {
+  color: #8a5a00;
+}
+.label-special {
+  border-width: 2px;
+  border-color: #8a5a00;
+}
+.label-main {
+  font-weight: 700;
+  font-size: 14px;
+  margin: 2px 0;
+}
+.label-prep {
+  margin-top: 4px;
+  font-weight: 600;
+}
+.label-qty {
+  margin-top: 6px;
+  font-weight: 700;
+}
 
 /* Printing a label sheet should print the labels, not the application chrome. */
 @media print {
-  .sidebar, .topbar, .page-head, .btn, .modal-head, .modal-foot { display: none !important; }
-  .modal-backdrop { position: static; background: none; }
-  .modal { box-shadow: none; max-height: none; width: 100%; }
-  .label-sheet { grid-template-columns: repeat(3, 1fr); }
-  .label { break-inside: avoid; }
+  .sidebar,
+  .topbar,
+  .page-head,
+  .btn,
+  .modal-head,
+  .modal-foot {
+    display: none !important;
+  }
+  .modal-backdrop {
+    position: static;
+    background: none;
+  }
+  .modal {
+    box-shadow: none;
+    max-height: none;
+    width: 100%;
+  }
+  .label-sheet {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .label {
+    break-inside: avoid;
+  }
 }

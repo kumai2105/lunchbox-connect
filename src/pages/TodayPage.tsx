@@ -54,6 +54,19 @@ const PERIOD_META: Array<{ period: AppPeriod; label: string }> = [
   { period: 'afternoon_snack', label: 'Afternoon snack' },
 ];
 
+/**
+ * The same five-point scale, in the words the rest of the product already uses
+ * for it (Parent Insights bands). Presentational only — the recorded value is
+ * still the percentage, and no new band is invented here.
+ */
+const PLATE_WORD: Record<number, string> = {
+  0: 'None',
+  25: 'A little',
+  50: 'Half',
+  75: 'Most',
+  100: 'All',
+};
+
 interface Draft {
   pct: ConsumptionPct | null;
   behavior: EatingBehavior | null;
@@ -455,35 +468,62 @@ export default function TodayPage() {
 
   return (
     <div>
-      <PageHead
-        title="Today — serving"
-        hint={`${classLabel} · ${todayISO()}`}
-        actions={
-          <>
-            <span className="today-progress">
-              {PERIOD_META.find((p) => p.period === period)?.label} — {recordedCount} /{' '}
-              {servingRoster?.length ?? 0} completed
+      {/* The register's own header. It carries the two things a member of
+          staff standing in the room needs before anything else: which class
+          and sitting they are recording, and how many children are left. The
+          ring is driven from the same recordedCount / roster length the
+          workflow already computes — no separate figure is kept for it. */}
+      <div className="serve-head">
+        <div className="serve-head-id">
+          <h1>Today — serving</h1>
+          <p>
+            {classLabel} · {todayISO()}
+          </p>
+        </div>
+        <div className="serve-head-side">
+          <div
+            className="serve-progress"
+            style={{
+              ['--pct' as string]: servingRoster?.length
+                ? Math.round((recordedCount / servingRoster.length) * 100)
+                : 0,
+            }}
+          >
+            <span className="serve-progress-num">
+              {recordedCount}
+              <i>/{servingRoster?.length ?? 0}</i>
             </span>
-            <Btn variant="ghost" size="sm" onClick={() => setParams({})}>
-              Switch class
-            </Btn>
-          </>
-        }
-      />
+          </div>
+          <div className="serve-head-meta">
+            <b>{PERIOD_META.find((p) => p.period === period)?.label}</b>
+            <span className="today-progress">recorded so far</span>
+          </div>
+          <Btn variant="ghost" size="sm" onClick={() => setParams({})}>
+            Switch class
+          </Btn>
+        </div>
+      </div>
 
       {error && <Banner kind="err">{error}</Banner>}
 
       {availablePeriods.length > 0 && (
         <div className="period-bar">
-          {availablePeriods.map((p) => (
-            <button
-              key={p.period}
-              className={`period-btn${period === p.period ? ' active' : ''}`}
-              onClick={() => setPeriod(p.period)}
-            >
-              {p.label}
-            </button>
-          ))}
+          {availablePeriods.map((p) => {
+            // The dish is the published Meal Service already loaded for this
+            // day — naming it on the tab saves a member of staff switching
+            // just to find out what a sitting is.
+            const dish = dayServices?.find((d) => d.period === p.period)?.dish_name;
+            return (
+              <button
+                key={p.period}
+                className={`period-btn${period === p.period ? ' active' : ''}`}
+                onClick={() => setPeriod(p.period)}
+              >
+                {p.label}
+                {dish && <small>{dish}</small>}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -542,16 +582,18 @@ export default function TodayPage() {
               return (
                 <button
                   key={s.id}
-                  className={`roster-chip${i === index ? ' active' : ''}`}
+                  className={`roster-chip${i === index ? ' active' : ''}${r ? ' recorded' : ''}`}
                   onClick={() => setIndex(i)}
                 >
-                  <Avatar
-                    photoUrl={photoUrls[s.id]}
-                    initials={initials(`${s.given_name} ${s.family_name}`)}
-                    size="sm"
-                  />
-                  <span className={`status-badge${badge ? ` sb-${badge}` : ''}`}>
-                    {badge ? <Icon name={badge} size={12} /> : '·'}
+                  <span className="roster-face">
+                    <Avatar
+                      photoUrl={photoUrls[s.id]}
+                      initials={initials(`${s.given_name} ${s.family_name}`)}
+                      size="sm"
+                    />
+                    <span className={`status-badge${badge ? ` sb-${badge}` : ''}`}>
+                      {badge ? <Icon name={badge} size={12} /> : '·'}
+                    </span>
                   </span>
                   <span className="name">{s.given_name}</span>
                 </button>
@@ -582,6 +624,7 @@ export default function TodayPage() {
             <Card
               title="Not included in this meal plan"
               hint="these children are not part of this sitting — nothing to record"
+              bodyClassName="not-on-sitting"
             >
               <p className="cell-sub">
                 {notOnThisSitting.map((s) => `${s.given_name} ${s.family_name}`).join(', ')}
@@ -614,128 +657,144 @@ export default function TodayPage() {
           </div>
 
           <div className="focus-card">
-            <Avatar
-              photoUrl={photoUrls[student.id]}
-              initials={initials(`${student.given_name} ${student.family_name}`)}
-              size="lg"
-            />
-            <div className="focus-name">
-              {student.given_name} {student.family_name}
-            </div>
-            <div className="focus-sub">{student.student_no}</div>
-            {safetyNote && (
-              <div className="focus-safety-note">
-                <Icon name="alertTriangle" size={13} /> {safetyNote}
+            <div className="focus-id">
+              <Avatar
+                photoUrl={photoUrls[student.id]}
+                initials={initials(`${student.given_name} ${student.family_name}`)}
+                size="lg"
+              />
+              <div className="focus-name">
+                {student.given_name} {student.family_name}
               </div>
-            )}
-
-            {rec?.served_status === 'not_served' ? (
-              <Banner kind="warn">
-                Marked not served. Tap a portion below to record it instead.
-              </Banner>
-            ) : null}
-
-            <div className="plate">
-              {CONSUMPTION_VALUES.map((v) => (
-                <button
-                  key={v}
-                  className={`plate-quarter${draft.pct === v ? ' selected' : ''}`}
-                  onClick={() => void selectPct(v)}
-                  aria-label={`${v}% eaten`}
-                >
-                  {draft.pct === v && (
-                    <span className="fill" style={{ transform: `scaleY(${v / 100})` }} />
-                  )}
-                  <span>{v}%</span>
-                </button>
-              ))}
+              <div className="focus-sub">{student.student_no}</div>
+              {safetyNote && (
+                <div className="focus-safety-note">
+                  <Icon name="alertTriangle" size={13} /> {safetyNote}
+                </div>
+              )}
             </div>
 
-            {/* §6: one-tap exceptions — no % or behaviour required, and never
+            <div className="focus-record">
+              {rec?.served_status === 'not_served' ? (
+                <Banner kind="warn">
+                  Marked not served. Tap a portion below to record it instead.
+                </Banner>
+              ) : null}
+
+              <div className="focus-step-label">How much was eaten</div>
+              <div className="plate">
+                {CONSUMPTION_VALUES.map((v) => (
+                  <button
+                    key={v}
+                    className={`plate-quarter${draft.pct === v ? ' selected' : ''}`}
+                    onClick={() => void selectPct(v)}
+                    aria-label={`${v}% eaten`}
+                  >
+                    {/* The fill is drawn at every step, not only the chosen one,
+                      so the row reads as a scale rather than five identical
+                      circles. Selection is what makes it solid — the value
+                      recorded is still exactly the percentage on the button. */}
+                    <span className="pq-dish">
+                      <span className="fill" style={{ transform: `scaleY(${v / 100})` }} />
+                      <span className="pq-pct">{v}%</span>
+                    </span>
+                    <span className="pq-word">{PLATE_WORD[v]}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* §6: one-tap exceptions — no % or behaviour required, and never
                 combined with an eating behaviour. Recorded as served-but-excluded. */}
-            <div className="chip-choice exception-row">
-              <span className="tmc-meta">Or mark:</span>
-              {NON_PREFERENCE_LOW_INTAKE_REASONS.map((r) => (
-                <button
-                  key={r}
-                  className={rec?.low_intake_reason === r ? 'selected' : ''}
-                  onClick={() => void saveException(r)}
-                  disabled={saving}
-                >
-                  {LOW_INTAKE_REASON_LABEL[r]}
-                </button>
-              ))}
-            </div>
-
-            {draft.pct !== null && (
-              <div className="chip-choice">
-                {(['ate_independently', 'needed_encouragement', 'refused'] as EatingBehavior[]).map(
-                  (b) => (
-                    <button
-                      key={b}
-                      className={`${b === 'refused' ? 'danger' : b === 'needed_encouragement' ? 'warn' : ''} ${draft.behavior === b ? 'selected' : ''}`}
-                      onClick={() => void selectBehavior(b)}
-                    >
-                      {BEHAVIOR_LABEL[b]}
-                    </button>
-                  ),
-                )}
+              <div className="focus-step-label">Or mark instead</div>
+              <div className="chip-choice exception-row">
+                {NON_PREFERENCE_LOW_INTAKE_REASONS.map((r) => (
+                  <button
+                    key={r}
+                    className={rec?.low_intake_reason === r ? 'selected' : ''}
+                    onClick={() => void saveException(r)}
+                    disabled={saving}
+                  >
+                    {LOW_INTAKE_REASON_LABEL[r]}
+                  </button>
+                ))}
               </div>
-            )}
 
-            {isLowIntake(draft.pct) && draft.behavior && (
-              <div className="chip-choice">
-                {/* §6: only preference reasons here. Absent / Unwell / Asleep are
+              {draft.pct !== null && (
+                <>
+                  <div className="focus-step-label">How they ate</div>
+                  <div className="chip-choice">
+                    {(
+                      ['ate_independently', 'needed_encouragement', 'refused'] as EatingBehavior[]
+                    ).map((b) => (
+                      <button
+                        key={b}
+                        className={`${b === 'refused' ? 'danger' : b === 'needed_encouragement' ? 'warn' : ''} ${draft.behavior === b ? 'selected' : ''}`}
+                        onClick={() => void selectBehavior(b)}
+                      >
+                        {BEHAVIOR_LABEL[b]}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {isLowIntake(draft.pct) && draft.behavior && (
+                <>
+                  <div className="focus-step-label">Why less was eaten (optional)</div>
+                  <div className="chip-choice">
+                    {/* §6: only preference reasons here. Absent / Unwell / Asleep are
                     NOT eating outcomes and live on the one-tap exception row above,
                     so "0% → Ate independently → Absent" can no longer be formed. */}
-                {(Object.keys(LOW_INTAKE_REASON_LABEL) as LowIntakeReason[])
-                  .filter((r) => !NON_PREFERENCE_LOW_INTAKE_REASONS.includes(r))
-                  .map((r) => (
+                    {(Object.keys(LOW_INTAKE_REASON_LABEL) as LowIntakeReason[])
+                      .filter((r) => !NON_PREFERENCE_LOW_INTAKE_REASONS.includes(r))
+                      .map((r) => (
+                        <button
+                          key={r}
+                          className={draft.reason === r ? 'selected' : ''}
+                          onClick={() => void selectReason(r)}
+                        >
+                          {LOW_INTAKE_REASON_LABEL[r]}
+                        </button>
+                      ))}
+                    {/* The reason is OPTIONAL: this is the way through without one. */}
                     <button
-                      key={r}
-                      className={draft.reason === r ? 'selected' : ''}
-                      onClick={() => void selectReason(r)}
+                      className="brand"
+                      onClick={() => void saveWithoutReason()}
+                      disabled={saving}
                     >
-                      {LOW_INTAKE_REASON_LABEL[r]}
+                      {saving ? 'Saving…' : 'Save · no reason'}
                     </button>
-                  ))}
-                {/* The reason is OPTIONAL: this is the way through without one. */}
+                  </div>
+                </>
+              )}
+
+              <div className="chip-choice focus-foot">
                 <button
-                  className="brand"
-                  onClick={() => void saveWithoutReason()}
+                  className={draft.concern ? 'warn selected' : ''}
+                  onClick={() => {
+                    setDraft((d) => ({ ...d, concern: !d.concern }));
+                    openNoteModal();
+                  }}
+                >
+                  {draft.concern ? (
+                    <>
+                      <Icon name="alertTriangle" size={13} /> Concern flagged
+                    </>
+                  ) : (
+                    'Flag a concern'
+                  )}
+                </button>
+                <button onClick={openNoteModal}>
+                  {notes[rec?.id ?? '']?.body ? 'Edit note' : 'Add note'}
+                </button>
+                <button
+                  className="not-served-btn"
+                  onClick={() => void markNotServed()}
                   disabled={saving}
                 >
-                  {saving ? 'Saving…' : 'Save · no reason'}
+                  Meal not served
                 </button>
               </div>
-            )}
-
-            <div className="chip-choice">
-              <button
-                className={draft.concern ? 'warn selected' : ''}
-                onClick={() => {
-                  setDraft((d) => ({ ...d, concern: !d.concern }));
-                  openNoteModal();
-                }}
-              >
-                {draft.concern ? (
-                  <>
-                    <Icon name="alertTriangle" size={13} /> Concern flagged
-                  </>
-                ) : (
-                  'Flag a concern'
-                )}
-              </button>
-              <button onClick={openNoteModal}>
-                {notes[rec?.id ?? '']?.body ? 'Edit note' : 'Add note'}
-              </button>
-              <button
-                className="not-served-btn"
-                onClick={() => void markNotServed()}
-                disabled={saving}
-              >
-                Meal not served
-              </button>
             </div>
           </div>
         </>
