@@ -520,7 +520,11 @@ export default function TodayPage() {
                 onClick={() => setPeriod(p.period)}
               >
                 {p.label}
-                {dish && <small>{dish}</small>}
+                {/* aria-hidden: the tab IS the sitting, and that is what its
+                    accessible name must stay ("Lunch", not "Lunch Chicken &
+                    vegetable rice"). The dish is a sighted-scanning aid, and
+                    the same name is announced in the service banner below. */}
+                {dish && <small aria-hidden="true">{dish}</small>}
               </button>
             );
           })}
