@@ -41,36 +41,43 @@ export default function ParentProfile() {
 
   return (
     <div>
-      <h2 className="parent-title">Profile</h2>
+      <div className="parent-head parent-head-profile">
+        <Avatar
+          photoUrl={photoUrl}
+          initials={initials(`${child.given_name} ${child.family_name}`)}
+          size="lg"
+        />
+        <div>
+          <h2>
+            {child.given_name} {child.family_name}
+          </h2>
+          <p>{child.student_no}</p>
+          {/* The legacy enrollment_status is not shown to families — it is not
+              the authoritative operational truth and could contradict it. */}
+        </div>
+      </div>
 
       <Card>
-        <div className="parent-profile-head">
-          <Avatar
-            photoUrl={photoUrl}
-            initials={initials(`${child.given_name} ${child.family_name}`)}
-            size="lg"
-          />
-          <div>
-            <h3 className="profile-name">
-              {child.given_name} {child.family_name}
-            </h3>
-            <div className="cell-sub">{child.student_no}</div>
-            {/* The legacy enrollment_status is not shown to families — it is not
-                the authoritative operational truth and could contradict it. */}
-          </div>
-        </div>
-        <table>
-          <tbody>
-            <tr>
-              <td className="cell-sub">Nursery / school</td>
-              <td className="cell-name">{institution?.name ?? '—'}</td>
-            </tr>
-            <tr>
-              <td className="cell-sub">Class</td>
-              <td>{klass?.name ?? 'Not assigned'}</td>
-            </tr>
-          </tbody>
-        </table>
+        <ul className="profile-rows">
+          <li>
+            <span className="profile-row-ico">
+              <Icon name="building" size={17} />
+            </span>
+            <div>
+              <span>Nursery / school</span>
+              <b>{institution?.name ?? '—'}</b>
+            </div>
+          </li>
+          <li>
+            <span className="profile-row-ico">
+              <Icon name="folder" size={17} />
+            </span>
+            <div>
+              <span>Class</span>
+              <b>{klass?.name ?? 'Not assigned'}</b>
+            </div>
+          </li>
+        </ul>
       </Card>
 
       <Card title="Safety notes (interim)">

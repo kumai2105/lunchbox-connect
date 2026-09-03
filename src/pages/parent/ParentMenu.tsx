@@ -6,6 +6,19 @@ import { Icon } from '../../components/icons';
 import { weekStartISO } from '../../lib/format';
 import { PERIOD_ICON, PERIOD_LABEL, PERIOD_ORDER } from './shared';
 
+/** Presentational only: prettier names for the nutrition keys a meal carries. */
+const NUTRIENT_LABEL: Record<string, string> = {
+  kcal: 'Calories',
+  calories: 'Calories',
+  protein_g: 'Protein',
+  carbs_g: 'Carbs',
+  fat_g: 'Fat',
+  fibre_g: 'Fibre',
+  fiber_g: 'Fibre',
+  sugar_g: 'Sugar',
+  salt_g: 'Salt',
+};
+
 /**
  * Upcoming menu (blueprint Part 78). These are the same published menu rows
  * the admin manages and the kitchen produces from — there is no parent-specific
@@ -43,7 +56,10 @@ export default function ParentMenu() {
 
   return (
     <div>
-      <h2 className="parent-title">This week's menu</h2>
+      <div className="parent-head">
+        <h2>This week&rsquo;s menu</h2>
+        <p>Published by the nursery</p>
+      </div>
 
       {dates.length === 0 ? (
         <EmptyState text="The menu for this week has not been published yet." />
@@ -132,10 +148,14 @@ export default function ParentMenu() {
           {Object.keys(detail.nutrition).length > 0 && (
             <div className="meal-detail-nutrition">
               <b>Nutrition</b>
-              <ul>
+              {/* Only the keys this meal actually carries are drawn. Nothing is
+                  defaulted in: a missing macro is a macro the kitchen did not
+                  record, and an invented zero would read as a measurement. */}
+              <ul className="nutrition-tiles">
                 {Object.entries(detail.nutrition).map(([k, v]) => (
                   <li key={k}>
-                    {k}: {String(v)}
+                    <b>{String(v)}</b>
+                    <span>{NUTRIENT_LABEL[k] ?? k}</span>
                   </li>
                 ))}
               </ul>
