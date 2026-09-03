@@ -139,7 +139,10 @@ export default function ParentHome() {
               {completed} <span>of {denom || '—'}</span>
             </div>
           </div>
-          <div className="parent-ring">
+          {/* --pct feeds the conic-gradient ring in styles.css. When nothing
+              has been recorded it stays 0 and the ring reads as an empty
+              track, which is the honest state — not a full circle. */}
+          <div className="parent-ring" style={{ ['--pct' as string]: overall ?? 0 }}>
             <div className="parent-ring-value">{overall !== null ? `${overall}%` : '—'}</div>
             <div className="cell-sub">
               {overall !== null ? 'overall intake' : 'not recorded yet'}

@@ -1475,6 +1475,156 @@ tbody tr:last-child td {
   border-color: var(--brand);
   color: #fff;
 }
+/* ============================================================================
+   PARENT PORTAL — VISUAL PASS
+   ----------------------------------------------------------------------------
+   Presentation only. No markup, no data, no permission and no copy changed by
+   anything below: every selector here already existed in the Parent screens.
+   The brief was the render set — lighter ground, more air, larger touch
+   targets, colour used to carry meaning rather than to decorate.
+   ========================================================================== */
+
+.parent-shell { background: #f7f9fd; }
+.parent-body { padding: 18px 16px 104px; }
+
+/* Hero. Deeper gradient and a rounder skirt so the white content below reads
+   as sitting on top of it rather than butting into it. */
+.parent-hero {
+  background: linear-gradient(140deg, #4f7cf7 0%, #2563eb 55%, #1d4ed8 100%);
+  border-radius: 0 0 28px 28px;
+  padding: 26px 22px 34px;
+  margin: -18px -16px 20px;
+  box-shadow: 0 18px 34px -24px rgba(29, 78, 216, 0.9);
+}
+.parent-greeting { font-size: 13.5px; opacity: 0.9; }
+.parent-child-name { font-size: 25px; font-weight: 800; margin: 3px 0; }
+.parent-date { font-size: 12.5px; opacity: 0.82; }
+
+/* The child's avatar is the one portrait on the screen: round it and ring it
+   so it reads as a person rather than as another tile. */
+.parent-hero .photo-avatar,
+.parent-hero .photo-avatar-fallback,
+.parent-hero .avatar {
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.55);
+}
+
+/* Cards lift off the ground instead of being outlined. */
+.parent-body .card {
+  border-radius: 16px;
+  border-color: #e8edf6;
+  box-shadow: 0 10px 26px -22px rgba(15, 23, 42, 0.7);
+}
+
+.parent-section {
+  font-size: 15.5px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  margin: 26px 0 12px;
+}
+
+/* Today's progress. The percentage becomes an actual ring — drawn with a
+   conic gradient off --pct, which ParentHome sets inline. When the value is
+   absent the variable is unset, the ring falls back to 0% and reads as an
+   empty track, which is the honest state for "not recorded yet". */
+.parent-progress { padding: 20px 20px 14px; }
+.parent-progress-value { font-size: 30px; }
+.parent-progress-value span { font-size: 15px; }
+.parent-ring {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  background: conic-gradient(var(--brand) calc(var(--pct, 0) * 1%), var(--slate-soft) 0);
+}
+.parent-ring::before {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: #fff;
+}
+.parent-ring-value { position: relative; font-size: 20px; line-height: 1.1; }
+.parent-ring .cell-sub { position: relative; font-size: 9px; max-width: 70px; line-height: 1.25; margin-top: 1px; }
+
+.parent-bar { height: 10px; margin: 4px 20px 20px; }
+
+/* Meal cards. Bigger, calmer, and the status colour is carried by the whole
+   left edge and the period label rather than by a 4px hairline alone. */
+.today-meal-list { display: flex; flex-direction: column; gap: 10px; }
+.today-meal-card {
+  gap: 14px;
+  padding: 15px 16px;
+  border-radius: 14px;
+  border-color: #e8edf6;
+  border-left-width: 5px;
+  box-shadow: 0 10px 24px -22px rgba(15, 23, 42, 0.65);
+}
+.tmc-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--slate-soft);
+  color: var(--ink-2);
+}
+.today-meal-card.ok .tmc-icon { background: var(--green-soft); color: #15803d; }
+.today-meal-card.warn .tmc-icon { background: #fef3c7; color: #b45309; }
+.today-meal-card.danger .tmc-icon { background: var(--red-soft); color: #b91c1c; }
+.tmc-period { font-size: 14.5px; }
+.tmc-meta { font-size: 12.5px; }
+.tmc-result { font-weight: 650; }
+.today-meal-card.ok .tmc-result { color: #15803d; }
+.today-meal-card.warn .tmc-result { color: #b45309; }
+.today-meal-card.danger .tmc-result { color: #b91c1c; }
+.tmc-note { font-size: 12.5px; }
+
+/* Quick links: a coloured icon tile each, so the three destinations are told
+   apart at a glance rather than read one by one. */
+.quick-links { gap: 10px; }
+.quick-link {
+  padding: 15px 16px;
+  border-radius: 14px;
+  border-color: #e8edf6;
+  box-shadow: 0 10px 24px -22px rgba(15, 23, 42, 0.65);
+}
+.quick-link > svg:first-child,
+.quick-link > span:first-child {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--slate-soft);
+  color: var(--brand);
+  padding: 9px;
+  box-sizing: border-box;
+}
+.quick-link:nth-child(2) > svg:first-child,
+.quick-link:nth-child(2) > span:first-child { background: #ede9fe; color: #6d28d9; }
+.quick-link:nth-child(3) > svg:first-child,
+.quick-link:nth-child(3) > span:first-child { background: var(--green-soft); color: #15803d; }
+/* The trailing chevron stays a chevron. */
+.quick-link > svg:last-child { flex: none; color: var(--ink-3); }
+.quick-link b { font-size: 14.5px; }
+.quick-link span { font-size: 12.5px; }
+
+/* Bottom bar: taller, with a real resting state, so it survives a thumb. */
+.parent-nav {
+  border-top: none;
+  box-shadow: 0 -8px 26px -18px rgba(15, 23, 42, 0.55);
+  padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px));
+}
+.parent-nav-item { gap: 5px; font-size: 11px; }
+
+.child-chip { padding: 8px 16px; font-size: 13px; }
+
 .parent-profile-head {
   display: flex;
   gap: 16px;
