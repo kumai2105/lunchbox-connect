@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useParentData } from './context';
 import { Banner, Card, EmptyState, StatCard } from '../../components/ui';
-import { BarChart, TrendChart } from '../../components/charts';
+import { BarChart, DonutChart, TrendChart } from '../../components/charts';
 import {
   LOW_INTAKE_REASON_LABEL,
   aggregateObservations,
@@ -21,6 +21,20 @@ const RANGES = [
 function daysAgoISO(days: number): string {
   return operationalDaysAgoISO(days - 1);
 }
+
+/**
+ * The app's real five-point intake scale, in the order a donut should read.
+ * These are the exact values the Classroom records against — this screen does
+ * not re-bucket them into friendlier-sounding ranges, because the bands a
+ * parent is shown should be the bands a nurse actually recorded.
+ */
+const BANDS = [
+  { pct: 100, label: 'Ate all', color: '#16a34a' },
+  { pct: 75, label: 'Ate most', color: '#65a30d' },
+  { pct: 50, label: 'Ate half', color: '#facc15' },
+  { pct: 25, label: 'Ate a little', color: '#fb923c' },
+  { pct: 0, label: 'Did not eat', color: '#dc2626' },
+];
 
 /**
  * Parent Insights (blueprint Part 79). Every figure is calculated from this
@@ -94,9 +108,37 @@ export default function ParentInsights() {
     [stats],
   );
 
+  // "Eaten well" is the top two bands of the same scale shown in the donut —
+  // stated as a fraction of the meals that were actually counted, so it can
+  // never read as a score out of something larger than the evidence.
+  const ateWell = (stats.distribution[100] ?? 0) + (stats.distribution[75] ?? 0);
+
   return (
     <div>
-      <h2 className="parent-title">{child.given_name}'s insights</h2>
+      <div className="parent-head">
+        <h2>{child.given_name}'s insights</h2>
+        <p>Last {days} days</p>
+        {scoped.length > 0 && (
+          <div className="parent-head-stats">
+            <div>
+              <b>{stats.avgConsumption !== null ? `${stats.avgConsumption}%` : '—'}</b>
+              <span>Average intake</span>
+            </div>
+            <div>
+              <b>{ateWell}<i>/{stats.valid}</i></b>
+              <span>Eaten well</span>
+            </div>
+            <div>
+              <b>{stats.lowIntake}</b>
+              <span>Low intake</span>
+            </div>
+            <div>
+              <b>{stats.encouraged}</b>
+              <span>Encouraged</span>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="range-tabs">
         {RANGES.map((r) => (
@@ -114,30 +156,16 @@ export default function ParentInsights() {
         <EmptyState text="No meals have been recorded for this period yet." />
       ) : (
         <>
+          {/* Average intake, low intake and encouragement now live in the
+              header strip above. Only the two figures that are NOT up there
+              are repeated as cards — showing the same number twice on one
+              screen makes a reader hunt for the difference between them. */}
           <div className="stat-grid">
-            <StatCard
-              icon="checkCircle"
-              label="Average intake"
-              value={stats.avgConsumption !== null ? `${stats.avgConsumption}%` : '—'}
-              trend={`${stats.valid} meals counted`}
-            />
             <StatCard
               icon="clipboardList"
               label="Meals recorded"
               value={stats.total}
               trend={`over ${days} days`}
-            />
-            <StatCard
-              icon="heart"
-              label="Needed encouragement"
-              value={stats.encouraged}
-              trend="meals"
-            />
-            <StatCard
-              icon="alertTriangle"
-              label="Low intake"
-              value={stats.lowIntake}
-              trend="meals"
             />
             <StatCard
               icon="xCircle"
@@ -156,30 +184,43 @@ export default function ParentInsights() {
           </Card>
 
           <Card title="How much was eaten" hint="meals in each band">
-            <div style={{ padding: 16 }}>
-              <BarChart
-                data={[100, 75, 50, 25, 0].map((pct) => ({
-                  label: `${pct}%`,
-                  value: stats.distribution[pct] ?? 0,
-                  color:
-                    pct >= 75
-                      ? 'var(--green)'
-                      : pct >= 50
-                        ? '#facc15'
-                        : pct >= 25
-                          ? '#fb923c'
-                          : 'var(--red)',
+            <div className="intake-overview">
+              <DonutChart
+                segments={BANDS.map((b) => ({
+                  label: b.label,
+                  value: stats.distribution[b.pct] ?? 0,
+                  color: b.color,
                 }))}
-                emptyText="No completed meals to show yet."
+                centreValue={stats.avgConsumption !== null ? `${stats.avgConsumption}%` : '—'}
+                centreLabel="average intake"
               />
+              <ul className="donut-legend">
+                {BANDS.map((b) => (
+                  <li key={b.pct}>
+                    <i style={{ background: b.color }} />
+                    <span>{b.label}</span>
+                    <b>{stats.distribution[b.pct] ?? 0}</b>
+                  </li>
+                ))}
+              </ul>
             </div>
           </Card>
 
           {higherAccepted.length > 0 && (
             <Card title="Meals eaten best" hint="average intake per meal">
-              <div style={{ padding: 16 }}>
-                <BarChart data={higherAccepted} max={100} valueSuffix="%" />
-              </div>
+              <ul className="meal-rank">
+                {higherAccepted.map((m) => (
+                  <li key={m.label}>
+                    <div>
+                      <b>{m.label}</b>
+                      <span>{m.hint}</span>
+                    </div>
+                    <span className="meal-rank-ring" style={{ ['--pct' as string]: m.value }}>
+                      {m.value}%
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </Card>
           )}
 

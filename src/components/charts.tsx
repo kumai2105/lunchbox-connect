@@ -144,3 +144,61 @@ export function TrendChart({
     </div>
   );
 }
+
+/**
+ * A segmented donut.
+ *
+ * Presentation only: it draws the segments it is handed and computes nothing.
+ * The centre carries one figure and its caption; the caller supplies both, so
+ * this can never imply a total it has not been given. Segments with a zero
+ * value are dropped rather than drawn as slivers, and an all-zero set renders
+ * the empty track alone — which is the honest picture of "nothing recorded",
+ * not a full circle in a default colour.
+ */
+export function DonutChart({
+  segments,
+  centreValue,
+  centreLabel,
+  size = 148,
+  thickness = 20,
+}: {
+  segments: Array<{ label: string; value: number; color: string }>;
+  centreValue: string;
+  centreLabel?: string;
+  size?: number;
+  thickness?: number;
+}) {
+  const shown = segments.filter((s) => s.value > 0);
+  const total = shown.reduce((n, s) => n + s.value, 0);
+  const r = (size - thickness) / 2;
+  const circumference = 2 * Math.PI * r;
+
+  let offset = 0;
+  return (
+    <div className="donut">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img"
+           aria-label={shown.map((s) => `${s.label}: ${s.value}`).join(', ') || 'Nothing recorded yet'}>
+        <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none"
+                  stroke="var(--slate-soft)" strokeWidth={thickness} />
+          {total > 0 &&
+            shown.map((s) => {
+              const len = (s.value / total) * circumference;
+              const dash = `${len} ${circumference - len}`;
+              const el = (
+                <circle key={s.label} cx={size / 2} cy={size / 2} r={r} fill="none"
+                        stroke={s.color} strokeWidth={thickness}
+                        strokeDasharray={dash} strokeDashoffset={-offset} />
+              );
+              offset += len;
+              return el;
+            })}
+        </g>
+      </svg>
+      <div className="donut-centre">
+        <b>{centreValue}</b>
+        {centreLabel && <span>{centreLabel}</span>}
+      </div>
+    </div>
+  );
+}
