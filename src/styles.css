@@ -932,14 +932,25 @@ label.cell-person-photo {
 .row-muted td {
   opacity: 0.62;
 }
+/* `white-space: nowrap` forced every action in a row onto one line. On the
+   Staff table that is four buttons, and the last of them — Deactivate /
+   Reactivate — was clipped off the right edge of the card at anything under a
+   wide desktop, with the sidebar making it worse. Wrapping is the fix: the
+   cluster stays right-aligned and folds onto a second line instead of leaving
+   the destructive action unreachable without a horizontal scroll. */
 .row-actions {
-  white-space: nowrap;
   text-align: right;
 }
 .row-actions .btn {
-  margin-left: 6px;
   padding: 5px 10px;
   font-size: 12px;
+}
+td.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
 }
 
 /* ---------- forms / modal ---------- */
@@ -3136,7 +3147,7 @@ label.cell-person-photo {
   font-size: 13px;
 }
 .meal-pick.clear {
-  color: var(--danger, #c0392b);
+  color: var(--red);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -3180,31 +3191,44 @@ label.cell-person-photo {
 }
 
 /* ---- class staff chips (§16) ------------------------------------------- */
+/* A class assignment is a small fact about a person, so it reads as a pill.
+   As a column of full-width bordered boxes with the name and the word
+   "remove" pushed to opposite ends, one assignment took three lines of row
+   height and looked like a form control. */
 .staff-chips {
   list-style: none;
   padding: 0;
-  margin: 8px 0;
+  margin: 0;
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 6px;
 }
 .staff-chips li {
-  display: flex;
-  justify-content: space-between;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 5px 10px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  font-size: 13px;
+  border-radius: 999px;
+  background: var(--slate-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
 }
+/* `--danger` is not a token this sheet defines, so both users of it were
+   silently falling back to a red that matches nothing else in the product. */
 .chip-x {
   border: none;
   background: transparent;
-  color: var(--danger, #c0392b);
+  color: var(--red);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0;
+}
+.chip-x:hover {
+  text-decoration: underline;
 }
 
 /* ---- calendar tab (§7) ------------------------------------------------- */
