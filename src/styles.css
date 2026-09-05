@@ -2847,6 +2847,108 @@ label.cell-person-photo {
   margin-bottom: 10px;
 }
 
+/* ---- Institution portal ------------------------------------------------
+   The Institution Admin administers ONE site. Their dashboard is that site's
+   day, not a chain report with a single row in it — so the site is the heading
+   and today's recorded share is the figure, carried in the same header-band
+   language the Parent portal and the Classroom register already use. */
+.inst-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+.inst-head-id {
+  min-width: 0;
+  flex: 1 1 240px;
+}
+.inst-head-id h1 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.inst-head-id p {
+  margin-top: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #bfdbfe;
+}
+.inst-head-side {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+/* --pct is set inline from the same meals_today / expected_today the table
+   below prints, so the ring and the number can never disagree. */
+.inst-ring {
+  width: 62px;
+  height: 62px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(#12203c 0 63%, transparent 64%),
+    conic-gradient(#38bdf8 calc(var(--pct, 0) * 1%), rgba(255, 255, 255, 0.16) 0);
+}
+.inst-ring-num {
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+}
+.inst-head-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.inst-head-meta b {
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+}
+.inst-state {
+  margin-top: 6px;
+  align-self: flex-start;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+}
+.inst-state.is-complete {
+  background: rgba(22, 163, 74, 0.28);
+  color: #bbf7d0;
+}
+.inst-state.is-in_progress {
+  background: rgba(245, 158, 11, 0.26);
+  color: #fde68a;
+}
+.inst-state.is-not_started {
+  background: rgba(220, 38, 38, 0.28);
+  color: #fecaca;
+}
+.inst-head-meta span {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #93c5fd;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 /* ---- Meal Library (§4) ------------------------------------------------- */
 .toolbar {
   display: flex;
@@ -3296,7 +3398,13 @@ label.cell-person-photo {
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 10px;
 }
-.label {
+/* SCOPED, and it must stay scoped. This is the printed crate label. As a bare
+   `.label` it matched every `.label` in the product — including the one every
+   StatCard renders for its icon and caption — so each KPI on the Dashboard,
+   Status, Kitchen and Parent Insights was drawing a stray bordered white box
+   around its own heading. The crate label is the only thing that wants a
+   border, and it only ever appears inside `.label-sheet`. */
+.label-sheet .label {
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 10px;

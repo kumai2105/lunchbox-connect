@@ -22,6 +22,7 @@ import {
   weightedAverageConsumption,
 } from '../lib/completion';
 import { can } from '../lib/rbac';
+import { formatOperationalDate } from '../lib/format';
 import { classifyMealPerformance } from '../lib/mealAnalytics';
 
 export default function DashboardPage() {
@@ -79,7 +80,52 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <PageHead title="Dashboard" hint="what is happening across your institutions today" />
+      {/* One screen, two audiences. A Super Admin operates a chain and gets the
+          chain header. An Institution Admin administers exactly one site — the
+          name of it is their heading, not a KPI tile, and the figure they came
+          for is how much of today is recorded. Both are read from the same
+          single authorized query; nothing extra is fetched for either. */}
+      {isGlobalOperator ? (
+        <PageHead title="Dashboard" hint="what is happening across your institutions today" />
+      ) : (
+        <div className="inst-head">
+          <div className="inst-head-id">
+            <h1>{rows[0]?.name ?? 'Your institution'}</h1>
+            <p>{formatOperationalDate(new Date())}</p>
+          </div>
+          <div className="inst-head-side">
+            <div
+              className="inst-ring"
+              style={{
+                ['--pct' as string]:
+                  rows[0] && rows[0].expected_today > 0
+                    ? Math.min(
+                        100,
+                        Math.round((rows[0].meals_today / rows[0].expected_today) * 100),
+                      )
+                    : 0,
+              }}
+            >
+              <span className="inst-ring-num">
+                {rows[0] && rows[0].expected_today > 0
+                  ? `${Math.round((rows[0].meals_today / rows[0].expected_today) * 100)}%`
+                  : '—'}
+              </span>
+            </div>
+            <div className="inst-head-meta">
+              <b>
+                {rows[0]?.meals_today ?? 0} of {rows[0]?.expected_today ?? 0}
+              </b>
+              <span>recorded today</span>
+              {rows[0] && (
+                <i className={`inst-state is-${completionState(rows[0])}`}>
+                  {COMPLETION_LABEL[completionState(rows[0])]}
+                </i>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && <Banner kind="err">{error}</Banner>}
 
@@ -105,11 +151,15 @@ export default function DashboardPage() {
             to={can(role, 'institutions', 'view') ? '/institutions' : undefined}
           />
         ) : (
+          /* The site's NAME is the heading above; a tile in a row of metrics
+             has to carry a metric. Classrooms is already in this same row of
+             the read model and is already printed in the table below. */
           <StatCard
-            icon="building"
-            label="Your institution"
-            value={rows[0]?.name ?? '—'}
-            trend={rows[0] ? 'the one you administer' : 'none assigned to your account'}
+            icon="folder"
+            label="Classrooms"
+            value={rows[0]?.classrooms ?? 0}
+            trend="at your institution"
+            to={can(role, 'classes', 'view') ? '/classes' : undefined}
           />
         )}
         <StatCard
@@ -153,68 +203,75 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <Card
-        title={isGlobalOperator ? 'Institutions — serving today' : 'Serving today'}
-        hint={isGlobalOperator ? 'every institution you operate' : 'your institution only'}
-        actions={
-          can(role, 'institutions', 'view') ? (
-            <Link to="/institutions" className="btn ghost">
-              Manage →
-            </Link>
-          ) : undefined
-        }
-      >
-        {rows.length === 0 ? (
-          <EmptyState text="No institutions yet — a Super Admin can add the first one." />
-        ) : (
-          <table className="dash-table">
-            <thead>
-              <tr>
-                <th>Institution</th>
-                <th className="col-secondary">Classrooms</th>
-                <th>Active students</th>
-                <th>Meals today</th>
-                <th className="col-secondary">Fill rate</th>
-                <th>State</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
-                // §38: completion = completed applicable records / EXPECTED
-                // applicable records (eligible students × periods published
-                // today). Undefined when nothing is expected today.
-                const rate =
-                  r.expected_today > 0
-                    ? Math.round((r.meals_today / r.expected_today) * 100)
-                    : null;
-                return (
-                  <tr key={r.institution_id}>
-                    <td className="cell-name">{r.name}</td>
-                    <td className="mono col-secondary">{r.classrooms}</td>
-                    <td className="mono">{r.active_students}</td>
-                    <td className="mono">{r.meals_today}</td>
-                    <td className="col-secondary">
-                      {/* Undefined when nothing is published/expected today —
+      {/* CHAIN TABLE, for whoever operates a chain. Rendering it to an
+          Institution Admin printed a single row whose every column is already
+          on this screen — the site name in the heading, classrooms / students /
+          meals in the tiles, the fill rate in the ring. Its one unique fact,
+          the completion state, moved into the band above. */}
+      {isGlobalOperator && (
+        <Card
+          title="Institutions — serving today"
+          hint="every institution you operate"
+          actions={
+            can(role, 'institutions', 'view') ? (
+              <Link to="/institutions" className="btn ghost">
+                Manage →
+              </Link>
+            ) : undefined
+          }
+        >
+          {rows.length === 0 ? (
+            <EmptyState text="No institutions yet — a Super Admin can add the first one." />
+          ) : (
+            <table className="dash-table">
+              <thead>
+                <tr>
+                  <th>Institution</th>
+                  <th className="col-secondary">Classrooms</th>
+                  <th>Active students</th>
+                  <th>Meals today</th>
+                  <th className="col-secondary">Fill rate</th>
+                  <th>State</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  // §38: completion = completed applicable records / EXPECTED
+                  // applicable records (eligible students × periods published
+                  // today). Undefined when nothing is expected today.
+                  const rate =
+                    r.expected_today > 0
+                      ? Math.round((r.meals_today / r.expected_today) * 100)
+                      : null;
+                  return (
+                    <tr key={r.institution_id}>
+                      <td className="cell-name">{r.name}</td>
+                      <td className="mono col-secondary">{r.classrooms}</td>
+                      <td className="mono">{r.active_students}</td>
+                      <td className="mono">{r.meals_today}</td>
+                      <td className="col-secondary">
+                        {/* Undefined when nothing is published/expected today —
                           shown as "—", never a divide-by-zero or a >100% ratio. */}
-                      {/* The exact ratio. The old 80%/60% colour bands were an
+                        {/* The exact ratio. The old 80%/60% colour bands were an
                           invented judgement about what counts as "good". */}
-                      <span className="pill na">{rate === null ? '—' : `${rate}%`}</span>
-                    </td>
-                    <td>
-                      {/* Four exact states, no threshold. A day with nothing
+                        <span className="pill na">{rate === null ? '—' : `${rate}%`}</span>
+                      </td>
+                      <td>
+                        {/* Four exact states, no threshold. A day with nothing
                           published is COMPLETE at 0 of 0, not a failure. */}
-                      <span>
-                        <StatusDot color={COMPLETION_DOT[completionState(r)]} />
-                        {COMPLETION_LABEL[completionState(r)]}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </Card>
+                        <span>
+                          <StatusDot color={COMPLETION_DOT[completionState(r)]} />
+                          {COMPLETION_LABEL[completionState(r)]}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </Card>
+      )}
 
       {role === 'super_admin' && meals.length > 0 && (
         <Card
@@ -262,8 +319,9 @@ export default function DashboardPage() {
         <div style={{ padding: '4px 18px' }}>
           {needsAttention.length === 0 ? (
             <div className="center-box">
-              Nothing outstanding — every institution with meals scheduled today has started
-              recording.
+              {isGlobalOperator
+                ? 'Nothing outstanding — every institution with meals scheduled today has started recording.'
+                : 'Nothing outstanding — recording has started for every sitting published today.'}
             </div>
           ) : (
             needsAttention.map((r) => (
