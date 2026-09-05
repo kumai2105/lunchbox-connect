@@ -1,0 +1,170 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  # ---- always runs on every PR: typecheck, lint, unit -------------------------
+  gate:
+    name: Typecheck · lint · unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm (from packageManager)
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+  # ---- gate output: whether the E2E secrets exist. Job-level `if:` cannot
+  # reference `secrets` directly (GitHub rejects it at parse time), so the
+  # check has to happen inside a step and be threaded through as a job output.
+  check-e2e-secrets:
+    name: Check E2E secrets
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        env:
+          E2E_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          E2E_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          # The browser bundle needs the SAME project's anon key, or the page
+          # under test talks to a placeholder host while the fixtures seed a
+          # real project. Without it the suite is BLOCKED_BY_ENVIRONMENT.
+          E2E_ANON: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -n "$E2E_URL" ] && [ -n "$E2E_KEY" ] && [ -n "$E2E_ANON" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # -----------------------------------------------------------------------------
+  # E2E — runs ONLY when credentials for an APPROVED NON-PRODUCTION (disposable)
+  # Supabase project exist as repository secrets AND the PR is from the same repo
+  # (GitHub never exposes secrets to fork PRs; the job is skipped there by
+  # design, matching the suite's BLOCKED_BY_ENVIRONMENT rule). Production
+  # service-role credentials must NEVER be used here — the guard below refuses
+  # them. Browser install is cached so re-runs skip it.
+  # -----------------------------------------------------------------------------
+  e2e:
+    name: E2E (Playwright · non-production Supabase)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [gate, check-e2e-secrets]
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      needs.check-e2e-secrets.outputs.ready == 'true'
+    env:
+      E2E_BASE_URL: http://127.0.0.1:4173
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+      E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+      E2E_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+      E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # RELEASE BLOCKER GUARD (item 8): E2E seeding writes rows with a
+      # service-role key. It must never point at the production Supabase
+      # project. Fail the job outright if the configured E2E URL matches a known
+      # production project ref, so a mis-set secret can never seed production.
+      # (global-setup.ts enforces the same refusal at runtime; this is the
+      # earlier, cheaper tripwire.)
+      - name: Guard — E2E must not target production
+        env:
+          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+        run: |
+          PROD_REFS="llnofriwvnerntrbpehc"
+          for ref in $PROD_REFS; do
+            case "$E2E_SUPABASE_URL" in
+              *"$ref"*)
+                echo "::error::E2E_SUPABASE_URL points at the production project ($ref). Refusing to seed production."
+                exit 1
+                ;;
+            esac
+          done
+          echo "E2E target is not the production project."
+
+      - name: Install pnpm (from packageManager)
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pw-${{ runner.os }}-
+
+      - name: Install Playwright browser (chromium + deps)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Build the bundle AGAINST THE SEEDED PROJECT. build:e2e maps
+      # E2E_SUPABASE_URL / E2E_SUPABASE_ANON_KEY onto the Vite variables, and
+      # refuses to build if the URL is production or if the "anon" key actually
+      # carries the service_role claim (that key must never ship to a browser).
+      - name: Build the frontend against the E2E project
+        run: pnpm build:e2e
+
+      - name: Serve app + run E2E
+        run: |
+          pnpm preview --host 127.0.0.1 --port 4173 &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID 2>/dev/null || true" EXIT
+          for i in $(seq 1 45); do
+            curl -sf http://127.0.0.1:4173 >/dev/null && break
+            sleep 1
+          done
+          pnpm test:e2e
+
+      - name: Upload Playwright report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7

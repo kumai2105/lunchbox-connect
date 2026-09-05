@@ -1,0 +1,278 @@
+-- ⛔ DO NOT RUN. Superseded and withdrawn.
+-- This script made unapproved business-data decisions (rebuilt service
+-- plans from the menu, auto-assigned one rotation to every institution,
+-- mass-published ~2056 services) AND auto-committed. Replaced by the
+-- separated, review-gated scripts in remediation/. See remediation/README.md.
+-- Original content preserved below for audit only.
+
+-- =====================================================================
+-- LunchBox Connect — ONE-SHOT PRODUCTION FIX  (project llnofriwvnerntrbpehc)
+--
+-- Paste this ENTIRE file into the Supabase SQL editor and click Run.
+-- It is a single transaction. If any check fails, the whole thing aborts
+-- and NOTHING changes. When it finishes you will see a table of NOTICE
+-- lines ending in "ALL STEPS OK". Only then does it commit.
+--
+-- WHAT IT FIXES
+--   1. A data leak reachable WITHOUT LOGIN (resolver RPCs open to anon).
+--   2. A blank Kitchen "Today's meals" screen (no dated services exist).
+--
+-- IT ALSO removes the `Test %` fixtures this project is currently running
+-- on, so your real menu drives the schedule instead of test meals.
+-- =====================================================================
+begin;
+
+-- ---------------------------------------------------------------------
+-- STEP 0 — refuse to run if real observed history depends on a fixture
+-- ---------------------------------------------------------------------
+do $guard$
+declare n int;
+begin
+  select count(*) into n
+    from serving_records sr
+    join meal_services ms  on ms.id = sr.meal_service_id
+    join meal_revisions mr on mr.id = ms.meal_revision_id
+    join meals m           on m.id  = mr.meal_id
+   where m.name like 'Test %';
+  if n > 0 then
+    raise exception 'ABORT: % serving record(s) reference Test fixtures. Nothing changed.', n;
+  end if;
+  raise notice 'STEP 0  ok — no observed history depends on the Test fixtures';
+end $guard$;
+
+-- ---------------------------------------------------------------------
+-- STEP 1 — close the resolver-RPC leak (migration 0018)
+-- PUBLIC must be revoked first: Postgres grants EXECUTE to PUBLIC on every
+-- new function, so revoking only from authenticated/anon leaves it open.
+-- ---------------------------------------------------------------------
+revoke execute on function resolve_rotation_week(uuid, date) from public, authenticated, anon;
+revoke execute on function service_plan_includes(uuid, date, app_period) from public, authenticated, anon;
+revoke execute on function resolve_meal(uuid, date, app_period) from public, authenticated, anon;
+comment on function resolve_meal(uuid, date, app_period) is
+  'INTERNAL. Not granted to anon/authenticated: SECURITY DEFINER, takes an '
+  'institution id, does not check app_can_see_institution(). Leaks other '
+  'institutions'' schedules if exposed.';
+do $$ begin raise notice 'STEP 1  ok — resolver RPCs revoked from anon/authenticated'; end $$;
+
+-- ---------------------------------------------------------------------
+-- STEP 2 — remove the Test fixtures (children first, then parents)
+-- ---------------------------------------------------------------------
+do $cleanup$
+declare n int;
+begin
+  delete from meal_services ms
+   using meal_revisions mr, meals m
+   where ms.meal_revision_id = mr.id and mr.meal_id = m.id and m.name like 'Test %';
+  get diagnostics n = row_count;  raise notice 'STEP 2  removed % test meal_services', n;
+
+  delete from institution_rotation_assignments a
+   using rotations r where a.rotation_id = r.id and r.name like 'Test %';
+
+  delete from rotation_slots rs using rotations r
+   where rs.rotation_id = r.id and r.name like 'Test %';
+  delete from rotations where name like 'Test %';
+
+  update meals set current_revision_id = null where name like 'Test %';
+  delete from meal_revisions mr using meals m
+   where mr.meal_id = m.id and m.name like 'Test %';
+  delete from meals where name like 'Test %';
+  raise notice 'STEP 2  ok — test meals/revisions/rotations/slots removed';
+
+  -- The current service plans also came from the verification run (e.g.
+  -- Sunshine Valley's "no afternoon snack" is a test fixture, not something
+  -- entered in the app). Before the cutover every institution read the same
+  -- global menu, so both served the same periods. Clearing them lets STEP 3
+  -- rebuild each plan from the periods the REAL menu actually contains.
+  --
+  -- >>> If Sunshine Valley genuinely has NO afternoon snack, delete the next
+  -- >>> line before running, and set its plan by hand afterwards. <<<
+  delete from institution_service_plans;
+  raise notice 'STEP 2  ok — stale service plans cleared for rebuild';
+end $cleanup$;
+
+-- ---------------------------------------------------------------------
+-- STEP 3 — backfill the real menu onto the rotation engine (migration 0017)
+-- ---------------------------------------------------------------------
+create or replace function backfill_legacy_menus()
+returns table (meals_created int, slots_created int, institutions_mapped int)
+language plpgsql security definer set search_path = public as $fn$
+declare
+  v_weeks int;
+begin
+  if auth.uid() is not null and not app_is_super_admin() then
+    raise exception 'backfill_legacy_menus() is a migration routine, not a callable API';
+  end if;
+  select greatest(count(distinct week_number), 1)::int into v_weeks from menus;
+
+  insert into rotations (id, name, week_count)
+  values ('00000000-0000-4000-8000-000000000171'::uuid, 'Legacy menu', v_weeks)
+  on conflict (id) do update set week_count = excluded.week_count;
+
+  insert into meals (name)
+  select distinct m.dish_name from menus m
+  where not exists (select 1 from meals x where x.name = m.dish_name);
+
+  insert into meal_revisions (meal_id, revision_no, name, ingredients, allergens,
+                              nutrition, portion, nutrition_status)
+  select distinct on (mm.id)
+         mm.id, 1, mm.name,
+         coalesce(src.ingredients, '[]'::jsonb),
+         coalesce(src.allergens, '[]'::jsonb),
+         coalesce(src.nutrition, '{}'::jsonb),
+         src.portion,
+         coalesce(src.source_status, 'NOT_APPROVED')
+  from meals mm
+  join menus src on src.dish_name = mm.name
+  where not exists (select 1 from meal_revisions r where r.meal_id = mm.id)
+  order by mm.id, src.updated_at desc;
+
+  update meals m set current_revision_id = r.id
+    from meal_revisions r
+   where r.meal_id = m.id and r.revision_no = 1 and m.current_revision_id is null;
+
+  with ranked as (
+    select week_number, (dense_rank() over (order by week_number))::int as rot_week
+    from (select distinct week_number from menus) w
+  )
+  insert into rotation_slots (rotation_id, week_number, weekday, period, meal_id)
+  select '00000000-0000-4000-8000-000000000171'::uuid, r.rot_week, mn.weekday, mn.period, mm.id
+  from menus mn
+  join ranked r on r.week_number = mn.week_number
+  join meals mm on mm.name = mn.dish_name
+  on conflict (rotation_id, week_number, weekday, period) do nothing;
+
+  insert into institution_rotation_assignments (institution_id, rotation_id, effective_from, anchor_week)
+  select i.id, '00000000-0000-4000-8000-000000000171'::uuid, date '2026-01-05', 1
+  from institutions i
+  where not exists (select 1 from institution_rotation_assignments a where a.institution_id = i.id);
+
+  insert into institution_service_plans (institution_id, periods, effective_from)
+  select i.id,
+         coalesce((select array_agg(distinct mn.period order by mn.period) from menus mn),
+                  array['breakfast','snack','lunch']::app_period[]),
+         date '2026-01-05'
+  from institutions i
+  where not exists (select 1 from institution_service_plans p where p.institution_id = i.id);
+
+  meals_created := (select count(*)::int from meals);
+  slots_created := (select count(*)::int from rotation_slots
+                     where rotation_id = '00000000-0000-4000-8000-000000000171'::uuid);
+  institutions_mapped := (select count(*)::int from institution_rotation_assignments);
+  return next;
+end $fn$;
+revoke all on function backfill_legacy_menus() from public, anon, authenticated;
+select * from backfill_legacy_menus();
+do $$ begin raise notice 'STEP 3  ok — real menu backfilled onto the rotation'; end $$;
+
+-- ---------------------------------------------------------------------
+-- STEP 4 — publish a dated window so no screen is blank (migration 0019)
+-- ---------------------------------------------------------------------
+create or replace function publish_legacy_window(p_from date, p_to date)
+returns int language plpgsql security definer set search_path = public as $fn$
+declare v_inst uuid; d date; p app_period; r record; v_rev uuid; n int := 0;
+begin
+  if auth.uid() is not null and not app_is_super_admin() then
+    raise exception 'publish_legacy_window() is an administrative routine';
+  end if;
+  if p_to < p_from then raise exception 'end date % precedes start date %', p_to, p_from; end if;
+  for v_inst in select id from institutions loop
+    d := p_from;
+    while d <= p_to loop
+      foreach p in array array['breakfast','snack','lunch','afternoon_snack']::app_period[] loop
+        select * into r from resolve_meal(v_inst, d, p);
+        if r.meal_id is not null then
+          select m.current_revision_id into v_rev from meals m where m.id = r.meal_id;
+          if v_rev is not null then
+            insert into meal_services (institution_id, service_date, period, meal_revision_id,
+              source, rotation_id, published, published_at)
+            values (v_inst, d, p, v_rev, r.source, r.rotation_id, true, now())
+            on conflict (institution_id, service_date, period) do update
+              set meal_revision_id = case when meal_services.published
+                    then meal_services.meal_revision_id else excluded.meal_revision_id end,
+                  published = true,
+                  published_at = coalesce(meal_services.published_at, now());
+            n := n + 1;
+          end if;
+        end if;
+      end loop;
+      d := d + 1;
+    end loop;
+  end loop;
+  return n;
+end $fn$;
+revoke all on function publish_legacy_window(date, date) from public, anon, authenticated;
+select publish_legacy_window(current_date - 60, current_date + 300);
+do $$ begin raise notice 'STEP 4  ok — dated meal services published'; end $$;
+
+-- ---------------------------------------------------------------------
+-- STEP 5 — persist the meal-service link on new observations (migration 0020)
+-- ---------------------------------------------------------------------
+create or replace function record_serving_batch(p_class uuid, p_rows jsonb, p_date date default current_date)
+returns table (out_id uuid, out_student_id uuid) language plpgsql as $$
+declare r jsonb; new_id uuid;
+begin
+  if jsonb_array_length(p_rows) = 0 then return; end if;
+  for r in select * from jsonb_array_elements(p_rows) loop
+    insert into serving_records (
+      class_id, student_id, period, recorded_by, serving_date,
+      served_status, consumption_pct, behavior, low_intake_reason, concern_observed,
+      menu_item_id, meal_service_id, note)
+    values (
+      p_class, (r->>'student_id')::uuid, (r->>'period')::app_period, app_current_user_id(), p_date,
+      coalesce((r->>'served_status')::meal_served_status, 'served'),
+      nullif(r->>'consumption_pct','')::smallint,
+      nullif(r->>'behavior','')::eating_behavior,
+      nullif(r->>'low_intake_reason','')::low_intake_reason,
+      coalesce((r->>'concern_observed')::boolean, false),
+      nullif(r->>'menu_item_id','')::uuid,
+      nullif(r->>'meal_service_id','')::uuid,
+      r->>'note')
+    on conflict (student_id, serving_date, period) do update set
+      served_status = excluded.served_status,
+      consumption_pct = excluded.consumption_pct,
+      behavior = excluded.behavior,
+      low_intake_reason = excluded.low_intake_reason,
+      concern_observed = excluded.concern_observed,
+      menu_item_id = excluded.menu_item_id,
+      meal_service_id = coalesce(excluded.meal_service_id, serving_records.meal_service_id),
+      note = excluded.note, recorded_by = excluded.recorded_by,
+      class_id = excluded.class_id, updated_at = now()
+    returning id into new_id;
+    out_id := new_id; out_student_id := (r->>'student_id')::uuid; return next;
+  end loop;
+end $$;
+grant execute on function record_serving_batch(uuid, jsonb, date) to authenticated;
+do $$ begin raise notice 'STEP 5  ok — observations now store their meal-service link'; end $$;
+
+-- ---------------------------------------------------------------------
+-- STEP 6 — verify everything. Any failure aborts the whole transaction.
+-- ---------------------------------------------------------------------
+do $verify$
+declare n int;
+begin
+  if has_function_privilege('authenticated','resolve_meal(uuid,date,app_period)','EXECUTE')
+     or has_function_privilege('anon','resolve_meal(uuid,date,app_period)','EXECUTE') then
+    raise exception 'FAIL: resolver leak still open';
+  end if;
+
+  select count(*) into n from meals where name like 'Test %';
+  if n <> 0 then raise exception 'FAIL: % Test meals remain', n; end if;
+
+  select count(*) into n from meal_services ms
+    join meal_revisions mr on mr.id = ms.meal_revision_id
+    join meals m on m.id = mr.meal_id where m.name like 'Test %';
+  if n <> 0 then raise exception 'FAIL: % services still serve a Test meal', n; end if;
+
+  select count(*) into n from meal_services
+   where published and service_date between current_date and current_date + 30;
+  if n = 0 then raise exception 'FAIL: no published services in next 30 days — Kitchen would be blank'; end if;
+  raise notice 'STEP 6  ok — % published services in the next 30 days', n;
+
+  raise notice '=========================================================';
+  raise notice 'ALL STEPS OK. Review the notices above, then run:  commit;';
+end $verify$;
+
+-- =====================================================================
+-- Nothing is saved until you run the next line.  To discard: rollback;
+-- =====================================================================
+commit;

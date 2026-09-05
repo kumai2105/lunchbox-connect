@@ -1,0 +1,557 @@
+name: E2E (ephemeral local Supabase)
+
+# Runs the COMPLETE Playwright suite against a throwaway Supabase stack
+# started on the runner itself.
+#
+# Why this exists: the suite needs a real Supabase backend (GoTrue auth,
+# PostgREST, Storage), and the only non-production one previously available was
+# "a second hosted project someone has to create and pay attention to". This job
+# needs no hosted project at all — `supabase start` builds the whole stack from
+# THIS repository's supabase/config.toml and migrations 0001..NNNN, runs the
+# suite against it, and throws it away. Nothing outside the runner is touched.
+#
+# Triggers. `workflow_dispatch` is the intended way to run this — but GitHub only
+# registers a dispatchable workflow from the DEFAULT branch, and this file does
+# not exist on main. Until it does, the dispatch entry is inert and the
+# branch-scoped push trigger below is what actually runs the gate. Both are kept
+# so that the moment this file reaches main, manual runs work with no edit.
+#
+# The push trigger is deliberately scoped to the release-candidate branch. It
+# builds and tests only; it deploys nothing.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag or commit to test (the frozen release candidate).'
+        required: true
+        default: 'claude/new-session-k5dd5u'
+        type: string
+      grep:
+        description: >-
+          Run ONLY tests whose title matches this (Playwright --grep). Leave
+          blank for the whole suite. Isolating one failure is far cheaper than
+          re-running 42 tests to look at one of them.
+        required: false
+        default: ''
+        type: string
+  #
+  # paths-ignore: a Markdown-only commit cannot change what the browser does, so
+  # it does not run the browser suite. This is not a gate being weakened — every
+  # path that builds, ships or is tested still triggers it. It is here because a
+  # release-day sequence of documentation commits produced a run per commit, and
+  # a gate that cries wolf on a README edit stops being read.
+  push:
+    branches: [claude/new-session-k5dd5u]
+    paths-ignore: ['**/*.md']
+
+concurrency:
+  group: e2e-local-supabase
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Browser suite · local Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      E2E_BASE_URL: http://127.0.0.1:4173
+      # The local stack's fixed demo password space; global-setup falls back to
+      # this same literal, but set it explicitly so the value is never implicit.
+      E2E_PASSWORD: 'E2e-pass!12345'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # inputs.ref is empty on a push event; fall back to the pushed commit.
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Record the exact tree under test
+        run: |
+          echo "ref input : ${{ inputs.ref || github.sha }}"
+          echo "commit    : $(git rev-parse HEAD)"
+          echo "migrations: $(ls supabase/migrations/*.sql | wc -l) files, newest $(ls supabase/migrations/*.sql | sed 's#.*/##' | sort | tail -1)"
+
+      - name: Install pnpm (from packageManager)
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `version: latest` made supabase/setup-cli resolve the release through
+      # the GitHub API with NO credentials. That quota is per runner IP and is
+      # shared across all of GitHub Actions, so it is exhausted by strangers:
+      # this gate failed with
+      #     Failed to resolve latest Supabase CLI release: rate limit exceeded
+      # on a documentation-only commit, having run 27/27 green minutes earlier.
+      # The suite never started. An unauthenticated call to a third party's
+      # release API is not a dependable step in a release gate.
+      #
+      # The runner's own GITHUB_TOKEN lifts the limit, so resolve the tag here
+      # and hand the action an explicit version. Retries cover the transient
+      # case; failing to resolve after five tries fails loudly rather than
+      # silently installing something unexpected.
+      - name: Resolve the Supabase CLI version (authenticated)
+        id: cli
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            TAG=$(curl -sS \
+                    -H "Authorization: Bearer $GH_TOKEN" \
+                    -H "Accept: application/vnd.github+json" \
+                    https://api.github.com/repos/supabase/cli/releases/latest \
+                  | jq -r '.tag_name // empty') || TAG=""
+            [ -n "$TAG" ] && break
+            echo "attempt $attempt: could not resolve a CLI release; retrying"
+            sleep $((attempt * 5))
+          done
+          [ -n "$TAG" ] || { echo "::error::Could not resolve a Supabase CLI release after 5 attempts."; exit 1; }
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "resolved Supabase CLI ${TAG#v}"
+
+      - name: Install the Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: ${{ steps.cli.outputs.version }}
+
+      - name: Confirm the CLI is actually on PATH
+        run: supabase --version
+
+      # `supabase start` creates a fresh Postgres and applies every file in
+      # supabase/migrations in ascending order. If any migration is broken this
+      # step fails here, before a single browser opens — which is exactly the
+      # "migrations apply cleanly to a fresh database" check.
+      - name: Start the ephemeral local Supabase stack
+        run: supabase start
+
+      # Apply the local-only grants EXPLICITLY rather than trusting the CLI to
+      # run supabase/seed.sql. config.toml now declares [db.seed], but the CLI's
+      # seed semantics have already moved under this project twice (the skipped
+      # 0008b migration, the new-style key names), and a gate that silently does
+      # not run is the failure mode this whole job exists to eliminate. The file
+      # is the single source of truth; this step just guarantees it executed.
+      # Every statement in it is idempotent, so applying it twice is harmless.
+      - name: Apply supabase/seed.sql explicitly (local grants)
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 -f supabase/seed.sql
+          echo "seed.sql applied."
+
+      - name: Verify the migration ledger reached the release ceiling
+        run: |
+          CEILING=$(ls supabase/migrations/*.sql | sed 's#.*/##' | sort | tail -1 | cut -d_ -f1)
+          echo "Release ceiling from the repository: $CEILING"
+          APPLIED=$(psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -At -c \
+            "select count(*) from supabase_migrations.schema_migrations;")
+          echo "Local ledger rows: $APPLIED"
+          EXPECTED=$(ls supabase/migrations/*.sql | wc -l)
+          if [ "$APPLIED" -lt "$EXPECTED" ]; then
+            echo "::error::Local database applied $APPLIED migrations but the repository ships $EXPECTED. The fresh-database apply is incomplete."
+            exit 1
+          fi
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c \
+            "select version, name from supabase_migrations.schema_migrations order by version;"
+
+      # DIAGNOSTIC: who actually holds privileges on the core tables here?
+      #
+      # The migrations never GRANT anything to `service_role`; they rely on the
+      # platform's default privileges in `public`. Hosted Supabase supplies
+      # those, and tests/sql/00_supabase_shim.sql replicates them for the local
+      # PostgreSQL harness. If this stack does not, the seeder's service-role
+      # writes fail with "permission denied for table institutions" — which is
+      # exactly what runs 2 and 3 produced. Print the ground truth rather than
+      # infer it.
+      - name: Diagnostic — privileges and default ACLs on the local stack
+        run: |
+          PSQL="psql postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          echo "--- role_table_grants on public.institutions ---"
+          $PSQL -c "select grantee, string_agg(privilege_type, ',' order by privilege_type) as privs
+                      from information_schema.role_table_grants
+                     where table_schema='public' and table_name='institutions'
+                     group by grantee order by grantee;"
+          echo "--- default ACLs in schema public ---"
+          $PSQL -c "select pg_get_userbyid(defaclrole) as owner_role, defaclobjtype, defaclacl
+                      from pg_default_acl d
+                      join pg_namespace n on n.oid = d.defaclnamespace
+                     where n.nspname = 'public';"
+          echo "--- table owner + rolbypassrls for the API roles ---"
+          $PSQL -c "select tableowner from pg_tables where schemaname='public' and tablename='institutions';"
+          $PSQL -c "select rolname, rolbypassrls, rolsuper from pg_roles
+                     where rolname in ('anon','authenticated','service_role','postgres','supabase_admin')
+                     order by rolname;"
+
+      # Assert, rather than hope, that supabase/seed.sql restored the
+      # server-side grants — and that it did NOT widen the client boundary the
+      # suite exists to test. Both halves matter: a green suite running against
+      # an over-permissive database is worse than a red one.
+      # Assert the invariants that MATTER, not an exact privilege string.
+      #
+      # An earlier version of this step demanded `authenticated` hold exactly
+      # SELECT on institutions. That was over-specified: it was derived from a
+      # local reproduction with the platform default privileges stripped
+      # entirely, which is not what any real stack looks like. The CLI stack
+      # does have defaults, so authenticated legitimately holds
+      # REFERENCES,SELECT,TRIGGER,TRUNCATE there. The assertion failed on a
+      # correct database.
+      #
+      # What actually has to be true, on hosted Supabase and here alike:
+      #   * service_role can write            — the seeder needs it;
+      #   * authenticated CANNOT delete       — 0033 revoked it;
+      #   * anon holds nothing at all         — 0004 revoked it.
+      # Those are the boundaries the suite exists to defend, and they do not
+      # vary with how the environment was built.
+      # THE BUSINESS CHAIN MUST STAY WRITABLE BY A SUPER ADMIN.
+      #
+      # institutions once held SELECT only for `authenticated` while 0033
+      # carried insert/update policies that grants made unreachable — so
+      # onboarding a nursery, an ordinary commercial operation, required a
+      # developer. This asserts the whole chain rather than that one table,
+      # because the defect was a CLASS: a policy expressing authority the
+      # grants never permitted.
+      #
+      # meal_services is deliberately EXCLUDED from the writable set. Dated
+      # services are written only through publish_meal_services (0036), a
+      # SECURITY DEFINER RPC, so a direct client INSERT there would let anyone
+      # fabricate an operational fact. Its absence is the design working.
+      - name: Assert the Super Admin business chain is writable
+        run: |
+          PSQL="psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -X -q -At"
+          FAILED=0
+          for t in institutions rotations rotation_slots institution_service_plans \
+                   institution_rotation_assignments calendar_exceptions meals \
+                   meal_revisions classes students class_staff; do
+            g=$($PSQL -c "select coalesce(string_agg(privilege_type,',' order by privilege_type),'(NONE)')
+                            from information_schema.role_table_grants
+                           where table_schema='public' and table_name='$t'
+                             and grantee='authenticated';")
+            case "$g" in
+              *INSERT*) printf '  ok    %-34s %s\n' "$t" "$g" ;;
+              *) echo "::error::A Super Admin cannot INSERT into $t (has $g). Onboarding or operating an Institution would need a developer."; FAILED=1 ;;
+            esac
+          done
+          MS=$($PSQL -c "select coalesce(string_agg(privilege_type,',' order by privilege_type),'(NONE)')
+                           from information_schema.role_table_grants
+                          where table_schema='public' and table_name='meal_services'
+                            and grantee='authenticated';")
+          case "$MS" in
+            *INSERT*) echo "::error::authenticated can INSERT meal_services directly. Publication must go through publish_meal_services (0036) so a dated service cannot be fabricated."; FAILED=1 ;;
+            *) printf '  ok    %-34s %s (RPC-only by design)\n' meal_services "$MS" ;;
+          esac
+          exit $FAILED
+
+      - name: Assert the server-side and client boundaries
+        run: |
+          PSQL="psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -At"
+          q() {
+            $PSQL -c "select coalesce(string_agg(privilege_type, ',' order by privilege_type), '(none)')
+                        from information_schema.role_table_grants
+                       where table_schema='public' and table_name='institutions'
+                         and grantee='$1';"
+          }
+          SVC=$(q service_role); AUTH=$(q authenticated); ANON=$(q anon)
+          echo "service_role : $SVC"
+          echo "authenticated: $AUTH"
+          echo "anon         : $ANON"
+          FAILED=0
+          case "$SVC"  in *INSERT*) ;; *) echo "::error::service_role cannot INSERT into institutions — the server-side seed grants did not take effect."; FAILED=1;; esac
+          # Super Admin is the operational control plane: onboarding a nursery
+          # begins by CREATING an Institution through the software. 0007 granted
+          # authenticated SELECT only while 0033 added insert/update policies,
+          # and because grants are checked before RLS those policies were dead
+          # for eight migrations — a Super Admin could not onboard anyone
+          # without a developer. 0041 granted what they always assumed.
+          case "$AUTH" in *INSERT*) ;; *) echo "::error::authenticated cannot INSERT institutions — a Super Admin cannot onboard a nursery through the software (0041)."; FAILED=1;; esac
+          case "$AUTH" in *UPDATE*) ;; *) echo "::error::authenticated cannot UPDATE institutions — a Super Admin cannot rename one (0041)."; FAILED=1;; esac
+          case "$AUTH" in *DELETE*) echo "::error::authenticated holds DELETE on institutions. 0033 revoked that; something re-granted it and the suite would be testing a weaker boundary than production."; FAILED=1;; esac
+          [ "$ANON" = "(none)" ] || { echo "::error::anon holds '$ANON' on institutions, expected none. 0004 revokes all privileges from anon."; FAILED=1; }
+          [ "$FAILED" -eq 0 ] && echo "Server-side write access present; client boundaries intact."
+          exit $FAILED
+
+      # Resolve the stack's runtime values and mask the keys before they can
+      # appear in any later log line.
+      - name: Resolve local API URL and keys
+        id: stack
+        run: |
+          supabase status -o json > /tmp/status.json
+          API_URL=$(jq -r '.API_URL' /tmp/status.json)
+          ANON=$(jq -r '.ANON_KEY' /tmp/status.json)
+          SERVICE=$(jq -r '.SERVICE_ROLE_KEY' /tmp/status.json)
+          echo "::add-mask::$ANON"
+          echo "::add-mask::$SERVICE"
+          [ -n "$API_URL" ] && [ "$API_URL" != "null" ] || { echo "::error::Could not resolve the local API URL."; exit 1; }
+          echo "Local API URL: $API_URL"
+          echo "status fields: $(jq -r 'keys[]' /tmp/status.json | tr '\n' ' ')"
+          {
+            echo "E2E_SUPABASE_URL=$API_URL"
+            echo "E2E_SUPABASE_ANON_KEY=$ANON"
+            echo "E2E_SUPABASE_SERVICE_ROLE_KEY=$SERVICE"
+          } >> "$GITHUB_ENV"
+
+      # The seeder writes with the service-role key. If that key resolves to
+      # anything else — the CLI now also emits sb_publishable_/sb_secret_ style
+      # keys, and the JSON field names have moved before — the writes fail with
+      # "permission denied for table institutions", because 0004 revokes all
+      # privileges on the core tables from `anon`. Decode the ROLE CLAIM (which
+      # is not secret) and refuse to continue on a mismatch, so the failure names
+      # its own cause instead of surfacing as an opaque grant error.
+      - name: Verify the resolved keys carry the roles they claim
+        run: |
+          claim() {
+            case "$1" in
+              sb_publishable_*) echo "new-style publishable (not a JWT)"; return;;
+              sb_secret_*)      echo "new-style secret (not a JWT)"; return;;
+            esac
+            printf '%s' "$1" | cut -d. -f2 | tr '_-' '/+' \
+              | awk '{ while (length($0) % 4) $0 = $0 "="; print }' \
+              | base64 -d 2>/dev/null | jq -r '.role // "unparseable"' 2>/dev/null || echo "unparseable"
+          }
+          ANON_ROLE=$(claim "$E2E_SUPABASE_ANON_KEY")
+          SERVICE_ROLE=$(claim "$E2E_SUPABASE_SERVICE_ROLE_KEY")
+          echo "anon key role claim    : $ANON_ROLE"
+          echo "service key role claim : $SERVICE_ROLE"
+          if [ "$SERVICE_ROLE" != "service_role" ]; then
+            echo "::error::E2E_SUPABASE_SERVICE_ROLE_KEY does not carry the service_role claim (got: $SERVICE_ROLE). The seeder would run as a lesser role and fail on the first insert."
+            exit 1
+          fi
+          if [ "$ANON_ROLE" != "anon" ]; then
+            echo "::error::E2E_SUPABASE_ANON_KEY does not carry the anon claim (got: $ANON_ROLE)."
+            exit 1
+          fi
+          echo "Both keys carry the expected role claims."
+
+      # The production-ref guard is PRESERVED verbatim from ci.yml, and a
+      # positive assertion is added on top: the target must be loopback. The
+      # negative guard alone would pass for any non-production hosted project;
+      # this job is only ever allowed to talk to the stack on this runner.
+      - name: Guard — target must be local, and must never be production
+        run: |
+          PROD_REFS="llnofriwvnerntrbpehc"
+          for ref in $PROD_REFS; do
+            case "$E2E_SUPABASE_URL" in
+              *"$ref"*)
+                echo "::error::E2E_SUPABASE_URL points at the production project ($ref). Refusing to seed production."
+                exit 1
+                ;;
+            esac
+          done
+          case "$E2E_SUPABASE_URL" in
+            http://127.0.0.1:*|http://localhost:*) ;;
+            *)
+              echo "::error::E2E_SUPABASE_URL ($E2E_SUPABASE_URL) is not the loopback stack. This job only runs against the ephemeral local Supabase."
+              exit 1
+              ;;
+          esac
+          echo "E2E target is the ephemeral local stack, and is not production."
+
+      - name: Confirm the local Edge Function is being served
+        run: |
+          # `supabase start` runs the edge runtime from supabase/functions.
+          # api.ts invokes admin-create-user for account provisioning, so prove
+          # the route exists. An unauthenticated call must NOT 404: 401/403 is a
+          # served function refusing the caller, which is what we want to see.
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            "$E2E_SUPABASE_URL/functions/v1/admin-create-user" \
+            -H 'Content-Type: application/json' -d '{}' || echo 000)
+          echo "admin-create-user responded: HTTP $CODE"
+          if [ "$CODE" = "404" ] || [ "$CODE" = "000" ]; then
+            echo "::warning::admin-create-user is not served locally (HTTP $CODE). Browser flows that provision accounts would fail; the rest of the suite is unaffected."
+          fi
+
+      # Every test signs in with email and password, so the auth
+      # provider being off blocks the whole suite. GoTrue publishes its own
+      # effective settings; assert against those rather than against what
+      # config.toml appears to say — the mapping from config keys to GoTrue
+      # flags is not obvious and I have already been wrong about it twice.
+      - name: Assert email sign-in is actually enabled
+        run: |
+          SETTINGS=$(curl -sf "$E2E_SUPABASE_URL/auth/v1/settings" -H "apikey: $E2E_SUPABASE_ANON_KEY" || echo '{}')
+          echo "GoTrue settings: $SETTINGS"
+          EMAIL_ON=$(printf '%s' "$SETTINGS" | jq -r '.external.email // "unknown"')
+          SIGNUP_OFF=$(printf '%s' "$SETTINGS" | jq -r '.disable_signup // "unknown"')
+          echo "external.email = $EMAIL_ON  (must be true — every test signs in)"
+          echo "disable_signup = $SIGNUP_OFF (should be true — accounts are admin-created)"
+          [ "$EMAIL_ON" = "true" ] || {
+            echo "::error::Email sign-in is disabled on this stack (external.email=$EMAIL_ON). Every spec signs in with a password, so the whole suite is blocked. Check [auth.email] in supabase/config.toml."
+            exit 1
+          }
+          echo "Email sign-in is enabled."
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pw-${{ runner.os }}-
+
+      - name: Install Playwright browser (chromium + deps)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      # build:e2e maps E2E_SUPABASE_URL / ANON onto the Vite variables and
+      # enforces its own refusals (never production; never ship a service_role
+      # key to a browser). Those guards are untouched.
+      - name: Build the frontend against the local stack
+        run: pnpm build:e2e
+
+      - name: Serve app + run the complete suite
+        # Its own cap. Run 13 sat in this step for 36+ minutes and was killed
+        # before the assertion step could report anything, so the whole job
+        # produced no signal at all. A step-level timeout turns a hang into a
+        # named failure with a readable log instead of a silent kill.
+        timeout-minutes: 15
+        run: |
+          pnpm preview --host 127.0.0.1 --port 4173 &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID 2>/dev/null || true" EXIT
+          for i in $(seq 1 45); do
+            curl -sf http://127.0.0.1:4173 >/dev/null && break
+            sleep 1
+          done
+          # Tee the run so a globalSetup failure can be re-printed at the END of
+          # the job log. Playwright's own output lands mid-log, where it is
+          # easily buried by the Chromium download; pipefail keeps the real exit
+          # code rather than tee's.
+          set -o pipefail
+          # --max-failures stops the run once a systemic breakage is obvious.
+          # Raised to 12 as the suite got healthier: with fewer failures the run
+          # finishes well inside the step cap, and a higher ceiling means one
+          # cycle shows the whole picture instead of a truncated slice.
+          # With 60s timeouts, 2 retries and 1 worker, a suite where every test
+          # fails needs ~81 minutes — longer than the job may run, so it reports
+          # NOTHING. Eight identical failures diagnose exactly as well as 27 do,
+          # and arrive in minutes. It cannot mask a real pass: the gate below
+          # requires expected == the full --list total, so an early stop still
+          # fails the job.
+          # ARRAY, not a string. This was a plain string expanded unquoted,
+          # so the dispatch input word-split on every space: "acceptance —"
+          # became `--grep=acceptance` plus a stray positional `—`, which
+          # Playwright reads as a FILE filter, matching nothing —
+          #     Total: 0 tests in 0 files
+          # and "creates a Class" became `--grep=creates` plus positionals `a`
+          # and `Class`, which by coincidence still listed the three "creates
+          # a ..." tests and looked like it had worked. An isolation switch
+          # that silently runs a different set than you asked for is worse
+          # than one that fails, because it answers a question you did not ask.
+          GREP='${{ inputs.grep }}'
+          EXTRA=()
+          if [ -n "$GREP" ]; then
+            # Isolating: keep every trace, not just on retry, and do not stop
+            # early — the whole point is to see this one test in full.
+            EXTRA=(--grep="$GREP" --trace=on --retries=0)
+            echo "ISOLATING: $GREP"
+          fi
+          PLAYWRIGHT_JSON_OUTPUT_NAME=/tmp/e2e.json \
+            pnpm exec playwright test --reporter=list,json --max-failures=12 "${EXTRA[@]}" 2>&1 | tee /tmp/e2e.log
+
+      # A green suite that ran zero tests is the failure mode this gate exists to
+      # prevent: global-setup RETURNS EARLY and skips everything when the env is
+      # missing. Assert the real numbers instead of trusting the exit code.
+      - name: Assert every test executed, 0 failed, 0 skipped
+        if: always()
+        run: |
+          # Surface the real cause at the END of the log on ANY failure — a
+          # globalSetup throw (nothing executed) or actual test failures. The
+          # detail otherwise sits mid-log behind the Chromium download and the
+          # per-test output, which is exactly where it is hardest to read.
+          if [ -s /tmp/e2e.log ]; then
+            BAD_N=$(jq '.stats.unexpected' /tmp/e2e.json 2>/dev/null || echo 0)
+            EXECUTED=$(jq '.stats.expected + .stats.unexpected + .stats.skipped' /tmp/e2e.json 2>/dev/null || echo 0)
+            if [ "${EXECUTED:-0}" = "0" ] || [ "${BAD_N:-0}" != "0" ]; then
+              echo "----- last 80 lines of the Playwright run -----"
+              tail -80 /tmp/e2e.log
+              echo "-----------------------------------------------"
+              # The FIRST FOUR failures, not just one. Each run costs several
+              # minutes, so surfacing a single failure per cycle turns one
+              # afternoon's diagnosis into four. The names of every failure are
+              # in the summary above; these are the details behind them.
+              # head -160 truncated this to barely one failure last run, which
+              # defeated the point of widening it. Six failures, generous cap.
+              echo "----- first six failures in detail -----"
+              awk '/^ *[0-9]+\) /{n++} n>=1 && n<=6' /tmp/e2e.log | head -400
+              echo "----------------------------------------"
+            fi
+          fi
+          # The end-to-end chain prints an OPSTEP marker per phase. On a
+          # timeout Playwright reports only "Test timeout exceeded" with no
+          # location, and the markers sit mid-log where a tail never reaches
+          # them. Surfacing the LAST one as an annotation turns "it hung" into
+          # "it hung at this phase" without another CI round.
+          if grep -q 'OPSTEP' /tmp/e2e.log 2>/dev/null; then
+            echo "::error::LAST CHAIN PHASE REACHED: $(grep 'OPSTEP' /tmp/e2e.log | tail -1)"
+            echo "::error::CHAIN PHASES SEEN: $(grep -c 'OPSTEP' /tmp/e2e.log)"
+          fi
+          # Emit every failure as a WORKFLOW ANNOTATION carrying the test title,
+          # its file:line and the first error message.
+          #
+          # The detail was always printed, but mid-log — behind the Chromium
+          # download and 42 tests of list output — and anything reading only the
+          # log tail never saw it. Three diagnosis rounds were spent on "one
+          # test failed" without knowing which or why. Annotations are retrievable
+          # independently of position in the log, so the answer is always one
+          # request away.
+          if [ -f /tmp/e2e.json ]; then
+            jq -r '
+              [.. | objects | select(has("ok") and has("tests") and .ok == false)][]
+              | (.file // "?") as $f | (.line // 0) as $l | (.title // "?") as $t
+              | ([.tests[]?.results[]?.error?.message // empty] | join(" ~ "))
+              | gsub("\u001b\\[[0-9;]*m"; "")
+              | gsub("[\n\r]+"; " ")
+              | "::error::FAILED \($f):\($l) › \($t) :: \(.[0:700])"
+            ' /tmp/e2e.json 2>/dev/null || echo "::warning::could not parse failures out of the JSON report"
+          fi
+          [ -f /tmp/e2e.json ] || { echo "::error::No Playwright JSON report was produced — the suite did not run."; exit 1; }
+          # Take the expected total from the suite itself rather than a number
+          # written down by hand. The docs said 19 for months; `--list` reports
+          # 27, because login.roles parameterises over the nine roles. A gate
+          # that asserts a stale hand-counted number can pass while whole specs
+          # silently stop being collected.
+          # When isolating with --grep, the full-suite total is the wrong yardstick:
+          # the last isolated run reported "Expected 42 passing tests, got 2",
+          # which is noise masquerading as a failure. Grade a subset against what
+          # the subset declares.
+          # Same array treatment as the run step above, and for the same
+          # reason: an unquoted expansion here graded the subset against a
+          # count taken from a DIFFERENT selection than the one that ran.
+          GREP='${{ inputs.grep }}'
+          LIST_ARGS=()
+          [ -n "$GREP" ] && LIST_ARGS=(--grep="$GREP")
+          TOTAL=$(pnpm exec playwright test --list "${LIST_ARGS[@]}" 2>/dev/null | sed -n 's/^Total: \([0-9]*\) tests.*/\1/p')
+          [ -n "$TOTAL" ] && [ "$TOTAL" -gt 0 ] || { echo "::error::Could not determine the expected test count."; exit 1; }
+          echo "suite declares $TOTAL tests"
+          echo "stats: $(jq -c '.stats' /tmp/e2e.json)"
+          OK=$(jq '.stats.expected' /tmp/e2e.json)
+          BAD=$(jq '.stats.unexpected' /tmp/e2e.json)
+          SKIP=$(jq '.stats.skipped' /tmp/e2e.json)
+          FLAKY=$(jq '.stats.flaky' /tmp/e2e.json)
+          echo "passed=$OK failed=$BAD skipped=$SKIP flaky=$FLAKY"
+          FAILED=0
+          [ "$OK" = "$TOTAL" ] || { echo "::error::Expected $TOTAL passing tests, got $OK."; FAILED=1; }
+          [ "$BAD" = "0" ]  || { echo "::error::$BAD test(s) failed."; FAILED=1; }
+          [ "$SKIP" = "0" ] || { echo "::error::$SKIP test(s) skipped. No silent skips are permitted in this gate."; FAILED=1; }
+          exit $FAILED
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            /tmp/e2e.json
+            /tmp/e2e.log
+            test-results/
+            playwright-report/
+          retention-days: 7
+
+      - name: Tear down the ephemeral stack
+        if: always()
+        run: supabase stop --no-backup || true

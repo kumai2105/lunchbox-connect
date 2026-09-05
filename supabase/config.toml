@@ -1,0 +1,40 @@
+# Supabase project configuration (A1-A3 stack decisions).
+# Only signups through the app are blocked before a project is linked.
+
+project_id = "lunchbox-connect"
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = []
+# Accounts are created by admins (Edge Function), never public self-signup.
+enable_signup = false
+
+[auth.email]
+# `[auth.email].enable_signup` does NOT mean "allow registration" here — in the
+# CLI it gates the email PROVIDER itself, so setting it false turned off email
+# logins entirely and the stack answered "Email logins are disabled" to every
+# sign-in. Adding `enabled = true` alongside it did not override that.
+#
+# Public self-registration is still closed, by `[auth] enable_signup = false`
+# above: that is the flag that maps to GoTrue's DISABLE_SIGNUP. Accounts are
+# still created only by an admin through the Edge Function.
+#
+# The provider has to be on because every account — all nine roles — reaches the
+# app by signing in with email and password. Production has it enabled in its
+# own dashboard settings; this makes a CLI-built stack match rather than
+# silently diverge.
+enable_signup = true
+
+[functions.admin-create-user]
+verify_jwt = true
+
+# Local/CI only. `supabase start` and `db reset` run these files after the
+# migrations; `supabase db push` never does, so nothing here reaches a hosted
+# project. Without this block the CLI has no configured seed path and
+# supabase/seed.sql is silently ignored — which is exactly what happened, and
+# why every service-role write failed with "permission denied for table
+# institutions" on a CLI-built stack.
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]

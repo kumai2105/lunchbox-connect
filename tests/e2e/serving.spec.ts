@@ -1,0 +1,196 @@
+import { expect, test } from 'playwright/test';
+import { adminDb, e2eReady, login, seeded } from './fixtures';
+
+test.describe('classroom serving screen (docs/13 Decision 032 — fast tablet workflow)', () => {
+  test.skip(!e2eReady, 'needs E2E_* env (approved non-production Supabase project)');
+
+  test('teacher records a meal result which persists across reload', async ({ page }) => {
+    const s = seeded();
+
+    await login(page, s.classroomEmail);
+    await page.goto(`/today?class=${s.classForServing}`);
+
+    // Level 1 specifically. The Layout renders the page title twice — once as
+    // the topbar breadcrumb <h2>, once as the page's own <h1> — so an
+    // unqualified heading lookup matches two elements and fails strict mode.
+    await expect(page.getByRole('heading', { level: 1, name: /Today/ })).toBeVisible();
+
+    // §2: only periods with a PUBLISHED service are shown. The seed publishes
+    // Breakfast and Lunch today, so those tabs exist and the register is live.
+    await expect(page.locator('.period-btn', { hasText: 'Breakfast' })).toBeVisible();
+
+    // The register opens focused on the FIRST student in the roster. Assert that
+    // relationship rather than a student's name: every fixture student shares
+    // this class, and the roster is ordered by family name, so "Second Child"
+    // legitimately sorts ahead of "Serving One". Naming a specific student here
+    // only encoded an assumption about sort order that the app never promised.
+    await expect(page.locator('.roster-chip').first()).toHaveClass(/active/);
+    await expect(page.locator('.focus-name')).not.toBeEmpty();
+
+    // Fast path: tap 75% eaten, then a behaviour — auto-saves and advances.
+    // exact: true throughout. Accessible-name matching is SUBSTRING by default,
+    // so { name: '0% eaten' } also matches "50% eaten" and "100% eaten" and
+    // fails strict mode. '75% eaten' happens to be unique, which is exactly why
+    // this line passed while the 0% one below did not — the same latent bug
+    // simply had no collision here.
+    await page.getByRole('button', { name: '75% eaten', exact: true }).click();
+    await page.getByRole('button', { name: 'Ate independently' }).click();
+
+    // The recorded student's roster chip shows the "recorded ok" icon badge
+    // (an Icon with the sb-checkCircle class, not a text glyph).
+    const firstChip = page.locator('.roster-chip').first();
+    await expect(firstChip.locator('.status-badge')).toHaveClass(/sb-checkCircle/);
+
+    // Persisted: reload and re-open that student via the roster strip.
+    await page.reload();
+    await expect(page.locator('.roster-chip').first().locator('.status-badge')).toHaveClass(
+      /sb-checkCircle/,
+    );
+    await page.locator('.roster-chip').first().click();
+    await expect(page.locator('.plate-quarter.selected')).toContainText('75%');
+  });
+
+  test('low intake shows the exception-first reason selector', async ({ page }) => {
+    const s = seeded();
+
+    await login(page, s.classroomEmail);
+    await page.goto(`/today?class=${s.classForServing}`);
+    // As above: assert the register opened on the first roster entry, not on a
+    // particular child's name.
+    await expect(page.locator('.roster-chip').first()).toHaveClass(/active/);
+    await expect(page.locator('.focus-name')).not.toBeEmpty();
+
+    // Normal children never see a reason selector until intake is low.
+    await expect(page.getByRole('button', { name: "Didn't like it" })).toHaveCount(0);
+
+    await page.getByRole('button', { name: '0% eaten', exact: true }).click();
+    await page.getByRole('button', { name: 'Refused' }).click();
+
+    // Now the low-intake reason selector appears (exception-first design).
+    await expect(page.getByRole('button', { name: "Didn't like it" })).toBeVisible();
+    await page.getByRole('button', { name: "Didn't like it" }).click();
+
+    const firstChip = page.locator('.roster-chip').first();
+    await expect(firstChip.locator('.status-badge')).toHaveClass(/sb-xCircle/);
+  });
+
+  test('§6: Absent/Unwell/Asleep record in one tap without an eating behaviour', async ({
+    page,
+  }) => {
+    const s = seeded();
+
+    // START FROM A CLEAN ROSTER, guaranteed by this test rather than inherited
+    // from whatever ran before it.
+    //
+    // The suite runs serially against ONE seeded database, so by the time this
+    // test runs the tests above have already recorded part of this roster. My
+    // previous attempt tried to work around that by selecting the first chip
+    // still showing the unrecorded dot:
+    //
+    //     page.locator('.roster-chip', { hasText: '·' }).first()
+    //
+    // which is a LIVE query. The instant the student was recorded that chip
+    // stopped matching the filter, so `.first()` silently re-resolved to a
+    // different, still-unrecorded chip: the assertion could never pass, and
+    // each retry burned another student until none were left.
+    //
+    // Clearing this class's rows first removes the whole problem. The roster is
+    // fully unrecorded, the first chip is a stable positional locator, and the
+    // test behaves identically on a retry. This is the throwaway CI database
+    // built fresh by `supabase start`; no operational history exists to lose.
+    const db = adminDb();
+    await db.from('serving_records').delete().eq('class_id', s.classForServing);
+
+    await login(page, s.classroomEmail);
+    await page.goto(`/today?class=${s.classForServing}`);
+
+    const chip = page.locator('.roster-chip').first();
+    await expect(chip).toHaveClass(/active/);
+    await expect(chip.locator('.status-badge')).toHaveText('·');
+
+    // The exception row is always available and needs no % or behaviour first.
+    await expect(page.getByRole('button', { name: 'Absent', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Unwell', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sleeping', exact: true })).toBeVisible();
+
+    // One tap records it.
+    await page.getByRole('button', { name: 'Absent', exact: true }).click();
+
+    // The badge stops being the unrecorded dot and takes a state class.
+    await expect(chip.locator('.status-badge')).toHaveClass(/sb-/);
+
+    // ...and it must NOT be the badge that means "ate". This is the rule, not a
+    // preference about which icon is prettier: a child who was not in the room
+    // and a child who ate the lot are different facts, and the roster strip
+    // exists to convey exactly that at a glance.
+    //
+    // The earlier version of this test declined to assert anything here, on the
+    // grounds that pinning an icon would freeze a presentation choice. That
+    // reasoning let the actual defect through: saveException stores
+    // served_status 'served' (the meal WAS available) with the reason carrying
+    // the absence, so the derivation fell through to checkCircle and an absent
+    // child showed the same green tick as one who ate. Asserting the negative
+    // pins the rule while leaving the icon free to change.
+    await expect(chip.locator('.status-badge')).not.toHaveClass(/sb-checkCircle/);
+
+    // The substance of §6, asserted where no icon choice can blur it: a row
+    // exists carrying the exception reason, with NO eating behaviour and NO
+    // consumption figure attached to it.
+    const { data } = await db
+      .from('serving_records')
+      .select('behavior, consumption_pct, low_intake_reason')
+      .eq('class_id', s.classForServing)
+      .eq('low_intake_reason', 'absent');
+    expect((data ?? []).length).toBeGreaterThan(0);
+    for (const row of data ?? []) {
+      expect(row.behavior).toBeNull();
+      expect(row.consumption_pct).toBeNull();
+    }
+  });
+
+  test('a period with NO published Meal is never offered for recording', async ({ page }) => {
+    const s = seeded();
+
+    // WHAT THIS TEST USED TO ASSUME, AND WHY IT WAS WRONG
+    //
+    // It navigated to `?period=afternoon_snack` and expected the register to
+    // sit on that unpublished period showing "No published Meal is available".
+    // TodayPage does neither, deliberately:
+    //
+    //   * it never reads `period` from the URL — the period is component state
+    //     that starts at breakfast;
+    //   * an effect actively keeps the selection on a published period
+    //     ("never leave the register pointed at an unpublished slot");
+    //   * that empty state is the DAY-level case — nothing published at all —
+    //     not the per-period one.
+    //
+    // So the state the test demanded is unreachable BY DESIGN, and the test was
+    // failing the app for refusing to enter it. What §2/§35 actually guarantees
+    // is that an unpublished period is never OFFERED, which is the stronger
+    // property: you cannot record against a meal that does not exist because
+    // you can never select it.
+    await login(page, s.classroomEmail);
+    await page.goto(`/today?class=${s.classForServing}`);
+
+    // The seed publishes Breakfast and Lunch today and deliberately nothing for
+    // the afternoon snack.
+    await expect(page.locator('.period-btn', { hasText: 'Breakfast' })).toBeVisible();
+    await expect(page.locator('.period-btn', { hasText: 'Lunch' })).toBeVisible();
+
+    // The negative condition: the unpublished period is absent from the bar.
+    await expect(page.locator('.period-btn', { hasText: 'Afternoon snack' })).toHaveCount(0);
+
+    // And nothing exists for it in the database either. The direct-write proof
+    // lives in SQL, where it can attack the real boundary rather than a UI that
+    // has already hidden the control: verify_correction_order.sql asserts that
+    // recording a period with nothing published raises check_violation, and
+    // verify_db_boundary.sql asserts a raw serving_records INSERT is revoked.
+    const db = adminDb();
+    const { data } = await db
+      .from('serving_records')
+      .select('id')
+      .eq('class_id', s.classForServing)
+      .eq('period', 'afternoon_snack');
+    expect(data ?? []).toHaveLength(0);
+  });
+});
