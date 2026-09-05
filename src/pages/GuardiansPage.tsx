@@ -141,7 +141,10 @@ export default function GuardiansPage() {
               <tr>
                 <th>Student</th>
                 <th>Student no.</th>
-                <th>Guardian (user)</th>
+                {/* "(user)" is how the schema refers to the row, not how a
+                    nursery manager refers to a person. The column holds a
+                    guardian's name. */}
+                <th>Guardian</th>
                 {canRevoke && <th />}
               </tr>
             </thead>
@@ -152,9 +155,14 @@ export default function GuardiansPage() {
                     {r.student?.given_name} {r.student?.family_name}
                   </td>
                   <td className="mono cell-sub">{r.student?.student_no ?? ''}</td>
-                  <td className="mono cell-sub">
-                    {parentUsers.find((u) => u.user_id === r.user_id)?.full_name ??
-                      `${r.user_id.slice(0, 8)}…`}
+                  {/* This screen exists to answer "who is allowed to see which
+                      child", so the guardian is one half of its answer, not a
+                      footnote to the student. Muted grey is kept only for the
+                      fallback, which is an opaque id and genuinely secondary. */}
+                  <td>
+                    {parentUsers.find((u) => u.user_id === r.user_id)?.full_name ?? (
+                      <span className="mono cell-sub">{`${r.user_id.slice(0, 8)}…`}</span>
+                    )}
                   </td>
                   {canRevoke && (
                     <td className="row-actions">
