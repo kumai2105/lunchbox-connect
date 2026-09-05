@@ -168,27 +168,53 @@ function TrayMotif({ className = '' }: { className?: string }) {
 
 /** Command Center: the real left navigation, and its real summary tiles. */
 function AdminFrame() {
-  const nav = ['Command center', 'Institutions', 'Students', 'Meal Plans', 'Menu Builder', 'Kitchen production', 'Reporting'];
+  const nav = [
+    'Command center',
+    'Institutions',
+    'Students',
+    'Meal Plans',
+    'Menu Builder',
+    'Kitchen production',
+    'Reporting',
+  ];
   const tiles = ['Active students', 'Meals today', 'Classrooms', 'Fill rate'];
   return (
-    <div className="lp-fr lp-fr-admin" role="img" aria-label="An abstract representation of the LunchBox Connect command centre: its navigation and summary panels, shown without data.">
-      <div className="lp-fr-bar"><i /><i /><i /></div>
+    <div
+      className="lp-fr lp-fr-admin"
+      role="img"
+      aria-label="An abstract representation of the LunchBox Connect command centre: its navigation and summary panels, shown without data."
+    >
+      <div className="lp-fr-bar">
+        <i />
+        <i />
+        <i />
+      </div>
       <div className="lp-fr-body">
         <aside className="lp-fr-nav">
           <span className="lp-fr-mark" />
           {nav.map((n, i) => (
-            <em key={n} className={i === 0 ? 'is-on' : undefined}>{n}</em>
+            <em key={n} className={i === 0 ? 'is-on' : undefined}>
+              {n}
+            </em>
           ))}
         </aside>
         <div className="lp-fr-main">
           <div className="lp-fr-tiles">
             {tiles.map((t) => (
-              <div key={t} className="lp-fr-tile"><span>{t}</span><u /></div>
+              <div key={t} className="lp-fr-tile">
+                <span>{t}</span>
+                <u />
+              </div>
             ))}
           </div>
           <div className="lp-fr-rows">
             {[0, 1, 2, 3, 4].map((r) => (
-              <div key={r} className="lp-fr-row"><b /><s /><s className="sm" /><q /></div>
+              <div key={r} className="lp-fr-row">
+                <b />
+                <s />
+                <s className="sm" />
+                <q />
+              </div>
             ))}
           </div>
         </div>
@@ -200,16 +226,32 @@ function AdminFrame() {
 /** Kitchen production: the table's own columns and its own stage names. */
 function KitchenFrame() {
   return (
-    <div className="lp-fr lp-fr-kitchen" role="img" aria-label="An abstract representation of the Kitchen production view: site, meal, required quantity and production stage, shown without data.">
-      <div className="lp-fr-head"><span>Production demand</span></div>
-      <div className="lp-fr-cols"><span>Site</span><span>Meal</span><span>Required</span><span>Stage</span></div>
+    <div
+      className="lp-fr lp-fr-kitchen"
+      role="img"
+      aria-label="An abstract representation of the Kitchen production view: site, meal, required quantity and production stage, shown without data."
+    >
+      <div className="lp-fr-head">
+        <span>Production demand</span>
+      </div>
+      <div className="lp-fr-cols">
+        <span>Site</span>
+        <span>Meal</span>
+        <span>Required</span>
+        <span>Stage</span>
+      </div>
       {['Preparation', 'Packing', 'Packed'].map((stage, i) => (
         <div key={stage} className="lp-fr-line">
-          <s className="w30" /><s className="w40" /><u />
+          <s className="w30" />
+          <s className="w40" />
+          <u />
           <span className={`lp-chip lp-chip-${i}`}>{stage}</span>
         </div>
       ))}
-      <div className="lp-fr-foot"><span>Dispatch</span><i /></div>
+      <div className="lp-fr-foot">
+        <span>Dispatch</span>
+        <i />
+      </div>
     </div>
   );
 }
@@ -217,17 +259,30 @@ function KitchenFrame() {
 /** Parent: today's meals for one child, and the published week. No name. */
 function ParentFrame() {
   return (
-    <div className="lp-fr lp-fr-parent" role="img" aria-label="An abstract representation of the Parent view: today's meals for one child and the published menu for the week, shown without data.">
+    <div
+      className="lp-fr lp-fr-parent"
+      role="img"
+      aria-label="An abstract representation of the Parent view: today's meals for one child and the published menu for the week, shown without data."
+    >
       <div className="lp-fr-notch" />
       <span className="lp-fr-eyebrow">Today&rsquo;s meals</span>
       <div className="lp-fr-meals">
-        <div className="lp-fr-meal"><TrayMotif className="is-mini" /><s /></div>
-        <div className="lp-fr-meal"><TrayMotif className="is-mini" /><s className="w60" /></div>
+        <div className="lp-fr-meal">
+          <TrayMotif className="is-mini" />
+          <s />
+        </div>
+        <div className="lp-fr-meal">
+          <TrayMotif className="is-mini" />
+          <s className="w60" />
+        </div>
       </div>
       <span className="lp-fr-eyebrow">This week&rsquo;s menu</span>
       <div className="lp-fr-week">
         {['M', 'T', 'W', 'T', 'F'].map((d, i) => (
-          <div key={i} className="lp-fr-day"><em>{d}</em><u /></div>
+          <div key={i} className="lp-fr-day">
+            <em>{d}</em>
+            <u />
+          </div>
         ))}
       </div>
     </div>
@@ -237,7 +292,9 @@ function ParentFrame() {
 export default function LandingPage() {
   return (
     <div className="lp">
-      <a className="lp-skip" href="#main">Skip to content</a>
+      <a className="lp-skip" href="#main">
+        Skip to content
+      </a>
 
       {/* The header surface is light on purpose. The brand artwork carries a
           navy outline and a blue wordmark, which do not read on the navy used
@@ -250,12 +307,18 @@ export default function LandingPage() {
           </a>
           <nav className="lp-nav" aria-label="Primary">
             {NAV.map((n) => (
-              <a key={n.href} href={n.href}>{n.label}</a>
+              <a key={n.href} href={n.href}>
+                {n.label}
+              </a>
             ))}
           </nav>
           <div className="lp-header-cta">
-            <Link className="lp-btn lp-btn-quiet" to="/login">Client login</Link>
-            <a className="lp-btn lp-btn-gold" href="#contact">Talk to us</a>
+            <Link className="lp-btn lp-btn-quiet" to="/login">
+              Client login
+            </Link>
+            <a className="lp-btn lp-btn-gold" href="#contact">
+              Talk to us
+            </a>
           </div>
         </div>
       </header>
@@ -272,13 +335,17 @@ export default function LandingPage() {
                 <span className="lp-accent">One accountable journey.</span>
               </h1>
               <p className="lp-lead">
-                LunchBox Connect combines a managed meal service with the operating system behind
-                it — connecting Institutions, Kitchen operations, Classroom teams and Parents around
+                LunchBox Connect combines a managed meal service with the operating system behind it
+                — connecting Institutions, Kitchen operations, Classroom teams and Parents around
                 the same child-level meal journey.
               </p>
               <div className="lp-hero-actions">
-                <a className="lp-btn lp-btn-gold lp-btn-lg" href="#journey">See the journey</a>
-                <a className="lp-btn lp-btn-outline lp-btn-lg" href="#contact">Talk to us</a>
+                <a className="lp-btn lp-btn-gold lp-btn-lg" href="#journey">
+                  See the journey
+                </a>
+                <a className="lp-btn lp-btn-outline lp-btn-lg" href="#contact">
+                  Talk to us
+                </a>
               </div>
             </div>
 
@@ -315,37 +382,51 @@ export default function LandingPage() {
 
             <div className="lp-auds">
               <article className="lp-aud is-primary" id="institutions">
-                <span className="lp-aud-ico lp-ico-blue"><IconInstitution /></span>
+                <span className="lp-aud-ico lp-ico-blue">
+                  <IconInstitution />
+                </span>
                 <h3>For Institutions</h3>
                 <p>
-                  Manage the parts of the meal programme that belong to your Institution —
-                  Students, staff, published service, dietary requirements and delivery handover.
+                  Manage the parts of the meal programme that belong to your Institution — Students,
+                  staff, published service, dietary requirements and delivery handover.
                 </p>
-                <Slot name="institutions" className="lp-aud-art"><AdminFrame /></Slot>
+                <Slot name="institutions" className="lp-aud-art">
+                  <AdminFrame />
+                </Slot>
               </article>
 
               <article className="lp-aud is-primary">
-                <span className="lp-aud-ico lp-ico-gold"><IconParent /></span>
+                <span className="lp-aud-ico lp-ico-gold">
+                  <IconParent />
+                </span>
                 <h3>For Parents</h3>
                 <p>
                   See the part of the meal journey that belongs to your child: published meals and
                   the intake information recorded by the Classroom.
                 </p>
-                <Slot name="parents" className="lp-aud-art"><ParentFrame /></Slot>
+                <Slot name="parents" className="lp-aud-art">
+                  <ParentFrame />
+                </Slot>
               </article>
 
               <article className="lp-aud is-primary">
-                <span className="lp-aud-ico lp-ico-blue"><IconOperations /></span>
+                <span className="lp-aud-ico lp-ico-blue">
+                  <IconOperations />
+                </span>
                 <h3>For Operations</h3>
                 <p>
                   Turn published service and child entitlement into exact Demand, production,
                   packing, dispatch and recorded handover.
                 </p>
-                <Slot name="operations" className="lp-aud-art"><KitchenFrame /></Slot>
+                <Slot name="operations" className="lp-aud-art">
+                  <KitchenFrame />
+                </Slot>
               </article>
 
               <article className="lp-aud is-wide">
-                <span className="lp-aud-ico lp-ico-green"><IconClassroom /></span>
+                <span className="lp-aud-ico lp-ico-green">
+                  <IconClassroom />
+                </span>
                 <div className="lp-aud-wide-copy">
                   <h3>For Classroom teams</h3>
                   <p>
@@ -454,11 +535,13 @@ export default function LandingPage() {
 
             <article className="lp-hz lp-hz-next">
               <span className="lp-hz-tag lp-hz-tag-next">Tomorrow — the vision</span>
-              <h2>Building the connected operating infrastructure for institutional child nutrition.</h2>
+              <h2>
+                Building the connected operating infrastructure for institutional child nutrition.
+              </h2>
               <p>
-                If direct market validation supports it, the same architecture can evolve to
-                connect additional kitchens, caterers and education groups around a consistent
-                institutional child-food operating model.
+                If direct market validation supports it, the same architecture can evolve to connect
+                additional kitchens, caterers and education groups around a consistent institutional
+                child-food operating model.
               </p>
             </article>
           </div>
@@ -484,7 +567,9 @@ export default function LandingPage() {
             </div>
             <aside className="lp-cta-login">
               <p>Already have a LunchBox Connect account?</p>
-              <Link className="lp-btn lp-btn-outline" to="/login">Client login</Link>
+              <Link className="lp-btn lp-btn-outline" to="/login">
+                Client login
+              </Link>
             </aside>
           </div>
         </section>
@@ -512,7 +597,9 @@ export default function LandingPage() {
           </p>
           <nav className="lp-footer-nav" aria-label="Footer">
             {NAV.map((n) => (
-              <a key={n.href} href={n.href}>{n.label}</a>
+              <a key={n.href} href={n.href}>
+                {n.label}
+              </a>
             ))}
             <Link to="/login">Client login</Link>
           </nav>

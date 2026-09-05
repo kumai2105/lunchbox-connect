@@ -125,7 +125,10 @@ export default function ParentInsights() {
               <span>Average intake</span>
             </div>
             <div>
-              <b>{ateWell}<i>/{stats.valid}</i></b>
+              <b>
+                {ateWell}
+                <i>/{stats.valid}</i>
+              </b>
               <span>Eaten well</span>
             </div>
             <div>

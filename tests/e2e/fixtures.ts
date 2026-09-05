@@ -64,10 +64,7 @@ export async function removeInstitutionDay(
 ): Promise<void> {
   if (institutionIds.length === 0) return;
 
-  const services = await db
-    .from('meal_services')
-    .select('id')
-    .in('institution_id', institutionIds);
+  const services = await db.from('meal_services').select('id').in('institution_id', institutionIds);
   const serviceIds = (services.data ?? []).map((r) => (r as { id: string }).id);
 
   await db.from('delivery_manifests').delete().in('institution_id', institutionIds);

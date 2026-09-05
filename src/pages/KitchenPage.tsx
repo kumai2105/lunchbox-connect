@@ -207,9 +207,10 @@ function ProductionWorkflow({ date }: { date: string }) {
   const [issueFor, setIssueFor] = useState<{ id: string; stage: 'PRODUCTION' | 'PACKING' } | null>(
     null,
   );
-  const [workIssue, setWorkIssue] = useState<
-    { kind: 'action' | 'close'; issue: OperationalIssue } | null
-  >(null);
+  const [workIssue, setWorkIssue] = useState<{
+    kind: 'action' | 'close';
+    issue: OperationalIssue;
+  } | null>(null);
   const [labelsFor, setLabelsFor] = useState<DeliveryManifest | null>(null);
 
   const load = useCallback(async () => {
@@ -461,7 +462,10 @@ function ProductionWorkflow({ date }: { date: string }) {
       )}
 
       {manifests.length > 0 && (
-        <Card title="Dispatch" hint="name a driver, then release once everything on the run is packed">
+        <Card
+          title="Dispatch"
+          hint="name a driver, then release once everything on the run is packed"
+        >
           {drivers.length === 0 && (
             <Banner kind="warn">
               No active Driver account exists yet, so no delivery can be released. Create one under
@@ -566,10 +570,7 @@ function ProductionWorkflow({ date }: { date: string }) {
       )}
 
       {issues.length > 0 && (
-        <Card
-          title="Issues"
-          hint="what was raised for this day, and what LunchBox did about it"
-        >
+        <Card title="Issues" hint="what was raised for this day, and what LunchBox did about it">
           <table>
             <thead>
               <tr>

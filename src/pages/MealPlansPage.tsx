@@ -494,7 +494,10 @@ function BulkAssignDialog({
   // A selection made under one filter must not silently carry children who are
   // no longer on screen into the assignment.
   const visibleIds = useMemo(() => new Set(visible.map((s) => s.id)), [visible]);
-  const effective = useMemo(() => selected.filter((id) => visibleIds.has(id)), [selected, visibleIds]);
+  const effective = useMemo(
+    () => selected.filter((id) => visibleIds.has(id)),
+    [selected, visibleIds],
+  );
   const allVisibleSelected = visible.length > 0 && effective.length === visible.length;
 
   const chosenPlan = offerable.find((p) => p.id === planId);

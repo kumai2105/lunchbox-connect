@@ -402,10 +402,7 @@ test.describe('operational spine', () => {
       });
     };
     await assign(['Morning Child1', 'Morning Child2'], MORNING_PLAN);
-    await assign(
-      ['Full Child1', 'Full Child2', 'Full Child3', 'Full Child4'],
-      FULL_PLAN,
-    );
+    await assign(['Full Child1', 'Full Child2', 'Full Child3', 'Full Child4'], FULL_PLAN);
 
     const row = page.locator('tr', { hasText: INST });
     await row.getByRole('button', { name: 'Activate Student Meal Plans', exact: true }).click();
@@ -574,8 +571,7 @@ test.describe('operational spine', () => {
     // Scoped to THIS institution: since 0055 every production action names the
     // site it belongs to, so a second site finalised for the same date cannot
     // be advanced by this spec.
-    const mine = (action: string) =>
-      kitchen.getByRole('button', { name: `${action} — ${INST}` });
+    const mine = (action: string) => kitchen.getByRole('button', { name: `${action} — ${INST}` });
     await expect(mine('Start production').first()).toBeVisible({ timeout: 20_000 });
 
     // One sitting at a time, four sittings, four steps — and each click waits

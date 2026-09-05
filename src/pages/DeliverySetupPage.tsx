@@ -246,20 +246,21 @@ export default function DeliverySetupPage() {
                                   {isReceiver ? 'Authorised' : 'Not authorised'}
                                 </Pill>
                               ) : (
-                              <Btn
-                                variant={isReceiver ? 'ghost' : 'brand'}
-                                disabled={busy || !selected}
-                                onClick={() =>
-                                  void run(
-                                    () => setDeliveryReceiver(selected!.id, u.user_id, !isReceiver),
-                                    isReceiver
-                                      ? 'Receiver authorisation removed.'
-                                      : 'Authorised to receive deliveries.',
-                                  )
-                                }
-                              >
-                                {isReceiver ? 'Remove authorisation' : 'Authorise'}
-                              </Btn>
+                                <Btn
+                                  variant={isReceiver ? 'ghost' : 'brand'}
+                                  disabled={busy || !selected}
+                                  onClick={() =>
+                                    void run(
+                                      () =>
+                                        setDeliveryReceiver(selected!.id, u.user_id, !isReceiver),
+                                      isReceiver
+                                        ? 'Receiver authorisation removed.'
+                                        : 'Authorised to receive deliveries.',
+                                    )
+                                  }
+                                >
+                                  {isReceiver ? 'Remove authorisation' : 'Authorise'}
+                                </Btn>
                               )}
                             </td>
                           </tr>

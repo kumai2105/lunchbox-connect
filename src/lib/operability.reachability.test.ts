@@ -54,7 +54,10 @@ describe('approved operational actions have a human way in', () => {
     // without calling is how a wired-up screen becomes a dead one.
     const users = sources.filter((s) => {
       if (!new RegExp(`\\b${fn}\\b`).test(s.text)) return false;
-      const imported = new RegExp(`import\\s*\\{[^}]*\\b${fn}\\b[^}]*\\}\\s*from\\s*'[^']*lib/api'`, 's');
+      const imported = new RegExp(
+        `import\\s*\\{[^}]*\\b${fn}\\b[^}]*\\}\\s*from\\s*'[^']*lib/api'`,
+        's',
+      );
       const called = new RegExp(`\\b${fn}\\s*\\(`);
       return imported.test(s.text) && called.test(s.text);
     });

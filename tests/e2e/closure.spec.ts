@@ -280,15 +280,7 @@ test.describe('operability closure', () => {
       classId,
       morningIds: all.filter((s) => s.given_name === 'Morningkid').map((s) => s.id),
       fullIds: all.filter((s) => s.given_name === 'Fullkid').map((s) => s.id),
-      accountIds: [
-        adminId,
-        staffId,
-        otherAdminId,
-        otherStaffId,
-        parentId,
-        driverAId,
-        driverBId,
-      ],
+      accountIds: [adminId, staffId, otherAdminId, otherStaffId, parentId, driverAId, driverBId],
     };
   });
 
@@ -350,9 +342,14 @@ test.describe('operability closure', () => {
     // ---- it persists, and the screen can now answer "who is on what"
     await page.reload();
     await settled(page);
-    await page.locator('tr', { hasText: INST }).getByRole('button', { name: 'Assign Plans' }).click();
+    await page
+      .locator('tr', { hasText: INST })
+      .getByRole('button', { name: 'Assign Plans' })
+      .click();
     await expect(modal.locator('option', { hasText: 'Missing a Plan (0)' })).toHaveCount(1);
-    await modal.getByLabel('Show', { exact: true }).selectOption({ label: `On ${MORNING_PLAN} (2)` });
+    await modal
+      .getByLabel('Show', { exact: true })
+      .selectOption({ label: `On ${MORNING_PLAN} (2)` });
     await expect(modal.locator('tbody tr')).toHaveCount(2);
     await modal.getByLabel('Show', { exact: true }).selectOption({ label: `On ${FULL_PLAN} (3)` });
     await expect(modal.locator('tbody tr')).toHaveCount(3);
@@ -364,7 +361,7 @@ test.describe('operability closure', () => {
     // rather than a loop of one-at-a-time saves.
     const sa = await signedInDb(seeded().superAdminEmail);
     const planIds = must<Array<{ id: string }>>(
-      'find this spec\'s plans',
+      "find this spec's plans",
       await sa.from('meal_plans').select('id').in('name', [MORNING_PLAN, FULL_PLAN]),
     ).map((p) => p.id);
     const audit = must<Array<{ id: string }>>(
@@ -556,7 +553,9 @@ test.describe('operability closure', () => {
     // below to prove the INTERNAL issue lifecycle.
     const firstRow = page.locator('tr').filter({ hasText: 'Report issue' }).first();
     await firstRow.getByRole('button', { name: 'Report issue', exact: true }).click();
-    await page.locator('.modal').getByLabel('What happened', { exact: true })
+    await page
+      .locator('.modal')
+      .getByLabel('What happened', { exact: true })
       .fill('ZZ closure: one oven was down for forty minutes');
     await page.locator('.modal').getByRole('button', { name: 'Report issue', exact: true }).click();
     await expect(page.locator('.modal')).toHaveCount(0, { timeout: 20_000 });
@@ -705,9 +704,13 @@ test.describe('operability closure', () => {
     const report = rp.getByRole('button', { name: 'Report delivery issue', exact: true });
     await expect(report).toBeVisible({ timeout: 20_000 });
     await report.click();
-    await rp.locator('.modal').getByLabel('What kind of issue', { exact: true })
+    await rp
+      .locator('.modal')
+      .getByLabel('What kind of issue', { exact: true })
       .selectOption({ label: 'Missing Item' });
-    await rp.locator('.modal').getByLabel('What happened', { exact: true })
+    await rp
+      .locator('.modal')
+      .getByLabel('What happened', { exact: true })
       .fill('ZZ closure: two breakfast packs short');
     await rp.locator('.modal').getByRole('button', { name: 'Accept delivery with issue' }).click();
     await expect(rp.getByText('HANDED OVER').first()).toBeVisible({ timeout: 20_000 });
@@ -752,7 +755,8 @@ test.describe('operability closure', () => {
     const modal = page.locator('.modal');
     // The note is required, and the dialog says so instead of failing later.
     await expect(modal.getByRole('button', { name: 'Action issue', exact: true })).toBeDisabled();
-    await modal.getByLabel('What was done about it', { exact: true })
+    await modal
+      .getByLabel('What was done about it', { exact: true })
       .fill('Two breakfast packs redelivered at 08:55');
     await modal.getByRole('button', { name: 'Action issue', exact: true }).click();
     await expect(page.locator('.modal')).toHaveCount(0, { timeout: 20_000 });
@@ -775,9 +779,10 @@ test.describe('operability closure', () => {
     await expect(ip.getByText('LunchBox has been told you are satisfied')).toBeVisible({
       timeout: 20_000,
     });
-    await expect(
-      ip.locator('tr', { hasText: 'two breakfast packs short' }),
-    ).toContainText('INSTITUTION ACKNOWLEDGED', { timeout: 20_000 });
+    await expect(ip.locator('tr', { hasText: 'two breakfast packs short' })).toContainText(
+      'INSTITUTION ACKNOWLEDGED',
+      { timeout: 20_000 },
+    );
     // Acknowledging is not closing: the institution is never offered that.
     await expect(
       ip.locator('tr', { hasText: 'two breakfast packs short' }).getByRole('button', {
@@ -803,9 +808,10 @@ test.describe('operability closure', () => {
     await settledRow.getByRole('button', { name: 'Close issue', exact: true }).click();
     await page.locator('.modal').getByRole('button', { name: 'Close issue', exact: true }).click();
     await expect(page.getByText('Issue closed.')).toBeVisible({ timeout: 20_000 });
-    await expect(
-      issues.locator('tr', { hasText: 'two breakfast packs short' }),
-    ).toContainText('CLOSED', { timeout: 20_000 });
+    await expect(issues.locator('tr', { hasText: 'two breakfast packs short' })).toContainText(
+      'CLOSED',
+      { timeout: 20_000 },
+    );
     // A closed issue offers no further action.
     await expect(
       issues
@@ -851,13 +857,13 @@ test.describe('operability closure', () => {
     await login(page, seeded().kitchenEmail);
     await page.goto('/kitchen');
     await settled(page);
-    const kitchenIssues = page
-      .locator('.card')
-      .filter({ hasText: 'what was raised for this day' });
+    const kitchenIssues = page.locator('.card').filter({ hasText: 'what was raised for this day' });
     const row = kitchenIssues.locator('tr', { hasText: 'one oven was down' });
     await expect(row).toBeVisible({ timeout: 20_000 });
     await row.getByRole('button', { name: 'Action issue', exact: true }).click();
-    await page.locator('.modal').getByLabel('What was done about it', { exact: true })
+    await page
+      .locator('.modal')
+      .getByLabel('What was done about it', { exact: true })
       .fill('Second oven used; nothing left the kitchen late');
     await page.locator('.modal').getByRole('button', { name: 'Action issue', exact: true }).click();
     await expect(page.getByText('Issue actioned.')).toBeVisible({ timeout: 20_000 });
@@ -867,9 +873,12 @@ test.describe('operability closure', () => {
     await actioned.getByRole('button', { name: 'Close issue', exact: true }).click();
     await page.locator('.modal').getByRole('button', { name: 'Close issue', exact: true }).click();
     await expect(page.getByText('Issue closed.')).toBeVisible({ timeout: 20_000 });
-    await expect(kitchenIssues.locator('tr', { hasText: 'one oven was down' })).toContainText('CLOSED', {
-      timeout: 20_000,
-    });
+    await expect(kitchenIssues.locator('tr', { hasText: 'one oven was down' })).toContainText(
+      'CLOSED',
+      {
+        timeout: 20_000,
+      },
+    );
   });
 
   // --------------------------------------------------------------- correction
@@ -893,10 +902,12 @@ test.describe('operability closure', () => {
     await expect(modal).toContainText('kept in Audit');
     // A reason is required, and so is an actual change.
     await expect(modal.getByRole('button', { name: 'Correct record', exact: true })).toBeDisabled();
-    await modal.getByLabel('Delivery point — corrected value', { exact: true })
+    await modal
+      .getByLabel('Delivery point — corrected value', { exact: true })
       .fill('Side gate, kitchen entrance');
     await expect(modal.getByRole('button', { name: 'Correct record', exact: true })).toBeDisabled();
-    await modal.getByLabel('Reason (required)', { exact: true })
+    await modal
+      .getByLabel('Reason (required)', { exact: true })
       .fill('Reception closed for building work');
     await modal.getByRole('button', { name: 'Correct record', exact: true }).click();
     await expect(page.locator('.modal')).toHaveCount(0, { timeout: 20_000 });
@@ -928,15 +939,9 @@ test.describe('operability closure', () => {
     // happen if something else tried.
     const refused = await sa.rpc('correct_operational_record', {
       p_entity: 'delivery_manifests',
-      p_id: (
-        must<Array<{ id: string }>>(
-          'find a manifest',
-          await sa
-            .from('delivery_manifests')
-            .select('id')
-            .eq('institution_id', ids.instId)
-            .limit(1),
-        )
+      p_id: must<Array<{ id: string }>>(
+        'find a manifest',
+        await sa.from('delivery_manifests').select('id').eq('institution_id', ids.instId).limit(1),
       )[0].id,
       p_field: 'state',
       p_value: 'PREPARING',

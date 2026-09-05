@@ -207,7 +207,12 @@ describe('public homepage — claim register', () => {
   });
 
   it('records the prohibited claims this test enforces', () => {
-    for (const phrase of ['trusted by', 'market leader', 'government approved', 'pays for itself']) {
+    for (const phrase of [
+      'trusted by',
+      'market leader',
+      'government approved',
+      'pays for itself',
+    ]) {
       expect(REGISTER.toLowerCase()).toContain(phrase);
     }
   });

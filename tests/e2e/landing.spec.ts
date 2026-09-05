@@ -22,9 +22,7 @@ test.describe('public homepage', () => {
     // for a public URL.
     test('/ renders the public homepage, not the sign-in form', async ({ page }) => {
       await page.goto('/');
-      await expect(page.getByRole('heading', { level: 1 })).toContainText(
-        'Every child’s meal.',
-      );
+      await expect(page.getByRole('heading', { level: 1 })).toContainText('Every child’s meal.');
       await expect(page).toHaveURL(/\/$/);
       // The real sign-in form belongs to /login and must not be duplicated here.
       await expect(page.locator('input[autocomplete="current-password"]')).toHaveCount(0);
@@ -90,7 +88,9 @@ test.describe('public homepage', () => {
       );
       expect(overflow).toBeLessThanOrEqual(0);
       // And the way in is still reachable on a phone.
-      await expect(page.getByRole('link', { name: 'Client login', exact: true }).first()).toBeVisible();
+      await expect(
+        page.getByRole('link', { name: 'Client login', exact: true }).first(),
+      ).toBeVisible();
     });
 
     test('no horizontal overflow at 820px or 1440px', async ({ page }) => {

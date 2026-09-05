@@ -699,7 +699,8 @@ function CorrectDialog({
 }) {
   const [value, setValue] = useState(currentValue);
   const [reason, setReason] = useState('');
-  const valid = value.trim().length > 0 && value.trim() !== currentValue && reason.trim().length > 0;
+  const valid =
+    value.trim().length > 0 && value.trim() !== currentValue && reason.trim().length > 0;
   return (
     <Modal
       title={`Correct record — ${subject}`}

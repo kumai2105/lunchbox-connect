@@ -176,19 +176,38 @@ export function DonutChart({
   let offset = 0;
   return (
     <div className="donut">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img"
-           aria-label={shown.map((s) => `${s.label}: ${s.value}`).join(', ') || 'Nothing recorded yet'}>
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        role="img"
+        aria-label={shown.map((s) => `${s.label}: ${s.value}`).join(', ') || 'Nothing recorded yet'}
+      >
         <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none"
-                  stroke="var(--slate-soft)" strokeWidth={thickness} />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke="var(--slate-soft)"
+            strokeWidth={thickness}
+          />
           {total > 0 &&
             shown.map((s) => {
               const len = (s.value / total) * circumference;
               const dash = `${len} ${circumference - len}`;
               const el = (
-                <circle key={s.label} cx={size / 2} cy={size / 2} r={r} fill="none"
-                        stroke={s.color} strokeWidth={thickness}
-                        strokeDasharray={dash} strokeDashoffset={-offset} />
+                <circle
+                  key={s.label}
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={r}
+                  fill="none"
+                  stroke={s.color}
+                  strokeWidth={thickness}
+                  strokeDasharray={dash}
+                  strokeDashoffset={-offset}
+                />
               );
               offset += len;
               return el;

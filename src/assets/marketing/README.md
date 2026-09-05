@@ -8,14 +8,14 @@ instead — never a broken image and never an empty grey box.
 Detection is a Vite `import.meta.glob` in `src/pages/LandingPage.tsx`. Supported
 extensions: `.jpg` `.jpeg` `.png` `.webp`.
 
-| Filename        | Where it appears            | Aspect | Suggested size |
-| --------------- | --------------------------- | ------ | -------------- |
-| `hero.*`        | Hero, behind the product    | 4:3    | 1600×1200      |
-| `institutions.*`| "For Institutions" panel    | 16:10  | 1200×750       |
-| `parents.*`     | "For Parents" panel         | 16:10  | 1200×750       |
-| `operations.*`  | "For Operations" panel      | 16:10  | 1200×750       |
-| `classroom.*`   | "For Classroom teams" panel | 16:10  | 1200×750       |
-| `food.*`        | Journey band + Today panel  | 4:3    | 1200×900       |
+| Filename         | Where it appears            | Aspect | Suggested size |
+| ---------------- | --------------------------- | ------ | -------------- |
+| `hero.*`         | Hero, behind the product    | 4:3    | 1600×1200      |
+| `institutions.*` | "For Institutions" panel    | 16:10  | 1200×750       |
+| `parents.*`      | "For Parents" panel         | 16:10  | 1200×750       |
+| `operations.*`   | "For Operations" panel      | 16:10  | 1200×750       |
+| `classroom.*`    | "For Classroom teams" panel | 16:10  | 1200×750       |
+| `food.*`         | Journey band + Today panel  | 4:3    | 1200×900       |
 
 ## The rule that governs what may go here
 
