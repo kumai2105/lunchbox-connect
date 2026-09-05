@@ -258,7 +258,12 @@ export default function ClassesPage() {
                 {!institutionFilter && <th>Institution</th>}
                 <th>Grade</th>
                 <th>Students</th>
-                <th>Assigned staff</th>
+                {/* The column that used to sit here was headed "Assigned
+                    staff" and contained a button, never a member of staff:
+                    listClasses() returns student_count and no staff count, so
+                    the heading described data this screen does not have. The
+                    control moved in with the other row actions rather than
+                    keep a column heading that is not true of its column. */}
                 <th></th>
               </tr>
             </thead>
@@ -279,16 +284,12 @@ export default function ClassesPage() {
                   )}
                   <td>{c.grade ?? '—'}</td>
                   <td className="mono">{c.student_count}</td>
-                  <td>
-                    {canManageStaff && c.active ? (
+                  <td className="row-actions">
+                    {canManageStaff && c.active && (
                       <Btn size="sm" variant="ghost" onClick={() => void openStaff(c)}>
                         Manage staff
                       </Btn>
-                    ) : (
-                      <span className="cell-sub">—</span>
                     )}
-                  </td>
-                  <td className="row-actions">
                     {canManageStaff && (
                       <Btn
                         size="sm"
