@@ -513,6 +513,18 @@ async function main() {
   });
 
   await check("A business detail can be set and shows up, then cleared and disappears", async () => {
+    /*
+      This test ends by clearing the field, which is the behaviour it is checking — but the
+      field is a real setting, so running the suite used to wipe the owner's published email
+      address and leave pre-flight warning about it afterwards. Remember what was there and
+      put it back.
+    */
+    const db = new Database(DB_PATH);
+    const previous =
+      (db.prepare("select value from settings where key = 'email'").get() as { value: string | null } | undefined)
+        ?.value ?? null;
+    db.close();
+
     await adminPage.goto(`${BASE}/admin/settings`, { waitUntil: "domcontentloaded" });
     await adminPage.fill('input[name="email"]', "smoke@example.test");
     await adminPage.getByRole("button", { name: "Save details" }).click();
@@ -527,9 +539,13 @@ async function main() {
     const without = await (await fetch(`${BASE}/en/contact`)).text();
     const hidden = !without.includes("smoke@example.test");
 
+    const restore = new Database(DB_PATH);
+    restore.prepare("update settings set value = ? where key = 'email'").run(previous);
+    restore.close();
+
     assert(shown, "the email did not appear after being set");
     assert(hidden, "the email is still shown after being cleared");
-    return "shown when set, absent when empty";
+    return previous ? "shown when set, absent when empty; prior value restored" : "shown when set, absent when empty";
   });
 
   await check("Sign out ends the session", async () => {
