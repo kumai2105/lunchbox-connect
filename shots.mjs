@@ -3,12 +3,6 @@ import { chromium } from "playwright";
 
 const OUT = "/tmp/r3";
 fs.mkdirSync(OUT, { recursive: true });
-const env = Object.fromEntries(
-  fs.readFileSync(".env.local", "utf8").split("\n").filter((l) => l.includes("=")).map((l) => {
-    const i = l.indexOf("=");
-    return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
-  }),
-);
 const BASE = "http://localhost:3000";
 
 const desktop = [
@@ -32,13 +26,16 @@ const mobile = [
   ["16-m-weddings", "/en/weddings"],
   ["17-m-ar-home", "/ar"],
 ];
-const admin = [
-  ["18-admin-overview", "/admin"],
-  ["19-admin-menu", "/admin/menu"],
-  ["20-admin-page-editor", "/admin/pages/weddings"],
-  ["21-admin-enquiries", "/admin/enquiries"],
-  ["22-admin-settings", "/admin/settings"],
-];
+/*
+  The admin screens are deliberately NOT captured any more.
+
+  The preview they fed is a hosted page, and a hosted page is one careless share away
+  from anyone. Screenshots of the signed-in admin show its layout, its controls, the
+  shape of the enquiry list and the settings form — reconnaissance for anyone deciding
+  whether /admin is worth attacking, handed over without them needing to reach the site.
+  A preview exists so the owner and his managers can look at the public site; it does
+  not need the admin in it to do that.
+*/
 
 const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 
@@ -65,16 +62,6 @@ const mctx = await b.newContext({
 });
 await shoot(mctx, mobile);
 await mctx.close();
-
-const actx = await b.newContext({ viewport: { width: 1280, height: 900 } });
-const lp = await actx.newPage();
-await lp.goto(BASE + "/admin/login", { waitUntil: "networkidle" });
-await lp.fill('input[name="email"]', env.ADMIN_EMAIL);
-await lp.fill('input[name="password"]', env.ADMIN_PASSWORD);
-await Promise.all([lp.waitForURL(/\/admin(?!\/login)/), lp.click('button[type="submit"]')]);
-await lp.close();
-await shoot(actx, admin);
-await actx.close();
 
 await b.close();
 console.log("captured", fs.readdirSync(OUT).filter((f) => f.endsWith(".png")).length);
