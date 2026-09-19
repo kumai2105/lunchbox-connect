@@ -1,0 +1,3493 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --brand: #2563eb;
+  --brand-dark: #1d4ed8;
+  --brand-deep: #0f172a;
+  --amber: #f59e0b;
+  --bg: #f5f7fb;
+  --card: #ffffff;
+  --line: #e4e9f2;
+  --ink: #0f172a;
+  --ink-2: #475569;
+  --ink-3: #94a3b8;
+  --green: #16a34a;
+  --green-soft: #dcfce7;
+  --red: #dc2626;
+  --red-soft: #fee2e2;
+  --slate-soft: #eef2f9;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px -12px rgba(15, 23, 42, 0.12);
+  --radius: 14px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  /* Hard stop: no page may ever scroll sideways past the viewport, no
+     matter what a child element's intrinsic content width demands. Real
+     overflow sources (flex children without min-width:0, fixed-width
+     boxes, nowrap text) still get fixed at the source below — this is the
+     backstop so a future one can't reintroduce whole-page horizontal
+     scroll on a phone again.
+     IMPORTANT: this goes on html ONLY, never also on body. Setting it on
+     both forces two separate nested scroll containers (a well-known CSS
+     overflow quirk: an element with overflow-x != visible and
+     overflow-y == visible has its overflow-y silently forced to auto),
+     and .sidebar's position:sticky then sticks to the wrong one — it did
+     exactly that here, rendering as a half-height sidebar with a dead
+     gap above the avatar. html alone is safe because the UA already
+     treats the root element's overflow as controlling the viewport
+     itself rather than adding an extra nested scrolling box. */
+  overflow-x: hidden;
+}
+
+body {
+  font-family:
+    'Inter',
+    'Segoe UI',
+    -apple-system,
+    BlinkMacSystemFont,
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* ---------- auth / login ---------- */
+.auth-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(1100px 600px at 20% -10%, #1e293b 0%, #0f172a 45%, #020617 100%);
+  padding: 24px;
+}
+.auth-card {
+  background: #fff;
+  border-radius: 20px;
+  width: 440px;
+  max-width: 100%;
+  padding: 36px 40px;
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.5);
+}
+.auth-card h1 {
+  font-size: 22px;
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+.auth-card .tagline {
+  color: var(--ink-2);
+  font-size: 13px;
+  margin-bottom: 24px;
+}
+.auth-error {
+  background: var(--red-soft);
+  color: var(--red);
+  border-radius: 9px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+/* ---------- official brand logo ----------
+   One asset, used at two sizes. Width is capped and height is auto, so the
+   supplied artwork keeps its own aspect ratio at every breakpoint and can
+   never be stretched, cropped or pushed past its container. The artwork is
+   transparent and is used exactly as supplied — it is never recoloured, and
+   nothing is ever drawn behind it. `object-fit: contain` is a guard: if a
+   height is ever imposed on one of these placements, the mark letterboxes
+   inside it instead of distorting. */
+.brand-logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+/* Login: centred above the form, present enough to establish the brand
+   without crowding the fields. The card is 440px wide with 40px padding, so
+   260px leaves the logo comfortably inside it, and the % keeps it in
+   proportion on a narrow phone where the card itself shrinks. */
+.auth-brand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 22px;
+}
+.auth-brand .brand-logo {
+  width: 72%;
+  max-width: 260px;
+}
+
+/* Sidebar: smaller than the login placement, and placed directly on the rail —
+   no plate, no panel, nothing behind it. */
+.side-brand {
+  margin: 18px 16px 14px;
+}
+
+/* ---------- shell ---------- */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+.sidebar {
+  width: 232px;
+  min-width: 232px;
+  background: var(--brand-deep);
+  color: #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.nav {
+  padding: 0 12px;
+  flex: 1;
+  overflow: auto;
+}
+.nav-group {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin: 16px 10px 6px;
+}
+.nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  color: #94a3b8;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 13.5px;
+  margin-bottom: 2px;
+}
+.nav a:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+.nav a.active {
+  background: rgba(37, 99, 235, 0.28);
+  color: #fff;
+}
+.nav a .nav-ico {
+  width: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.side-card {
+  margin: 16px 14px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+.side-card b {
+  color: #fff;
+  display: block;
+  margin-bottom: 2px;
+}
+.side-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12.5px;
+}
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #fff;
+  font-size: 13px;
+}
+.side-foot .u-name {
+  color: #fff;
+  font-weight: 700;
+}
+.side-foot .u-role {
+  color: #7c9cd6;
+  font-size: 11px;
+}
+/* The name block is a link to your own account. It must not look like a nav
+   item — it is chrome — so it stays flat until pointed at. */
+.side-foot-me {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border-radius: 9px;
+  text-decoration: none;
+}
+.side-foot-me:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.side-foot-me:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+.side-foot button {
+  margin-left: auto;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #94a3b8;
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-size: 11px;
+}
+.side-foot button:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 28px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.topbar .title-block {
+  /* flex children default to min-width:auto (their full content width),
+     which is what forced the whole topbar - and with it the whole page -
+     wider than a phone screen. min-width:0 lets it actually shrink. */
+  min-width: 0;
+}
+.topbar .crumb {
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topbar h2 {
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topbar .spacer {
+  flex: 1;
+  min-width: 8px;
+}
+.content {
+  padding: 24px 28px 48px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--slate-soft);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.chip.amber {
+  background: #fef3c7;
+  color: #b45309;
+}
+.chip.green {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.chip.brand {
+  background: #dbeafe;
+  color: var(--brand-dark);
+}
+
+/* ---------- charts ---------- */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+}
+.chart-empty {
+  padding: 28px 8px;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 13px;
+}
+.chart-note {
+  font-size: 11px;
+  color: var(--ink-3);
+  margin-top: 8px;
+}
+.bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.bar-label {
+  width: 130px;
+  flex-shrink: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.bar-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.bar-track {
+  flex: 1;
+  height: 10px;
+  background: var(--slate-soft);
+  border-radius: 999px;
+  overflow: hidden;
+  min-width: 40px;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+.bar-value {
+  width: 52px;
+  text-align: right;
+  font-size: 12.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.trend-chart svg {
+  width: 100%;
+  height: 160px;
+  display: block;
+}
+.trend-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  margin-top: 4px;
+}
+.trend-axis span {
+  flex: 1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.row-clickable {
+  cursor: pointer;
+}
+.row-clickable.row-active {
+  background: var(--slate-soft);
+}
+
+/* ---------- tabs (Institution / Students & Classes detail views) ---------- */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
+  overflow-x: auto;
+}
+.tab-bar .tab {
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink-3);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.tab-bar .tab:hover {
+  color: var(--ink-2);
+}
+.tab-bar .tab.active {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+}
+
+/* ---------- entity profile header ---------- */
+.profile-head {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  margin-bottom: 18px;
+}
+.profile-identity {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.profile-name {
+  font-size: 19px;
+  letter-spacing: -0.02em;
+}
+.profile-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.profile-photo-btn {
+  margin-top: 12px;
+  cursor: pointer;
+}
+.review-body {
+  padding: 16px 18px 18px;
+}
+.review-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+  margin-bottom: 6px;
+}
+.review-body textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #dde4e1;
+  border-radius: 9px;
+  font-size: 13.5px;
+  background: #fbfcfc;
+  outline: none;
+  resize: vertical;
+}
+.review-body textarea:focus {
+  border-color: var(--brand);
+  background: #fff;
+}
+.review-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.review-actions .spacer {
+  flex: 1;
+}
+.review-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.period-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.concern-flag {
+  color: #b45309;
+  display: inline-flex;
+}
+
+/* ---------- page pieces ---------- */
+
+/* Three utility classes the markup has always used and the sheet never
+   defined: a bare .hint outside a page or card header fell through to body
+   copy, .muted was not muted at all, and .table-wrap did nothing — so a wide
+   table inside a card had no scroller of its own. */
+.hint {
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.55;
+  color: var(--ink-3);
+}
+.muted {
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.table-wrap {
+  overflow-x: auto;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.page-head h1 {
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+.page-head .hint {
+  color: var(--ink-3);
+  font-size: 13px;
+  font-weight: 500;
+  padding-bottom: 3px;
+}
+.page-head .spacer {
+  flex: 1;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.stat {
+  padding: 16px 18px;
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid #eef2f0;
+}
+.stat .label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-3);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.stat .value {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.stat .trend {
+  font-size: 11.5px;
+  font-weight: 700;
+  margin-top: 2px;
+  color: var(--ink-3);
+}
+/* A KPI card is only a link when a real drill-down exists for it. */
+.stat-link {
+  display: block;
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+.stat-link:hover {
+  border-color: var(--brand);
+  box-shadow:
+    0 2px 4px rgba(15, 23, 42, 0.06),
+    0 10px 28px -14px rgba(37, 99, 235, 0.35);
+}
+.stat-go {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  color: var(--ink-3);
+  display: flex;
+}
+.stat-link:hover .stat-go {
+  color: var(--brand);
+}
+
+.card {
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid #eef2f0;
+  margin-bottom: 18px;
+  /* keeps a wide table scrolling inside its own box on a narrow phone
+     instead of forcing the whole page wider than the viewport */
+  overflow-x: auto;
+}
+.card .head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #eef2f0;
+  flex-wrap: wrap;
+}
+.card .head h3 {
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+.card .head .hint {
+  font-size: 12px;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.card .head .spacer {
+  flex: 1;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+th {
+  text-align: left;
+  padding: 10px 18px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-3);
+  font-weight: 700;
+  background: #fafbfb;
+  border-bottom: 1px solid #eef1f0;
+  white-space: nowrap;
+}
+td {
+  padding: 13px 18px;
+  border-bottom: 1px solid #f1f4f3;
+  vertical-align: middle;
+}
+tbody tr:hover {
+  background: #f8fbfa;
+}
+tbody tr:last-child td {
+  border-bottom: none;
+}
+.cell-name {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* OPERATIONAL TABLES — VISUAL PASS.
+   These rules are shared by every admin list (students, guardians, staff,
+   classes, handover). Nothing structural: spacing, link colour and the
+   person/name pairing. */
+
+/* Links inside a table were falling all the way through to the browser
+   default — underlined #0000EE — because nothing in this sheet ever styled a
+   bare <a> outside the sidebar. Scoped to .content so the sidebar rail and the
+   Parent portal keep their own treatments. */
+.content a {
+  color: var(--brand-dark);
+  text-decoration: none;
+}
+.content a:hover {
+  text-decoration: underline;
+}
+.content .cell-name a {
+  color: var(--ink);
+}
+.content .cell-name a:hover {
+  color: var(--brand-dark);
+}
+/* A person is a face and a name together, not two columns that have to be
+   read across. */
+.cell-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.cell-person-photo {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+label.cell-person-photo {
+  cursor: pointer;
+}
+/* An identifier is one token. Wrapping "LBC-0001" onto two lines turns a
+   scannable column into a puzzle. */
+.mono {
+  white-space: nowrap;
+}
+/* Interim free-text safety notes. Amber, and never rendered as a plain
+   sentence in a cell — a member of staff scanning the list has to see it. */
+.safety-cell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #92400e;
+}
+.cell-sub {
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 500;
+}
+.mono {
+  font-variant-numeric: tabular-nums;
+}
+.tbl-foot {
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--ink-3);
+  flex-wrap: wrap;
+}
+.tbl-foot .spacer {
+  flex: 1;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.pill.free {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.pill.reduced {
+  background: #fef9c3;
+  color: #a16207;
+}
+.pill.paid {
+  background: var(--slate-soft);
+  color: var(--ink-2);
+}
+.pill.na {
+  background: #f3f4f6;
+  color: var(--ink-3);
+}
+.pill.brand {
+  background: #dbeafe;
+  color: var(--brand-dark);
+}
+.pill.slate {
+  background: var(--slate-soft);
+  color: var(--ink-2);
+}
+.pill.green {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.pill.red {
+  background: var(--red-soft);
+  color: var(--red);
+}
+/* `amber` was used in eleven places and defined in none of them, so every
+   in-progress state — an arrived delivery, an open issue — printed as bare
+   bold text with no pill behind it at all. */
+.pill.amber {
+  background: #fef3c7;
+  color: #92400e;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+}
+.sd-green {
+  background: #22c55e;
+}
+.sd-amber {
+  background: #f59e0b;
+}
+.sd-red {
+  background: #ef4444;
+}
+.sd-gray {
+  background: #cbd5d1;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  transition: filter 0.12s;
+  background: var(--slate-soft);
+  color: var(--ink-2);
+}
+.btn:hover {
+  filter: brightness(0.95);
+}
+.btn.brand {
+  background: var(--brand);
+  color: #fff;
+}
+.btn.amber {
+  background: #f59e0b;
+  color: #fff;
+}
+.btn.danger {
+  background: var(--red);
+  color: #fff;
+}
+.btn.ghost {
+  background: #fff;
+  border: 1px solid #dde3e1;
+  color: var(--ink-2);
+}
+.btn.ghost:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.btn.sm {
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.banner {
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 18px;
+  line-height: 1.45;
+}
+.banner.info {
+  background: #e0f2ff;
+  color: #075985;
+  border: 1px solid #bae6fd;
+}
+.banner.warn {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+/* A confirmation, not a warning. Without it every "saved" message had to
+   borrow the blue informational treatment, which reads as "here is something
+   to know" rather than "that worked". */
+.banner.ok {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+.banner.err {
+  background: var(--red-soft);
+  color: var(--red);
+  border: 1px solid #fecaca;
+}
+
+/* A deactivated row is still real information — it must be readable, just
+   visibly not in play. Fading it to the point of illegibility would be a
+   worse lie than hiding it. */
+.row-muted td {
+  opacity: 0.62;
+}
+/* `white-space: nowrap` forced every action in a row onto one line. On the
+   Staff table that is four buttons, and the last of them — Deactivate /
+   Reactivate — was clipped off the right edge of the card at anything under a
+   wide desktop, with the sidebar making it worse. Wrapping is the fix: the
+   cluster stays right-aligned and folds onto a second line instead of leaving
+   the destructive action unreachable without a horizontal scroll. */
+.row-actions {
+  text-align: right;
+}
+.row-actions .btn {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+td.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------- forms / modal ---------- */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+  margin-bottom: 5px;
+}
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #dde4e1;
+  border-radius: 9px;
+  font-size: 14px;
+  background: #fbfcfc;
+  outline: none;
+}
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--brand);
+  background: #fff;
+}
+/* ---------- password box with a reveal control ----------
+   The reveal button sits INSIDE the box rather than beside it, so the field
+   keeps the same footprint as every other input in a .form-row grid and the
+   two-column layout does not shift when a password field appears. */
+.pw-input {
+  position: relative;
+  display: block;
+}
+.pw-input input {
+  width: 100%;
+  padding: 9px 12px;
+  padding-right: 62px;
+  border: 1px solid #dde4e1;
+  border-radius: 9px;
+  font-size: 14px;
+  background: #fbfcfc;
+  outline: none;
+}
+.pw-input input:focus {
+  border-color: var(--brand);
+  background: #fff;
+}
+.pw-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 7px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.pw-toggle:hover {
+  background: #eef2f1;
+  color: var(--ink);
+}
+.pw-toggle:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+/* On the dark sign-in card the same control needs the light form treatment. */
+.auth-card .pw-input input {
+  background: #fbfcfc;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+.modal {
+  background: #fff;
+  border-radius: 16px;
+  width: 480px;
+  max-width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.4);
+}
+.modal .modal-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #eef2f0;
+}
+.modal h3 {
+  font-size: 15px;
+}
+.modal .modal-head .spacer {
+  flex: 1;
+}
+.modal .modal-body {
+  padding: 20px;
+}
+.modal .modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid #eef2f0;
+}
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid #dde3e1;
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  color: var(--ink-3);
+}
+.icon-btn:hover {
+  color: var(--brand);
+  border-color: var(--brand);
+}
+
+/* ---------- menu grid ---------- */
+.week-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.week-tab {
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid #dde3e1;
+  background: #fff;
+  color: var(--ink-2);
+}
+.week-tab.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1px;
+  background: #eef2f0;
+  border: 1px solid #eef2f0;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 18px;
+}
+.menu-day {
+  background: #fff;
+  min-height: 150px;
+  padding: 14px;
+}
+.menu-day .day {
+  font-weight: 800;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.menu-day .day small {
+  color: var(--ink-3);
+  font-weight: 600;
+  font-size: 11px;
+}
+.meal {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: 12px;
+}
+.meal b {
+  display: block;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  margin-bottom: 2px;
+}
+.meal.bf {
+  background: #fef9ee;
+  border: 1px solid #fdeecb;
+}
+.meal.bf b {
+  color: #b45309;
+}
+.meal.lu {
+  background: #eefbf3;
+  border: 1px solid #d7f2e0;
+}
+.meal.lu b {
+  color: var(--green);
+}
+.meal.emit {
+  background: #fafafa;
+  border: 1px dashed #d6ddda;
+  color: var(--ink-3);
+  text-align: center;
+  padding: 10px;
+}
+.meal-meta {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-3);
+  margin-top: 3px;
+  font-weight: 600;
+}
+.meal-allergens {
+  font-size: 10.5px;
+  color: #b45309;
+  font-weight: 700;
+}
+
+/* ---------- serving ---------- */
+.period-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: stretch;
+  margin-bottom: 16px;
+}
+.period-btn {
+  padding: 10px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink-2);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  min-width: 0;
+}
+.period-btn small {
+  font-weight: 600;
+  color: var(--ink-3);
+  font-size: 11px;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.period-btn.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+  box-shadow: 0 6px 16px -8px rgba(37, 99, 235, 0.8);
+}
+.period-btn.active small {
+  color: #bfdbfe;
+}
+.outcome {
+  width: 110px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #dde3e1;
+  font-size: 12.5px;
+  font-weight: 700;
+  background: #fff;
+  color: var(--ink);
+  outline: none;
+}
+.outcome.full {
+  background: var(--green-soft);
+  border-color: #bbe7cc;
+  color: var(--green);
+}
+.outcome.partial {
+  background: #fef3c7;
+  border-color: #fde68a;
+  color: #b45309;
+}
+.outcome.refused {
+  background: var(--red-soft);
+  border-color: #fecaca;
+  color: var(--red);
+}
+.outcome.absent {
+  background: #f3f4f6;
+  color: var(--ink-3);
+}
+.save-state {
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.save-state.ok {
+  color: var(--green);
+}
+.save-state.pending {
+  color: #b45309;
+}
+.save-state.err {
+  color: var(--red);
+}
+
+/* ---------- parent / kids ---------- */
+.kid-card {
+  display: flex;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid #eef2f0;
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: var(--shadow);
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.kid-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+}
+.kid-info {
+  flex: 1;
+  min-width: 220px;
+}
+.kid-info h4 {
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+.kid-meta {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+.kid-summary {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  margin-top: 6px;
+}
+.meal-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.meal-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+  background: #f0f4f3;
+  padding: 5px 10px;
+  border-radius: 999px;
+}
+.meal-line.ok {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.meal-line.wait {
+  background: #fef3c7;
+  color: #b45309;
+}
+.kid-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+}
+
+.today-meal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 14px;
+}
+.today-meal-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--line);
+  background: #fff;
+}
+.today-meal-card.ok {
+  border-left-color: var(--green);
+}
+.today-meal-card.warn {
+  border-left-color: #f59e0b;
+}
+.today-meal-card.danger {
+  border-left-color: var(--red);
+}
+.today-meal-card.wait {
+  border-left-color: var(--ink-3);
+}
+.tmc-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  color: var(--ink-2);
+  flex-shrink: 0;
+}
+.tmc-body {
+  flex: 1;
+  min-width: 0;
+}
+.tmc-period {
+  font-weight: 700;
+  font-size: 13px;
+}
+.tmc-time {
+  font-weight: 500;
+  color: var(--ink-3);
+  font-size: 11.5px;
+}
+.tmc-meta {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- parent portal (mobile-first, blueprint Parts 4/70-82) ---------- */
+.parent-root {
+  min-height: 100vh;
+  background: var(--bg);
+}
+.parent-shell {
+  max-width: 560px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.parent-body {
+  flex: 1;
+  padding: 18px 16px 96px;
+}
+.parent-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+  border-radius: 0 0 22px 22px;
+  padding: 22px 20px 26px;
+  margin: -18px -16px 18px;
+}
+.parent-greeting {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.parent-child-name {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  margin: 2px 0;
+}
+.parent-date {
+  font-size: 12px;
+  opacity: 0.85;
+}
+.parent-title {
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+}
+.parent-section {
+  font-size: 14px;
+  margin: 22px 0 10px;
+}
+.parent-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px 12px;
+}
+.parent-progress-value {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.parent-progress-value span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.parent-ring {
+  text-align: right;
+}
+.parent-ring-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--brand);
+  letter-spacing: -0.02em;
+}
+.parent-bar {
+  height: 8px;
+  background: var(--slate-soft);
+  border-radius: 999px;
+  margin: 0 18px 18px;
+  overflow: hidden;
+}
+.parent-bar-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.tmc-note {
+  font-size: 11.5px;
+  color: var(--ink-2);
+  font-style: italic;
+  margin-top: 3px;
+}
+.quick-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.quick-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--ink);
+}
+.quick-link > div {
+  flex: 1;
+  min-width: 0;
+}
+.quick-link b {
+  display: block;
+  font-size: 13.5px;
+}
+.quick-link span {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.quick-link:hover {
+  border-color: var(--brand);
+}
+.parent-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: 560px;
+  margin: 0 auto;
+  display: flex;
+  background: #fff;
+  border-top: 1px solid var(--line);
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px));
+  z-index: 20;
+}
+.parent-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  text-decoration: none;
+  color: var(--ink-3);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.parent-nav-item.active {
+  color: var(--brand);
+}
+.child-switch {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px 0;
+  overflow-x: auto;
+}
+.child-chip {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.child-chip.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+/* ============================================================================
+   PARENT PORTAL — VISUAL PASS
+   ----------------------------------------------------------------------------
+   Presentation only. No markup, no data, no permission and no copy changed by
+   anything below: every selector here already existed in the Parent screens.
+   The brief was the render set — lighter ground, more air, larger touch
+   targets, colour used to carry meaning rather than to decorate.
+   ========================================================================== */
+
+.parent-shell {
+  background: #f7f9fd;
+}
+.parent-body {
+  padding: 18px 16px 104px;
+}
+
+/* Hero. Deeper gradient and a rounder skirt so the white content below reads
+   as sitting on top of it rather than butting into it. */
+.parent-hero {
+  background: linear-gradient(140deg, #4f7cf7 0%, #2563eb 55%, #1d4ed8 100%);
+  border-radius: 0 0 28px 28px;
+  padding: 26px 22px 34px;
+  margin: -18px -16px 20px;
+  box-shadow: 0 18px 34px -24px rgba(29, 78, 216, 0.9);
+}
+.parent-greeting {
+  font-size: 13.5px;
+  opacity: 0.9;
+}
+.parent-child-name {
+  font-size: 25px;
+  font-weight: 800;
+  margin: 3px 0;
+}
+.parent-date {
+  font-size: 12.5px;
+  opacity: 0.82;
+}
+
+/* The child's avatar is the one portrait on the screen: round it and ring it
+   so it reads as a person rather than as another tile. */
+.parent-hero .photo-avatar,
+.parent-hero .photo-avatar-fallback,
+.parent-hero .avatar {
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.55);
+}
+
+/* Cards lift off the ground instead of being outlined. */
+.parent-body .card {
+  border-radius: 16px;
+  border-color: #e8edf6;
+  box-shadow: 0 10px 26px -22px rgba(15, 23, 42, 0.7);
+}
+
+.parent-section {
+  font-size: 15.5px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  margin: 26px 0 12px;
+}
+
+/* Today's progress. The percentage becomes an actual ring — drawn with a
+   conic gradient off --pct, which ParentHome sets inline. When the value is
+   absent the variable is unset, the ring falls back to 0% and reads as an
+   empty track, which is the honest state for "not recorded yet". */
+.parent-progress {
+  padding: 20px 20px 14px;
+}
+.parent-progress-value {
+  font-size: 30px;
+}
+.parent-progress-value span {
+  font-size: 15px;
+}
+.parent-ring {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  background: conic-gradient(var(--brand) calc(var(--pct, 0) * 1%), var(--slate-soft) 0);
+}
+.parent-ring::before {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: #fff;
+}
+.parent-ring-value {
+  position: relative;
+  font-size: 20px;
+  line-height: 1.1;
+}
+.parent-ring .cell-sub {
+  position: relative;
+  font-size: 9px;
+  max-width: 70px;
+  line-height: 1.25;
+  margin-top: 1px;
+}
+
+.parent-bar {
+  height: 10px;
+  margin: 4px 20px 20px;
+}
+
+/* Meal cards. Bigger, calmer, and the status colour is carried by the whole
+   left edge and the period label rather than by a 4px hairline alone. */
+.today-meal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.today-meal-card {
+  gap: 14px;
+  padding: 15px 16px;
+  border-radius: 14px;
+  border-color: #e8edf6;
+  border-left-width: 5px;
+  box-shadow: 0 10px 24px -22px rgba(15, 23, 42, 0.65);
+}
+.tmc-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--slate-soft);
+  color: var(--ink-2);
+}
+.today-meal-card.ok .tmc-icon {
+  background: var(--green-soft);
+  color: #15803d;
+}
+.today-meal-card.warn .tmc-icon {
+  background: #fef3c7;
+  color: #b45309;
+}
+.today-meal-card.danger .tmc-icon {
+  background: var(--red-soft);
+  color: #b91c1c;
+}
+.tmc-period {
+  font-size: 14.5px;
+}
+.tmc-meta {
+  font-size: 12.5px;
+}
+.tmc-result {
+  font-weight: 650;
+}
+.today-meal-card.ok .tmc-result {
+  color: #15803d;
+}
+.today-meal-card.warn .tmc-result {
+  color: #b45309;
+}
+.today-meal-card.danger .tmc-result {
+  color: #b91c1c;
+}
+.tmc-note {
+  font-size: 12.5px;
+}
+
+/* Quick links: a coloured icon tile each, so the three destinations are told
+   apart at a glance rather than read one by one. */
+.quick-links {
+  gap: 10px;
+}
+.quick-link {
+  padding: 15px 16px;
+  border-radius: 14px;
+  border-color: #e8edf6;
+  box-shadow: 0 10px 24px -22px rgba(15, 23, 42, 0.65);
+}
+.quick-link > svg:first-child,
+.quick-link > span:first-child {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--slate-soft);
+  color: var(--brand);
+  padding: 9px;
+  box-sizing: border-box;
+}
+.quick-link:nth-child(2) > svg:first-child,
+.quick-link:nth-child(2) > span:first-child {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+.quick-link:nth-child(3) > svg:first-child,
+.quick-link:nth-child(3) > span:first-child {
+  background: var(--green-soft);
+  color: #15803d;
+}
+/* The trailing chevron stays a chevron. */
+.quick-link > svg:last-child {
+  flex: none;
+  color: var(--ink-3);
+}
+.quick-link b {
+  font-size: 14.5px;
+}
+.quick-link span {
+  font-size: 12.5px;
+}
+
+/* Bottom bar: taller, with a real resting state, so it survives a thumb. */
+.parent-nav {
+  border-top: none;
+  box-shadow: 0 -8px 26px -18px rgba(15, 23, 42, 0.55);
+  padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px));
+}
+.parent-nav-item {
+  gap: 5px;
+  font-size: 11px;
+}
+
+.child-chip {
+  padding: 8px 16px;
+  font-size: 13px;
+}
+
+/* Insights: the header band carries the four figures that answer "how is the
+   week going" before any chart is read. */
+.parent-head {
+  background: linear-gradient(140deg, #4f7cf7 0%, #2563eb 55%, #1d4ed8 100%);
+  color: #fff;
+  border-radius: 0 0 28px 28px;
+  padding: 24px 22px 22px;
+  margin: -18px -16px 20px;
+  box-shadow: 0 18px 34px -24px rgba(29, 78, 216, 0.9);
+}
+.parent-head h2 {
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.parent-head > p {
+  font-size: 12.5px;
+  opacity: 0.85;
+  margin-top: 3px;
+}
+.parent-head-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  margin-top: 18px;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.parent-head-stats > div {
+  padding: 12px 6px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.06);
+}
+.parent-head-stats b {
+  display: block;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.parent-head-stats b i {
+  font-style: normal;
+  font-size: 12px;
+  opacity: 0.75;
+}
+.parent-head-stats span {
+  display: block;
+  font-size: 9.5px;
+  opacity: 0.85;
+  margin-top: 3px;
+  line-height: 1.2;
+}
+
+/* Donut + legend. */
+.intake-overview {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px;
+  flex-wrap: wrap;
+}
+.donut {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+.donut svg {
+  display: block;
+}
+.donut-centre {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+}
+.donut-centre b {
+  display: block;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.donut-centre span {
+  display: block;
+  font-size: 9.5px;
+  color: var(--ink-3);
+  margin-top: 1px;
+}
+.donut-legend {
+  list-style: none;
+  flex: 1;
+  min-width: 150px;
+  display: grid;
+  gap: 9px;
+}
+.donut-legend li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+}
+.donut-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+.donut-legend span {
+  flex: 1;
+  color: var(--ink-2);
+}
+.donut-legend b {
+  font-weight: 750;
+}
+
+/* Meals ranked by how well they were eaten, each with its own ring. */
+.meal-rank {
+  list-style: none;
+  padding: 6px 4px;
+}
+.meal-rank li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.meal-rank li:last-child {
+  border-bottom: none;
+}
+.meal-rank li > div {
+  flex: 1;
+  min-width: 0;
+}
+.meal-rank b {
+  display: block;
+  font-size: 13.5px;
+}
+.meal-rank span:not(.meal-rank-ring) {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+/* The hole is punched with a radial gradient rather than a pseudo-element:
+   an ::before would paint over the percentage sitting inside it, and the
+   label is a bare text node with nothing to raise above it. */
+.meal-rank-ring {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink);
+  background:
+    radial-gradient(#fff 0 56%, transparent 57%),
+    conic-gradient(var(--green) calc(var(--pct, 0) * 1%), var(--slate-soft) 0);
+}
+
+/* On a phone the shared stat grid drops to one card per row, which turned two
+   small figures into two full-width slabs. In the Parent portal they sit
+   side by side and stay compact. */
+.parent-body .stat-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.parent-body .stat {
+  padding: 13px 14px;
+  border-radius: 14px;
+}
+
+/* Menu: day cards and their meal rows. */
+.parent-body .menu-day-list {
+  padding: 4px 0;
+}
+.parent-body .menu-line {
+  gap: 13px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  width: 100%;
+  text-align: left;
+}
+.parent-body .menu-line:last-child {
+  border-bottom: none;
+}
+.parent-body .menu-line .tmc-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--slate-soft);
+  color: var(--brand);
+  align-self: flex-start;
+}
+.parent-body .menu-dish {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 2px 0 3px;
+}
+.parent-body .menu-line .tmc-period {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-3);
+}
+.menu-allergen-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+/* Nutrition as tiles, not a bullet list. */
+.nutrition-tiles {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.nutrition-tiles li {
+  background: var(--slate-soft);
+  border-radius: 12px;
+  padding: 11px 8px;
+  text-align: center;
+}
+.nutrition-tiles b {
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.nutrition-tiles span {
+  display: block;
+  font-size: 10px;
+  color: var(--ink-2);
+  margin-top: 2px;
+}
+
+/* Profile: the child sits in the header band, details read as icon rows. */
+.parent-head-profile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.parent-head-profile .photo-avatar,
+.parent-head-profile .photo-avatar-fallback,
+.parent-head-profile .avatar {
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.55);
+  flex: none;
+}
+.parent-head-profile h2 {
+  font-size: 22px;
+}
+.parent-head-profile p {
+  font-size: 12.5px;
+  opacity: 0.85;
+  margin-top: 3px;
+}
+
+.profile-rows {
+  list-style: none;
+  padding: 4px 0;
+}
+.profile-rows li {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.profile-rows li:last-child {
+  border-bottom: none;
+}
+.profile-row-ico {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--slate-soft);
+  color: var(--brand);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.profile-rows li > div {
+  min-width: 0;
+}
+.profile-rows span {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.profile-rows b {
+  display: block;
+  font-size: 14.5px;
+  margin-top: 1px;
+}
+
+/* Safety notes read as amber cards — they are cautionary, not decorative. */
+.parent-body .safety-note-list {
+  padding: 6px 16px 2px;
+  display: grid;
+  gap: 9px;
+}
+.parent-body .safety-note-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  padding: 12px 13px;
+  font-size: 13px;
+  color: #78350f;
+}
+.parent-body .safety-note-item svg {
+  flex: none;
+  margin-top: 1px;
+  color: #b45309;
+}
+
+.parent-profile-head {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 18px;
+}
+.safety-note-list {
+  padding: 4px 18px 0;
+}
+.safety-note-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
+  color: #b45309;
+}
+.safety-note-item:last-child {
+  border-bottom: none;
+}
+.menu-day-list {
+  padding: 6px 0;
+}
+.menu-line {
+  display: flex;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.menu-line:last-child {
+  border-bottom: none;
+}
+.menu-dish {
+  font-size: 13.5px;
+  font-weight: 600;
+  margin-top: 1px;
+}
+.menu-ingredients {
+  white-space: normal;
+}
+.menu-allergen-row {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.range-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.range-tab {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.range-tab.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--line);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 40px auto;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.center-box {
+  text-align: center;
+  color: var(--ink-3);
+  padding: 40px 20px;
+  font-size: 13px;
+}
+.empty {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 40px;
+  text-align: center;
+  background: #fff;
+  color: var(--ink-3);
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-bottom: 1px solid #eef2f0;
+}
+.filters select,
+.filters .search-box {
+  padding: 8px 12px;
+  border: 1px solid #dde3e1;
+  border-radius: 9px;
+  font-size: 13px;
+  background: #fff;
+  color: var(--ink);
+}
+.filters .search-box {
+  width: 220px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-3);
+}
+.filters .search-box input {
+  border: none;
+  outline: none;
+  font-size: 13px;
+  flex: 1;
+  color: var(--ink);
+  background: none;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    width: 64px;
+    min-width: 64px;
+  }
+
+  /* The rail is 64px. The logo goes in at the largest size that fits with a
+     margin either side — 48px, which still reads as the brand — rather than a
+     lettered placeholder. Nothing else in the rail moves: it occupies the same
+     width the "LC" square did, so no tappable navigation space is lost. */
+  .side-brand {
+    margin: 14px 8px 12px;
+  }
+  .side-brand .brand-logo {
+    width: 48px;
+    margin: 0 auto;
+  }
+
+  .nav a span:not(.nav-ico),
+  .nav .nav-group,
+  .side-card,
+  .side-foot .u-name,
+  .side-foot .u-role {
+    display: none;
+  }
+  .nav a {
+    justify-content: center;
+  }
+
+  /* THE LOG OUT BUTTON IS NOT DECORATION AND MUST NEVER BE HIDDEN HERE.
+     It used to be listed in the display:none rule above, alongside the
+     name and role text. Those are labels; this is the ONLY way any staff
+     or admin role can end a session — Layout.tsx renders no other, and
+     the avatar next to it is a plain <div>, not a control. So on every
+     phone and most tablets in portrait, a Super Admin, Nursery Admin,
+     Classroom Staff or Kitchen user could sign in and then had no way to
+     sign out at all. Parents were unaffected only because the Parent
+     portal carries its own Sign out on the profile screen.
+
+     Stacked rather than restored to the row: the rail is 64px wide, so
+     the avatar and the button do not fit side by side. */
+  .side-foot {
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 4px;
+  }
+  .side-foot button {
+    margin-left: 0;
+    width: 100%;
+    min-height: 32px;
+    padding: 6px 4px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .topbar {
+    padding: 12px 16px;
+  }
+  .content {
+    padding: 16px 16px 40px;
+  }
+  .menu-grid {
+    grid-template-columns: 1fr;
+  }
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  th,
+  td {
+    padding: 9px 10px;
+  }
+  /* Dashboard's 6-column summary table can't fit a phone width even with
+     .card's own internal scroll working (18px/side cell padding * 6
+     columns is wider than any phone regardless) — drop the two least
+     essential columns instead of relying on a horizontal swipe inside a
+     vertically-scrolling page, which is what was actually failing. */
+  .dash-table .col-secondary {
+    display: none;
+  }
+}
+
+/* ---------- Student photo avatar (docs/13 Decision 032 §5) ----------
+   Named photo-avatar, NOT .avatar — .avatar already means the round
+   initials chip in the sidebar user footer (line ~205); reusing that name
+   here silently stripped its size/circle/gradient. */
+.photo-avatar {
+  border-radius: 14px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.photo-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+}
+.photo-avatar-sm {
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+}
+.photo-avatar-md {
+  width: 52px;
+  height: 52px;
+  font-size: 20px;
+}
+.photo-avatar-lg {
+  width: 96px;
+  height: 96px;
+  font-size: 34px;
+  border-radius: 22px;
+}
+
+/* ---------- fast classroom "Today" workflow (docs/13 Decision 032) ----------
+
+   VISUAL PASS. This register is used standing up, one-handed, with a queue of
+   children waiting — so the pass buys legibility and target size, not
+   decoration. Nothing here changes what is recorded: the values, the wording of
+   every control, and the class hooks the E2E suite drives (.roster-chip,
+   .status-badge.sb-*, .period-btn, .plate-quarter.selected) are unchanged. */
+
+.serve-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 20px 22px;
+  margin-bottom: 16px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+.serve-head-id {
+  min-width: 0;
+  flex: 1 1 240px;
+}
+.serve-head-id h1 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.serve-head-id p {
+  margin-top: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #bfdbfe;
+}
+.serve-head-side {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+/* Completion ring. --pct is set inline from the same recordedCount / roster
+   length the header prints, so the two can never disagree. */
+.serve-progress {
+  width: 62px;
+  height: 62px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(#12203c 0 63%, transparent 64%),
+    conic-gradient(#38bdf8 calc(var(--pct, 0) * 1%), rgba(255, 255, 255, 0.16) 0);
+}
+.serve-progress-num {
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+}
+.serve-progress-num i {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  color: #93c5fd;
+}
+.serve-head-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.serve-head-meta b {
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+}
+.today-progress {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #93c5fd;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.focus-card {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 24px;
+  align-items: start;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+@media (max-width: 820px) {
+  .focus-card {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 20px 16px;
+  }
+}
+/* Who you are recording. Kept as its own column so it stays on screen while
+   the controls to its right change between steps. */
+.focus-id {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 18px 14px;
+  border-radius: 14px;
+  background: var(--slate-soft);
+}
+.focus-name {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+.focus-sub {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+}
+/* The interim free-text safety note. It is deliberately the loudest thing in
+   the identity column — it is read before food is handed over. */
+.focus-safety-note {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 12px;
+  padding: 9px 12px;
+}
+.focus-safety-note svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.focus-record {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.focus-step-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+  margin-top: 6px;
+}
+.focus-record > .banner {
+  margin: 0;
+}
+
+.focus-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  margin: 4px 0 12px;
+}
+.focus-nav-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink-2);
+  box-shadow: var(--shadow);
+}
+.focus-nav-btn:disabled {
+  opacity: 0.35;
+  box-shadow: none;
+}
+
+/* THE SCALE. Five steps, graded from "none" to "all" in the same colours the
+   Parent portal uses for the same five bands, so a member of staff and a
+   parent are looking at one vocabulary. */
+.plate {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+}
+.plate-quarter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: none;
+  background: none;
+  --pq: var(--brand);
+}
+.plate-quarter:nth-child(1) {
+  --pq: #dc2626;
+}
+.plate-quarter:nth-child(2) {
+  --pq: #fb923c;
+}
+.plate-quarter:nth-child(3) {
+  --pq: #eab308;
+}
+.plate-quarter:nth-child(4) {
+  --pq: #65a30d;
+}
+.plate-quarter:nth-child(5) {
+  --pq: #16a34a;
+}
+.pq-dish {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 84px;
+  border-radius: 999px;
+  border: 3px solid var(--pq);
+  background: #fff;
+  overflow: hidden;
+}
+.plate-quarter .fill {
+  position: absolute;
+  inset: 0;
+  background: var(--pq);
+  transform-origin: bottom;
+  opacity: 0.16;
+}
+.pq-pct {
+  position: relative;
+  z-index: 1;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--pq);
+}
+.pq-word {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-3);
+  text-align: center;
+  line-height: 1.2;
+}
+.plate-quarter.selected .pq-dish {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--pq) 22%, transparent);
+}
+.plate-quarter.selected .fill {
+  opacity: 1;
+}
+.plate-quarter.selected .pq-pct {
+  color: #fff;
+  mix-blend-mode: normal;
+}
+.plate-quarter.selected .pq-word {
+  color: var(--ink);
+}
+/* At 0% there is nothing for the fill to paint, so the selected state has to
+   come from the ring rather than from the (zero-height) fill. */
+.plate-quarter:nth-child(1).selected .pq-dish {
+  background: var(--pq);
+}
+@media (max-width: 480px) {
+  .pq-dish {
+    max-width: 62px;
+    border-width: 2px;
+  }
+  .pq-pct {
+    font-size: 13px;
+  }
+  .pq-word {
+    font-size: 10px;
+  }
+}
+
+.chip-choice {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chip-choice button {
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.chip-choice button:hover {
+  border-color: var(--ink-3);
+}
+.chip-choice button.selected {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.chip-choice button.warn.selected {
+  background: #b45309;
+  border-color: #b45309;
+}
+.chip-choice button.danger.selected {
+  background: var(--red);
+  border-color: var(--red);
+}
+.chip-choice button.brand {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+/* Flag / note / not served are corrections, not the main path — they sit
+   under a rule at the foot of the card so a thumb does not find them first. */
+.focus-foot {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.focus-foot button {
+  padding: 10px 14px;
+  font-size: 12.5px;
+}
+.not-served-btn {
+  color: var(--ink-3);
+  background: none;
+  border: 1px dashed var(--line) !important;
+}
+
+/* Reference information, not a task: the children whose Meal Plan excludes this
+   sitting. It sits in the recording flow, so it is deliberately quiet. */
+.not-on-sitting .cell-sub {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.not-on-sitting .hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+/* THE ROSTER. This is the navigation for the whole screen, so it is legible
+   at a glance rather than a row of faded thumbnails: every child is at full
+   opacity, the one being recorded is ringed, and a recorded child is dimmed
+   only after the fact. */
+.roster-strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 6px 2px 12px;
+  margin-bottom: 4px;
+}
+.roster-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  width: 68px;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.roster-face {
+  position: relative;
+  display: block;
+  border-radius: 999px;
+  padding: 3px;
+  border: 2px solid transparent;
+}
+.roster-chip.recorded .roster-face {
+  border-color: var(--green-soft);
+}
+.roster-chip.active .roster-face {
+  border-color: var(--brand);
+  background: #eff6ff;
+}
+.roster-chip .photo-avatar {
+  border: none;
+}
+/* A child with no record yet still carries the element (the workflow and the
+   E2E suite both look for it) — it just has nothing to say, so it reads as a
+   quiet placeholder rather than a fifth status colour. */
+.roster-chip .status-badge {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: transparent;
+  font-size: 10px;
+  line-height: 1;
+  box-shadow: inset 0 0 0 3px #fff;
+  background: var(--slate-soft);
+}
+.roster-chip .status-badge.sb-checkCircle {
+  color: #fff;
+  background: var(--green);
+  border-color: var(--green);
+}
+.roster-chip .status-badge.sb-clock {
+  color: #fff;
+  background: var(--amber);
+  border-color: var(--amber);
+}
+.roster-chip .status-badge.sb-xCircle {
+  color: #fff;
+  background: var(--red);
+  border-color: var(--red);
+}
+.roster-chip .status-badge.sb-x {
+  color: var(--ink-2);
+  background: var(--slate-soft);
+  border-color: var(--line);
+}
+.roster-chip .status-badge.sb-alertTriangle {
+  color: #fff;
+  background: #b45309;
+  border-color: #b45309;
+}
+.roster-chip .name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 68px;
+}
+.roster-chip.active .name {
+  color: var(--brand-dark);
+}
+
+/* ---- Today's delivery (institution side of custody) --------------------
+   Card bodies in this sheet are flush by design so a table can run edge to
+   edge. Everything in this card that is NOT a table needs the same gutter the
+   table cells already have, or the buttons and the state pill sit against the
+   card border. */
+.delivery-body {
+  padding: 14px 18px;
+}
+.delivery-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-bottom: 4px;
+}
+.delivery-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+/* ---- Institution portal ------------------------------------------------
+   The Institution Admin administers ONE site. Their dashboard is that site's
+   day, not a chain report with a single row in it — so the site is the heading
+   and today's recorded share is the figure, carried in the same header-band
+   language the Parent portal and the Classroom register already use. */
+.inst-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+.inst-head-id {
+  min-width: 0;
+  flex: 1 1 240px;
+}
+.inst-head-id h1 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.inst-head-id p {
+  margin-top: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #bfdbfe;
+}
+.inst-head-side {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+/* --pct is set inline from the same meals_today / expected_today the table
+   below prints, so the ring and the number can never disagree. */
+.inst-ring {
+  width: 62px;
+  height: 62px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(#12203c 0 63%, transparent 64%),
+    conic-gradient(#38bdf8 calc(var(--pct, 0) * 1%), rgba(255, 255, 255, 0.16) 0);
+}
+.inst-ring-num {
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+}
+.inst-head-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.inst-head-meta b {
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+}
+.inst-state {
+  margin-top: 6px;
+  align-self: flex-start;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+}
+.inst-state.is-complete {
+  background: rgba(22, 163, 74, 0.28);
+  color: #bbf7d0;
+}
+.inst-state.is-in_progress {
+  background: rgba(245, 158, 11, 0.26);
+  color: #fde68a;
+}
+.inst-state.is-not_started {
+  background: rgba(220, 38, 38, 0.28);
+  color: #fecaca;
+}
+.inst-head-meta span {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #93c5fd;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ---- Meal Library (§4) ------------------------------------------------- */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 4px 0 16px;
+  flex-wrap: wrap;
+}
+.toolbar .search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink-3);
+  min-width: 220px;
+  flex: 1;
+  max-width: 340px;
+}
+.toolbar .search-box input {
+  border: none;
+  outline: none;
+  font-size: 13px;
+  flex: 1;
+  background: transparent;
+  color: var(--ink);
+}
+.check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.meal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.meal-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.meal-thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  background: var(--slate-soft);
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.meal-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.meal-body {
+  min-width: 0;
+  flex: 1;
+}
+.meal-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.meal-allergens {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin: 4px 0;
+}
+.meal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* ---- Menu Builder (§5) ------------------------------------------------- */
+.menu-builder {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.menu-list-item {
+  text-align: left;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.menu-list-item.active {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px var(--brand);
+}
+.menu-canvas {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 16px;
+  min-height: 320px;
+}
+.menu-canvas-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.menu-canvas-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.menu-grid-scroll {
+  overflow-x: auto;
+}
+.menu-grid {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  min-width: 560px;
+}
+.menu-grid th,
+.menu-grid td {
+  border: 1px solid var(--line);
+  padding: 6px;
+  text-align: center;
+  vertical-align: middle;
+}
+.menu-grid .period-label {
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--slate-soft);
+}
+.slot-cell {
+  width: 100%;
+  min-height: 44px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--ink-3);
+  padding: 6px;
+}
+.slot-cell.filled {
+  border-style: solid;
+  background: var(--slate-soft);
+  color: var(--ink);
+  font-weight: 500;
+}
+.meal-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.meal-pick {
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+.meal-pick.clear {
+  color: var(--red);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+@media (max-width: 720px) {
+  .menu-builder {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Institution service config (§7/§12) ------------------------------ */
+.service-config {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 620px;
+}
+.period-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+.publish-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.service-config .field {
+  margin-bottom: 10px;
+}
+.service-config select,
+.service-config input[type='date'],
+.service-config input[type='number'] {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  background: #fff;
+  color: var(--ink);
+}
+
+/* ---- class staff chips (§16) ------------------------------------------- */
+/* A class assignment is a small fact about a person, so it reads as a pill.
+   As a column of full-width bordered boxes with the name and the word
+   "remove" pushed to opposite ends, one assignment took three lines of row
+   height and looked like a form control. */
+.staff-chips {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.staff-chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--slate-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+/* `--danger` is not a token this sheet defines, so both users of it were
+   silently falling back to a red that matches nothing else in the product. */
+.chip-x {
+  border: none;
+  background: transparent;
+  color: var(--red);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0;
+}
+.chip-x:hover {
+  text-decoration: underline;
+}
+
+/* ---- calendar tab (§7) ------------------------------------------------- */
+.calendar-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 720px;
+}
+.calendar-tab select,
+.calendar-tab input[type='date'],
+.calendar-tab input[type='text'] {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  background: #fff;
+  color: var(--ink);
+  width: 100%;
+}
+
+/* ---- parent history (§29) --------------------------------------------- */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.history-day {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+/* ---- parent meal detail (§28) ----------------------------------------- */
+.menu-line-btn {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.meal-detail-img {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+.meal-detail-nutrition {
+  margin-top: 10px;
+}
+.meal-detail-nutrition ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+/* ---- keyboard focus (accessibility baseline) ---------------------------
+   Until now this stylesheet had no :focus-visible rule at all, and five
+   places set `outline: none` — the form fields, the review textarea, and both
+   search inputs, which also drop their border and so become completely
+   unindicated on focus. Everywhere else the app relied on the browser default
+   ring, which is not a decision anyone made.
+
+   (The fifth, `.outcome`, is dead CSS: no component renders that class any
+   more. The live Classroom controls are `.plate-quarter` and
+   `.chip-choice button`, neither of which suppresses the outline. They are
+   covered by the generic rule below rather than named here.)
+
+   `:focus-visible` rather than `:focus` is deliberate. It fires for keyboard
+   and assistive-technology focus and not for a mouse click, so this adds an
+   indicator for the people who need one without putting a ring around every
+   button someone taps. Nothing else about the visual design changes. */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* The three places that explicitly removed the outline need it back on
+   keyboard focus. Listed individually rather than by lowering the specificity
+   of the rules above them, so the mouse-click appearance each was tuned for
+   is left exactly as it was. */
+.filters .search-box input:focus-visible,
+.toolbar .search-box input:focus-visible,
+.field input:focus-visible,
+.field select:focus-visible,
+.field textarea:focus-visible,
+.review-body textarea:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* The sidebar sits on a dark ground, so the brand blue does not read against
+   it. A light ring is the same affordance in the colour that works there. */
+.sidebar :focus-visible,
+.side-foot button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* ---------- meal period tags ----------
+   The four sittings a meal can be served at, chosen in the Meal editor and
+   shown wherever a meal is listed. Checkboxes rather than a multi-select:
+   there are exactly four, they all fit, and a person can see every option
+   and its state at once without opening anything. */
+.period-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.period-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  cursor: pointer;
+  user-select: none;
+  background: #fff;
+}
+.period-tag:hover {
+  border-color: var(--brand);
+}
+.period-tag.on {
+  border-color: var(--brand);
+  background: var(--brand-soft, #eff4ff);
+  color: var(--brand);
+}
+.period-tag input {
+  margin: 0;
+  cursor: pointer;
+}
+/* In a table row: read-only, so no border or pointer. */
+.period-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.period-chips .chip {
+  font-size: 10.5px;
+  padding: 2px 7px;
+}
+
+/* =====================================================================
+   OPERATIONAL SPINE — small additions only.
+   No redesign: these reuse the existing tokens and add the few shapes the
+   new screens genuinely need (checkbox rows, a two-field row, printable
+   labels). Nothing existing is restyled.
+   ===================================================================== */
+.check-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.check-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  min-height: 32px;
+  cursor: pointer;
+}
+.check input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+}
+.row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.label-sheet {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+/* SCOPED, and it must stay scoped. This is the printed crate label. As a bare
+   `.label` it matched every `.label` in the product — including the one every
+   StatCard renders for its icon and caption — so each KPI on the Dashboard,
+   Status, Kitchen and Parent Insights was drawing a stray bordered white box
+   around its own heading. The crate label is the only thing that wants a
+   border, and it only ever appears inside `.label-sheet`. */
+.label-sheet .label {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  background: #fff;
+  color: #111;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.label-brand {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand);
+  font-weight: 700;
+}
+.label-special .label-brand {
+  color: #8a5a00;
+}
+.label-special {
+  border-width: 2px;
+  border-color: #8a5a00;
+}
+.label-main {
+  font-weight: 700;
+  font-size: 14px;
+  margin: 2px 0;
+}
+.label-prep {
+  margin-top: 4px;
+  font-weight: 600;
+}
+.label-qty {
+  margin-top: 6px;
+  font-weight: 700;
+}
+
+/* Printing a label sheet should print the labels, not the application chrome. */
+@media print {
+  .sidebar,
+  .topbar,
+  .page-head,
+  .btn,
+  .modal-head,
+  .modal-foot {
+    display: none !important;
+  }
+  .modal-backdrop {
+    position: static;
+    background: none;
+  }
+  .modal {
+    box-shadow: none;
+    max-height: none;
+    width: 100%;
+  }
+  .label-sheet {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .label {
+    break-inside: avoid;
+  }
+}

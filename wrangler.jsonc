@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lunchbox-connect",
+  "main": "worker/worker.ts",
+  "compatibility_date": "2025-01-01",
+  // `binding` is what actually exposes the static-asset server to the Worker as
+  // `env.ASSETS`. Without it Wrangler still serves assets, but the Worker gets
+  // NO binding — and worker/worker.ts calls `env.ASSETS.fetch(request)` for
+  // every path outside /api/, i.e. the whole site. Proven with `wrangler types`:
+  // the generated Env had no ASSETS member. It type-checked only because the
+  // Worker declares its own local `interface Env { ASSETS: Fetcher }`, which
+  // asserts the binding rather than deriving it — so the drift was silent.
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+  },
+  "observability": { "enabled": true },
+}

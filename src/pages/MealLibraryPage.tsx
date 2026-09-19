@@ -1,0 +1,440 @@
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { listMeals, saveMeal, setMealActive, uploadMealImage, mealImageUrl } from '../lib/api';
+import type { AppPeriod, MealLibraryItem } from '../lib/types';
+import { PERIOD_LABEL, PERIOD_ORDER, sortPeriods } from '../lib/periods';
+import {
+  Banner,
+  Btn,
+  Card,
+  EmptyState,
+  Field,
+  Modal,
+  PageHead,
+  Pill,
+  Spinner,
+} from '../components/ui';
+import { Icon } from '../components/icons';
+
+// The Meal Library (§4). Admin creates a Meal once here and it is reusable
+// everywhere (Menu, Kitchen, Classroom, Parent, Analytics). Editing appends a
+// new immutable revision; archiving is a soft toggle — history is never
+// destroyed.
+type Draft = {
+  id: string | null;
+  name: string;
+  ingredients: string; // comma-separated in the form
+  allergens: string;
+  portion: string;
+  nutrition: string; // "kcal: 420, protein: 12" free-form key:value lines
+  image_path: string | null;
+  /** Which sittings this meal suits. Several, and never a duplicate meal. */
+  periods: AppPeriod[];
+};
+
+const EMPTY: Draft = {
+  id: null,
+  name: '',
+  ingredients: '',
+  allergens: '',
+  portion: '',
+  nutrition: '',
+  image_path: null,
+  // A new meal starts untagged, so the author has to say what it is for
+  // rather than inherit a guess. Save is blocked until at least one is set.
+  periods: [],
+};
+
+function toList(s: string): string[] {
+  return s
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+function parseNutrition(s: string): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const line of s.split(/[\n,]/)) {
+    const [k, ...rest] = line.split(':');
+    const key = k.trim();
+    const val = rest.join(':').trim();
+    if (key && val) out[key] = Number.isNaN(Number(val)) ? val : Number(val);
+  }
+  return out;
+}
+
+function nutritionToText(n: Record<string, unknown>): string {
+  return Object.entries(n)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join('\n');
+}
+
+export default function MealLibraryPage() {
+  const [rows, setRows] = useState<MealLibraryItem[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [imgFile, setImgFile] = useState<File | null>(null);
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
+
+  async function reload() {
+    const res = await listMeals({ includeArchived: true });
+    if (res.error) setError(res.error);
+    setRows(res.data ?? []);
+    // resolve signed thumbnails for meals that have an image
+    const t: Record<string, string> = {};
+    await Promise.all(
+      (res.data ?? [])
+        .filter((m) => m.image_path)
+        .map(async (m) => {
+          const u = await mealImageUrl(m.image_path);
+          if (u) t[m.id] = u;
+        }),
+    );
+    setThumbs(t);
+  }
+
+  useEffect(() => {
+    // reload() also resolves signed thumbnail URLs, so existing meal images
+    // render on the FIRST load, not only after a later save/reload.
+    void reload();
+  }, []);
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (rows ?? [])
+      .filter((m) => (showArchived ? true : m.active))
+      .filter((m) => (q ? m.name.toLowerCase().includes(q) : true));
+  }, [rows, search, showArchived]);
+
+  function openCreate() {
+    setImgFile(null);
+    setDraft({ ...EMPTY });
+  }
+  function openEdit(m: MealLibraryItem) {
+    setImgFile(null);
+    setDraft({
+      id: m.id,
+      name: m.name,
+      ingredients: m.ingredients.join(', '),
+      allergens: m.allergens.join(', '),
+      portion: m.portion ?? '',
+      nutrition: nutritionToText(m.nutrition),
+      image_path: m.image_path,
+      periods: m.periods,
+    });
+  }
+
+  async function onSave(e: FormEvent) {
+    e.preventDefault();
+    if (!draft) return;
+    setBusy(true);
+    setError(null);
+
+    // Upload the image FIRST (if a new one was chosen) so the whole edit is a
+    // SINGLE saveMeal call = one logical revision. The upload no longer needs a
+    // meal id, so there is no create-then-append double revision.
+    let imagePath = draft.image_path;
+    if (imgFile) {
+      const up = await uploadMealImage(imgFile);
+      if (up.error) {
+        setBusy(false);
+        setError(`Image upload failed: ${up.error}`);
+        return;
+      }
+      imagePath = up.data;
+    }
+
+    const res = await saveMeal({
+      id: draft.id,
+      name: draft.name.trim(),
+      ingredients: toList(draft.ingredients),
+      allergens: toList(draft.allergens),
+      nutrition: parseNutrition(draft.nutrition),
+      portion: draft.portion.trim() || null,
+      image_path: imagePath,
+      periods: draft.periods,
+    });
+    setBusy(false);
+    if (res.error) {
+      setError(res.error);
+      return;
+    }
+    setDraft(null);
+    setImgFile(null);
+    await reload();
+  }
+
+  // §23. Archiving used to happen on one click with nothing said about what it
+  // means, and the two directions have quite different consequences: one takes
+  // a meal out of future menu building, the other puts it back. Neither
+  // touches anything already published or already eaten, and nobody could tell
+  // that from a bare "Archive" button.
+  const [confirmArchive, setConfirmArchive] = useState<MealLibraryItem | null>(null);
+  const [archiveBusy, setArchiveBusy] = useState(false);
+
+  async function toggleArchive(m: MealLibraryItem) {
+    setArchiveBusy(true);
+    const res = await setMealActive(m.id, !m.active);
+    setArchiveBusy(false);
+    if (res.error) {
+      setError(res.error);
+      return;
+    }
+    setConfirmArchive(null);
+    await reload();
+  }
+
+  if (error && !rows) return <EmptyState text={`Could not load the Meal Library: ${error}`} />;
+
+  return (
+    <div>
+      <PageHead
+        title="Meal Library"
+        hint="Reusable meals for the whole system — create once, use in every menu"
+        actions={
+          <Btn variant="brand" onClick={openCreate}>
+            <Icon name="apple" size={15} /> Add meal
+          </Btn>
+        }
+      />
+
+      {error && <Banner kind="err">{error}</Banner>}
+
+      <div className="toolbar">
+        <div className="search-box">
+          <Icon name="search" size={15} />
+          <input
+            placeholder="Search meals…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <label className="check-inline">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+          />
+          Show archived
+        </label>
+      </div>
+
+      {!rows ? (
+        <Spinner />
+      ) : visible.length === 0 ? (
+        <EmptyState text="No meals yet. Click “Add meal” to create the first one." />
+      ) : (
+        <div className="meal-grid">
+          {visible.map((m) => (
+            <Card key={m.id}>
+              <div className="meal-card">
+                <div className="meal-thumb">
+                  {thumbs[m.id] ? (
+                    <img src={thumbs[m.id]} alt={m.name} />
+                  ) : (
+                    <Icon name="utensils" size={22} />
+                  )}
+                </div>
+                <div className="meal-body">
+                  <div className="meal-title-row">
+                    <b>{m.name}</b>
+                    {!m.active && <Pill variant="reduced">Archived</Pill>}
+                    {m.nutrition_status === 'APPROVED' && <Pill variant="free">Approved</Pill>}
+                  </div>
+                  {/* What the meal is FOR, before what is in it: it is the
+                      first thing an author checks when the Menu Builder did
+                      not offer a dish they expected. */}
+                  <div className="period-chips">
+                    {m.periods.length === 0 ? (
+                      <span className="tmc-meta">
+                        No sitting tagged — Menu Builder cannot offer it
+                      </span>
+                    ) : (
+                      m.periods.map((p) => (
+                        <span key={p} className="chip">
+                          {PERIOD_LABEL[p]}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                  {m.allergens.length > 0 && (
+                    <div className="meal-allergens">
+                      {m.allergens.map((a) => (
+                        <Pill key={a} variant="reduced">
+                          {a}
+                        </Pill>
+                      ))}
+                    </div>
+                  )}
+                  {m.portion && <div className="tmc-meta">Portion: {m.portion}</div>}
+                  <div className="meal-actions">
+                    <Btn size="sm" onClick={() => openEdit(m)}>
+                      Edit
+                    </Btn>
+                    <Btn size="sm" variant="ghost" onClick={() => setConfirmArchive(m)}>
+                      {m.active ? 'Archive' : 'Restore'}
+                    </Btn>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {draft && (
+        <Modal
+          title={draft.id ? 'Edit meal' : 'Add meal'}
+          onClose={() => setDraft(null)}
+          footer={
+            <>
+              <Btn variant="ghost" onClick={() => setDraft(null)}>
+                Cancel
+              </Btn>
+              <Btn
+                variant="brand"
+                onClick={onSave}
+                disabled={busy || !draft.name.trim() || draft.periods.length === 0}
+              >
+                {busy ? 'Saving…' : 'Save meal'}
+              </Btn>
+            </>
+          }
+        >
+          <form onSubmit={onSave}>
+            <Field label="Name">
+              <input
+                value={draft.name}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                placeholder="e.g. Chicken Pasta"
+                autoFocus
+              />
+            </Field>
+            {/* Before the recipe detail, because it is what decides where the
+                meal can be used at all. A meal with no period is a meal the
+                Menu Builder cannot offer for any slot. */}
+            <Field label="Served at (choose one or more)">
+              <div className="period-tags">
+                {PERIOD_ORDER.map((p) => {
+                  const on = draft.periods.includes(p);
+                  return (
+                    <label key={p} className={`period-tag${on ? ' on' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() =>
+                          setDraft({
+                            ...draft,
+                            periods: on
+                              ? draft.periods.filter((x) => x !== p)
+                              : sortPeriods([...draft.periods, p]),
+                          })
+                        }
+                      />
+                      {PERIOD_LABEL[p]}
+                    </label>
+                  );
+                })}
+              </div>
+            </Field>
+            {draft.periods.length === 0 && (
+              <p className="tmc-meta">
+                Choose at least one sitting. Menu Builder offers a meal for the sittings it is
+                tagged for; an untagged meal would not appear for any of them.
+              </p>
+            )}
+            <Field label="Ingredients (comma-separated)">
+              <input
+                value={draft.ingredients}
+                onChange={(e) => setDraft({ ...draft, ingredients: e.target.value })}
+                placeholder="chicken, pasta, tomato"
+              />
+            </Field>
+            <Field label="Allergens (comma-separated)">
+              <input
+                value={draft.allergens}
+                onChange={(e) => setDraft({ ...draft, allergens: e.target.value })}
+                placeholder="gluten, dairy"
+              />
+            </Field>
+            <Field label="Portion">
+              <input
+                value={draft.portion}
+                onChange={(e) => setDraft({ ...draft, portion: e.target.value })}
+                placeholder="1 bowl"
+              />
+            </Field>
+            <Field label="Nutrition (one per line, key: value)">
+              <textarea
+                rows={3}
+                value={draft.nutrition}
+                onChange={(e) => setDraft({ ...draft, nutrition: e.target.value })}
+                placeholder={'kcal: 420\nprotein: 12'}
+              />
+            </Field>
+            <Field label="Image">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setImgFile(e.target.files?.[0] ?? null)}
+              />
+            </Field>
+            {draft.id && (
+              <p className="tmc-meta">
+                Saving creates a new revision. Past meals children were served keep their original
+                recipe.
+              </p>
+            )}
+          </form>
+        </Modal>
+      )}
+
+      {confirmArchive && (
+        <Modal
+          title={
+            confirmArchive.active
+              ? `Archive ${confirmArchive.name}`
+              : `Restore ${confirmArchive.name}`
+          }
+          onClose={() => setConfirmArchive(null)}
+          footer={
+            <>
+              <Btn variant="ghost" onClick={() => setConfirmArchive(null)}>
+                Cancel
+              </Btn>
+              <Btn
+                variant={confirmArchive.active ? 'danger' : 'brand'}
+                onClick={() => void toggleArchive(confirmArchive)}
+                disabled={archiveBusy}
+              >
+                {archiveBusy ? 'Working…' : confirmArchive.active ? 'Archive' : 'Restore'}
+              </Btn>
+            </>
+          }
+        >
+          {confirmArchive.active ? (
+            <>
+              <Banner kind="warn">
+                Archiving takes this meal out of menu building. It can no longer be placed on a menu
+                day, and it stops appearing in the meal picker.
+              </Banner>
+              <Banner kind="info">
+                <b>Nothing already scheduled or already served changes.</b> Menus that already use
+                this meal keep it, days already published keep it, and every record of a child
+                eating it stays exactly as it is — with the recipe it had on the day. Archiving is
+                about what you build next, not about the past. It is not a delete; restore it here
+                at any time.
+              </Banner>
+            </>
+          ) : (
+            <Banner kind="info">
+              Restoring puts this meal back in the picker so it can be placed on menu days again.
+            </Banner>
+          )}
+        </Modal>
+      )}
+    </div>
+  );
+}

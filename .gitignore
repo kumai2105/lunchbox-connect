@@ -1,0 +1,37 @@
+# deps
+node_modules/
+
+# build output
+dist/
+.wrangler/
+
+# env & secrets — NEVER commit
+.env
+.env.local
+.env.production
+
+# Supabase local
+.supabase/
+supabase/.temp/
+
+# tests
+test-results/
+playwright-report/
+coverage/
+tests/e2e/.seeded.json
+
+# misc
+.DS_Store
+*.log
+
+# Claude Code: the shared skill symlinks and .mcp.json ARE committed on purpose
+# so every developer gets the same MCP server and skills. Per-machine settings
+# and OAuth credentials are not — MCP auth tokens live outside the repo.
+.claude/settings.local.json
+.claude/*.local.json
+
+# Packaged release candidates (build output, named for the release commit)
+lunchbox-connect-*.zip
+
+# Written by .github/workflows/prod-browser-auth.yml at run time
+prod-auth.mjs

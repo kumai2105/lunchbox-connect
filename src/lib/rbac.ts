@@ -1,0 +1,230 @@
+import type { AppRole } from './types';
+
+/**
+ * Pure authorization matrix — frontend mirror of the RLS policies
+ * (migrations 0004/0010/0011) and docs/02. Implemented values use only the
+ * approved keys YES/SCOPED/READ_ONLY from the spec matrix; every cell the spec
+ * marks NOT_YET_DEFINED is DENIED here (no invention).
+ */
+
+export type Resource =
+  | 'dashboard'
+  | 'institutions'
+  | 'users'
+  | 'guardians'
+  | 'schedule'
+  | 'students'
+  | 'classes'
+  | 'staff'
+  | 'status'
+  | 'meals'
+  | 'menubuilder'
+  | 'analytics'
+  | 'review'
+  | 'today'
+  | 'kitchen'
+  | 'kitchens'
+  | 'reports'
+  | 'ops'
+  | 'absences'
+  | 'audit'
+  | 'account'
+  // ---- operational spine (0048–0053)
+  | 'mealplans'
+  | 'dietary'
+  | 'operations'
+  | 'delivery'
+  | 'mydeliveries'
+  | 'handover'
+  | 'parent';
+
+export type Action = 'view' | 'create' | 'update' | 'delete' | 'publish' | 'record' | 'set';
+
+const MATRIX: Record<Resource, Partial<Record<AppRole, Action[]>>> = {
+  dashboard: {
+    super_admin: ['view'],
+    school_admin: ['view'],
+  },
+  // Hard DELETE of core historical entities is NOT advertised anywhere:
+  // retention / archive / deletion semantics are NOT_YET_DEFINED, a Student
+  // delete cascades into operational relationships and history, a Class delete
+  // nulls historical references, and an Institution delete cascades a whole
+  // tenant. The database denies these outright (0033); the UI must not claim
+  // an authority that does not exist. Where an approved `active` / archive
+  // mechanism exists (rotations), that is used instead.
+  institutions: { super_admin: ['view', 'create', 'update'] },
+  users: { super_admin: ['view', 'create', 'update'] },
+  // Guardian links. A Super Admin may create one and may REVOKE one —
+  // `delete` here is that revocation, and it is now real: migration 0044's
+  // revoke_guardian_access() removes the single student_parents row, demands a
+  // reason, and audits it. It destroys nothing else: the Parent account, the
+  // child and every meal record survive.
+  //
+  // An Institution Admin keeps read-only visibility of the links their
+  // institution's children already have. Who at a nursery may end a guardian
+  // relationship, and on what authority, is NOT_YET_DEFINED — so that stays
+  // with the Super Admin rather than being invented here.
+  guardians: {
+    super_admin: ['view', 'create', 'update', 'delete'],
+    school_admin: ['view'],
+  },
+  students: {
+    // read scope differs by role; write is admin-only
+    super_admin: ['view', 'create', 'update'],
+    school_admin: ['view', 'create', 'update'],
+    classroom_staff: ['view'],
+  },
+  classes: {
+    super_admin: ['view', 'create', 'update'],
+    school_admin: ['view', 'create', 'update'],
+    classroom_staff: ['view'],
+  },
+  // §4/§17: institution-scoped staff provisioning + class assignment. A Nursery
+  // Admin (school_admin) manages classroom staff for their OWN institution; the
+  // Edge Function and RLS enforce that boundary server-side regardless of UI.
+  staff: {
+    super_admin: ['view', 'create', 'update'],
+    school_admin: ['view', 'create', 'update'],
+  },
+  // operational status: exact list/transitions NOT_YET_DEFINED; the single
+  // approved value ACTIVE_BILLABLE_TO_NURSERY is settable by Super Admin only.
+  status: { super_admin: ['view', 'set'] },
+  // Aggregated meal-performance analytics (docs/13 Decision 032). Super Admin
+  // is the only approved "management" role (Decision 007); v_meal_performance
+  // and the raw records are RLS-scoped independently of this matrix.
+  analytics: { super_admin: ['view'] },
+  // §4: the reviewer role/process/conditions for publishing Classroom free text
+  // are NOT_YET_DEFINED. Only the Super Admin system-wide administrative
+  // override may publish; a normal institution-side review workflow is
+  // BLOCKED_BY_SPEC and must not be invented.
+  review: {
+    super_admin: ['view', 'publish'],
+  },
+  // Migration 0034 removed authenticated hard DELETE from Meals and Menus:
+  // both carry `active` archive/deactivation semantics, and exact retention is
+  // NOT_YET_DEFINED. Advertising `delete` here promised an action the database
+  // refuses, so it is gone from the matrix too.
+  // Founder-approved: a Nursery/School Admin may SEE their own institution's
+  // published schedule. Read-only by construction — there is no create/update/
+  // publish action here, and the database serves only published rows for their
+  // own institution (meal_services_select). Menu authorship stays with the
+  // Super Admin under `menubuilder`.
+  schedule: {
+    // The institution's own view of its published menu. A Super Admin is not
+    // anchored to one institution and already authors the schedule in Menu
+    // Builder, so this resource belongs to the Nursery/School Admin.
+    school_admin: ['view'],
+  },
+  meals: {
+    super_admin: ['view', 'create', 'update'],
+  },
+  menubuilder: {
+    super_admin: ['view', 'create', 'update', 'publish'],
+  },
+  // §3: Classroom meal RECORDING by Nursery/School Admin is NOT_YET_DEFINED and
+  // is not granted. Classroom Staff record within assigned classes; Super Admin
+  // keeps the explicitly approved administrative override.
+  today: {
+    super_admin: ['view', 'record'],
+    classroom_staff: ['view', 'record'],
+  },
+  kitchen: { super_admin: ['view'], kitchen: ['view'] },
+  // Kitchen *entities* (docs/13 Decision 031) — Super Admin only, same as
+  // institutions. Not the production-demand screen above. Archive-only, as for
+  // Meals and Menus (0034).
+  kitchens: { super_admin: ['view', 'create', 'update'] },
+  reports: {
+    super_admin: ['view'],
+    school_admin: ['view'],
+    finance_owner: ['view'],
+    viewer: ['view'],
+  },
+  ops: { super_admin: ['view'], operations_manager: ['view'] },
+  absences: { super_admin: ['view'], school_admin: ['view'] },
+  audit: { super_admin: ['view'] },
+  // Your OWN account: name, phone, password. Every role has one, so every role
+  // may see and change it. This grants authority over nobody else — the
+  // database checks `p_user = auth.uid()` for the profile edit, and the
+  // password change goes through Supabase Auth on the caller's own session,
+  // which has no way to address another person's account.
+  account: {
+    super_admin: ['view', 'update'],
+    school_admin: ['view', 'update'],
+    operations_manager: ['view', 'update'],
+    finance_owner: ['view', 'update'],
+    viewer: ['view', 'update'],
+    parent: ['view', 'update'],
+    classroom_staff: ['view', 'update'],
+    kitchen: ['view', 'update'],
+    driver: ['view', 'update'],
+  },
+  parent: { super_admin: ['view'], parent: ['view'] },
+
+  // =====================================================================
+  // OPERATIONAL SPINE
+  //
+  // Each entry is the authority the DATABASE already enforces, restated so the
+  // interface offers exactly what the caller can actually do. Where they would
+  // disagree, the database wins — these control what is OFFERED, never what is
+  // permitted.
+  // =====================================================================
+
+  // Meal Plan definitions are LunchBox's. An Institution Admin reads the Plans
+  // available to it (and each child's current Plan) but never authors one, and
+  // never changes a child's entitlement — that is production and, later,
+  // commercial truth.
+  mealplans: {
+    super_admin: ['view', 'create', 'update', 'delete'],
+    school_admin: ['view'],
+  },
+
+  // The Institution SUBMITS a requirement for its own child; LunchBox reviews
+  // it. Submission is not approval, so school_admin gets 'create' and 'view'
+  // and nothing else. The Kitchen appears nowhere here: it produces what it is
+  // told to produce and approves nothing.
+  dietary: {
+    super_admin: ['view', 'create', 'update'],
+    school_admin: ['view', 'create'],
+  },
+
+  // Demand, finalisation, production and packing. Institution access to Kitchen
+  // production planning remains NOT_YET_DEFINED and is therefore denied, exactly
+  // as 0036 decided for the demand function itself.
+  operations: {
+    super_admin: ['view', 'create', 'update', 'publish'],
+    kitchen: ['view', 'update'],
+  },
+
+  // Delivery configuration is set by LunchBox and read by the site it governs.
+  delivery: {
+    super_admin: ['view', 'create', 'update'],
+    kitchen: ['view'],
+    school_admin: ['view'],
+  },
+
+  // A Driver's own assigned work. Deliberately its own resource rather than a
+  // wider grant, so it cannot drift into meaning anything else.
+  mydeliveries: {
+    super_admin: ['view'],
+    driver: ['view', 'update'],
+  },
+
+  // Receiving a delivery. Classroom Staff appear because an Institution may
+  // deliberately authorise one as a receiver — but the CAPABILITY is checked in
+  // the database (app_is_delivery_receiver), not inferred from the role. This
+  // entry only decides whether the screen is reachable at all.
+  handover: {
+    super_admin: ['view', 'update'],
+    school_admin: ['view', 'update'],
+    classroom_staff: ['view', 'update'],
+  },
+};
+
+export function can(role: AppRole | null | undefined, resource: Resource, action: Action): boolean {
+  if (!role) return false;
+  return MATRIX[resource]?.[role]?.includes(action) ?? false;
+}
+
+export function viewableResources(role: AppRole): Resource[] {
+  return (Object.keys(MATRIX) as Resource[]).filter((r) => can(role, r, 'view'));
+}

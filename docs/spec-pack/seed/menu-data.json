@@ -1,0 +1,349 @@
+{
+  "project": "LunchBox Connect",
+  "source_file": "LBC_Final_4_Week_Menu_Demo_Nurse_Review_FINAL.pdf",
+  "source_status": "NURSE_REVIEW_DRAFT",
+  "data_status": "REFERENCE_ONLY_NURSE_REVIEW_DRAFT",
+  "production_approved": false,
+  "source_notices": [
+    "Final approval subject to nursery nurse/authorized review",
+    "Nutrition values are approximate and must be verified before official submission",
+    "No fish",
+    "No tomato soup",
+    "No mini savoury egg bites",
+    "No vegetarian-option column"
+  ],
+  "allowed_use": ["demo", "test", "schema_fixture", "reference"],
+  "production_use": "NOT_APPROVED",
+  "coverage": {
+    "weeks_in_source": 4,
+    "weeks_structured_in_this_seed": [1],
+    "reason": "Only source values directly verified for the complete Week 1 page are structured here. Missing weeks must not be invented."
+  },
+  "week_1": {
+    "monday": {
+      "breakfast": {
+        "name": "Oat-Banana Mini Pancakes with Fresh Fruit",
+        "portion": "115 g",
+        "inside": "Pancakes 65 g + fruit 50 g",
+        "nutrition": {
+          "kcal": 185,
+          "protein_g": 6,
+          "carbohydrates_g": 31,
+          "fat_g": 5,
+          "sugar_g": 10
+        },
+        "nutrients": ["Fiber", "potassium", "vitamin C"],
+        "allergens": ["Gluten", "egg", "dairy"]
+      },
+      "am_snack": {
+        "name": "Fruit Cup",
+        "portion": "100 g",
+        "inside": "Mixed fresh fruit 100 g; no syrup",
+        "nutrition": {
+          "kcal": 70,
+          "protein_g": 1,
+          "carbohydrates_g": 17,
+          "fat_g": 0,
+          "sugar_g": 13
+        },
+        "nutrients": ["Vitamin C", "potassium", "fiber"],
+        "allergens": []
+      },
+      "lunch": {
+        "name": "Chicken Meatballs in Tomato Sauce with Rice",
+        "portion": "215 g",
+        "inside": "Chicken meatballs 60 g + rice 75 g + tomato sauce 35 g + salad 45 g",
+        "nutrition": {
+          "kcal": 315,
+          "protein_g": 17,
+          "carbohydrates_g": 42,
+          "fat_g": 9,
+          "sugar_g": 7
+        },
+        "nutrients": ["Protein", "iron", "vitamin C"],
+        "allergens": ["Gluten possible"]
+      },
+      "pm_snack": {
+        "name": "Low-Sugar Milk Rice Pudding",
+        "portion": "95 g",
+        "inside": "Low-fat milk rice pudding 95 g",
+        "nutrition": {
+          "kcal": 130,
+          "protein_g": 4,
+          "carbohydrates_g": 23,
+          "fat_g": 3,
+          "sugar_g": 8
+        },
+        "nutrients": ["Calcium", "energy"],
+        "allergens": ["Dairy"]
+      },
+      "daily_total": {
+        "kcal": 700,
+        "protein_g": 28,
+        "carbohydrates_g": 113,
+        "fat_g": 17,
+        "sugar_g": 38
+      }
+    },
+    "tuesday": {
+      "breakfast": {
+        "name": "Labneh Sandwich",
+        "portion": "85 g",
+        "inside": "Whole wheat bread 45 g + labneh 25 g + cucumber 15 g",
+        "nutrition": {
+          "kcal": 155,
+          "protein_g": 7,
+          "carbohydrates_g": 24,
+          "fat_g": 4,
+          "sugar_g": 3
+        },
+        "nutrients": ["Calcium", "B vitamins"],
+        "allergens": ["Gluten", "dairy"]
+      },
+      "am_snack": {
+        "name": "Carrot & Cucumber Sticks with Hummus",
+        "portion": "105 g",
+        "inside": "Vegetables 75 g + hummus 30 g",
+        "nutrition": {
+          "kcal": 95,
+          "protein_g": 3,
+          "carbohydrates_g": 13,
+          "fat_g": 4,
+          "sugar_g": 4
+        },
+        "nutrients": ["Fiber", "folate", "plant iron"],
+        "allergens": ["Sesame"]
+      },
+      "lunch": {
+        "name": "Lean Beef Lasagna with Vegetable Side",
+        "portion": "195 g",
+        "inside": "Lean beef lasagna 145 g + broccoli/carrots 50 g",
+        "nutrition": {
+          "kcal": 340,
+          "protein_g": 18,
+          "carbohydrates_g": 38,
+          "fat_g": 12,
+          "sugar_g": 6
+        },
+        "nutrients": ["Iron", "zinc", "calcium", "fiber"],
+        "allergens": ["Gluten", "dairy"]
+      },
+      "pm_snack": {
+        "name": "Low-Sugar Whole Wheat Apple Mini Muffin",
+        "portion": "45 g",
+        "inside": "Whole wheat apple muffin 45 g",
+        "nutrition": {
+          "kcal": 145,
+          "protein_g": 4,
+          "carbohydrates_g": 22,
+          "fat_g": 5,
+          "sugar_g": 8
+        },
+        "nutrients": ["Fiber", "B vitamins"],
+        "allergens": ["Gluten", "egg", "dairy"]
+      },
+      "daily_total": {
+        "kcal": 735,
+        "protein_g": 32,
+        "carbohydrates_g": 97,
+        "fat_g": 25,
+        "sugar_g": 21
+      }
+    },
+    "wednesday": {
+      "breakfast": {
+        "name": "Blueberry Overnight Oats",
+        "portion": "140 g",
+        "inside": "Oats 25 g + yogurt/milk 85 g + berries 30 g",
+        "nutrition": {
+          "kcal": 165,
+          "protein_g": 7,
+          "carbohydrates_g": 27,
+          "fat_g": 4,
+          "sugar_g": 9
+        },
+        "nutrients": ["Calcium", "fiber", "vitamin C"],
+        "allergens": ["Dairy", "oats"]
+      },
+      "am_snack": {
+        "name": "Mini Cheese Sandwich",
+        "portion": "75 g",
+        "inside": "Whole wheat bread 45 g + low-fat cheese 18 g + cucumber 12 g",
+        "nutrition": {
+          "kcal": 155,
+          "protein_g": 7,
+          "carbohydrates_g": 22,
+          "fat_g": 5,
+          "sugar_g": 3
+        },
+        "nutrients": ["Calcium", "B vitamins"],
+        "allergens": ["Gluten", "dairy"]
+      },
+      "lunch": {
+        "name": "Mild Chicken Curry with Brown Rice",
+        "portion": "220 g",
+        "inside": "Chicken curry 85 g + brown rice 80 g + vegetables 55 g",
+        "nutrition": {
+          "kcal": 330,
+          "protein_g": 19,
+          "carbohydrates_g": 43,
+          "fat_g": 9,
+          "sugar_g": 6
+        },
+        "nutrients": ["Protein", "fiber", "vitamin A"],
+        "allergens": ["Dairy"]
+      },
+      "pm_snack": {
+        "name": "Fruit Cup",
+        "portion": "100 g",
+        "inside": "Mixed fresh fruit 100 g; no syrup",
+        "nutrition": {
+          "kcal": 70,
+          "protein_g": 1,
+          "carbohydrates_g": 17,
+          "fat_g": 0,
+          "sugar_g": 13
+        },
+        "nutrients": ["Vitamin C", "potassium", "fiber"],
+        "allergens": []
+      },
+      "daily_total": {
+        "kcal": 720,
+        "protein_g": 34,
+        "carbohydrates_g": 109,
+        "fat_g": 18,
+        "sugar_g": 31
+      }
+    },
+    "thursday": {
+      "breakfast": {
+        "name": "Rolled Egg Breakfast Wrap",
+        "portion": "95 g",
+        "inside": "Egg 45 g + whole wheat wrap 35 g + vegetables 15 g",
+        "nutrition": {
+          "kcal": 180,
+          "protein_g": 10,
+          "carbohydrates_g": 19,
+          "fat_g": 7,
+          "sugar_g": 2
+        },
+        "nutrients": ["Protein", "choline", "vitamin A"],
+        "allergens": ["Egg", "gluten"]
+      },
+      "am_snack": {
+        "name": "Apple Cinnamon Yogurt",
+        "portion": "115 g",
+        "inside": "Plain yogurt 80 g + apple 35 g + cinnamon",
+        "nutrition": {
+          "kcal": 115,
+          "protein_g": 6,
+          "carbohydrates_g": 18,
+          "fat_g": 2,
+          "sugar_g": 10
+        },
+        "nutrients": ["Calcium", "fiber"],
+        "allergens": ["Dairy"]
+      },
+      "lunch": {
+        "name": "Chicken Soup with Rice/Pasta Portion",
+        "portion": "230 ml/g",
+        "inside": "Chicken soup 170 ml + chicken 35 g + rice/pasta 25 g",
+        "nutrition": {
+          "kcal": 240,
+          "protein_g": 16,
+          "carbohydrates_g": 28,
+          "fat_g": 6,
+          "sugar_g": 4
+        },
+        "nutrients": ["Protein", "hydration", "B vitamins"],
+        "allergens": ["Gluten if pasta"]
+      },
+      "pm_snack": {
+        "name": "Whole Wheat Mini Cheese Flatbread",
+        "portion": "65 g",
+        "inside": "Whole wheat flatbread 45 g + low-fat cheese 20 g",
+        "nutrition": {
+          "kcal": 175,
+          "protein_g": 7,
+          "carbohydrates_g": 25,
+          "fat_g": 6,
+          "sugar_g": 2
+        },
+        "nutrients": ["Calcium", "protein"],
+        "allergens": ["Gluten", "dairy"]
+      },
+      "daily_total": {
+        "kcal": 710,
+        "protein_g": 39,
+        "carbohydrates_g": 90,
+        "fat_g": 21,
+        "sugar_g": 18
+      }
+    },
+    "friday": {
+      "breakfast": {
+        "name": "Whole Wheat Croissant with Cheese/Labneh",
+        "portion": "80 g",
+        "inside": "Small croissant 45 g + cheese/labneh 20 g + cucumber 15 g",
+        "nutrition": {
+          "kcal": 210,
+          "protein_g": 7,
+          "carbohydrates_g": 25,
+          "fat_g": 9,
+          "sugar_g": 4
+        },
+        "nutrients": ["Calcium", "B vitamins"],
+        "allergens": ["Gluten", "dairy"]
+      },
+      "am_snack": {
+        "name": "Vegetable Sticks with Dip",
+        "portion": "100 g",
+        "inside": "Mixed vegetables 75 g + yogurt/labneh dip 25 g",
+        "nutrition": {
+          "kcal": 75,
+          "protein_g": 3,
+          "carbohydrates_g": 10,
+          "fat_g": 3,
+          "sugar_g": 4
+        },
+        "nutrients": ["Vitamin A", "C", "calcium"],
+        "allergens": ["Dairy"]
+      },
+      "lunch": {
+        "name": "Vegetable Fajita Rice Bowl",
+        "portion": "220 g",
+        "inside": "Rice 80 g + fajita vegetables 90 g + beans 35 g + yogurt dip 15 g",
+        "nutrition": {
+          "kcal": 290,
+          "protein_g": 10,
+          "carbohydrates_g": 50,
+          "fat_g": 6,
+          "sugar_g": 7
+        },
+        "nutrients": ["Fiber", "vitamin C", "plant protein"],
+        "allergens": ["Dairy"]
+      },
+      "pm_snack": {
+        "name": "Berry Yogurt Pot",
+        "portion": "110 g",
+        "inside": "Plain low-fat yogurt 80 g + berries 30 g",
+        "nutrition": {
+          "kcal": 105,
+          "protein_g": 6,
+          "carbohydrates_g": 15,
+          "fat_g": 2,
+          "sugar_g": 8
+        },
+        "nutrients": ["Calcium", "vitamin C"],
+        "allergens": ["Dairy"]
+      },
+      "daily_total": {
+        "kcal": 680,
+        "protein_g": 26,
+        "carbohydrates_g": 100,
+        "fat_g": 20,
+        "sugar_g": 23
+      }
+    }
+  }
+}
