@@ -123,7 +123,7 @@ that looks broken when optional content is absent.
 | `pages` | slug, locale-aware hero/intro/body blocks, seo_title, seo_description, published | Editable marketing copy for the eight content pages |
 | `packages` | pillar (wedding/corporate/catering/brunch), name_en/ar, summary_en/ar, inclusions[], min_guests, max_guests, price_from, price_note, published | **Ships empty and unpublished** |
 | `venue_spaces` | name_en/ar, description, seated_capacity, standing_capacity, features[], published | **Ships empty and unpublished** |
-| `gallery_images` | pillar, file, alt_en/ar, caption_en/ar, credit, sort, published | **Ships empty** |
+| `gallery_images` | pillar, file, alt_en/ar, caption_en/ar, credit, sort, published | Shipped empty until the owner supplied 21 photographs on 2 September 2026. The seed now registers those, and nothing else may be added without a file in `public/media` behind it |
 | `enquiries` | type, name, phone, email, event_date, guests, company, venue_required, catering_required, message, consent, locale, source_page, ip_hash, status, admin_notes, created_at | Real storage, real statuses |
 | `admin_users` | email, password_hash (scrypt), role, created_at | Seeded from env at first run |
 
