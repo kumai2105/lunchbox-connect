@@ -9,7 +9,6 @@ import crypto from "node:crypto";
 import * as schema from "../src/lib/db/schema";
 import { seedPages } from "../src/lib/db/seed-pages";
 import { draftMenu, DELIVEROO_SNAPSHOT_NOTE } from "../src/lib/db/seed-menu-draft";
-import { seedGallery } from "../src/lib/db/seed-gallery";
 
 const DB_PATH = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "jazeel.db");
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
@@ -161,45 +160,13 @@ if (existingCats.length === 0) {
   console.log(`· menu already has ${existingCats.length} categories — left untouched`);
 }
 
-/* ----------------------------------------------------------------- gallery */
-
-// The twenty-one photographs in public/media ship with the repository, so the rows that
-// register them have to ship with it too — otherwise a fresh clone serves image files that
-// nothing accounts for, which is precisely what tests/evidence.test.ts refuses to allow.
-// Provenance, the shisha decision and the open consent question are in seed-gallery.ts.
-const existingImages = db.select().from(schema.galleryImages).all();
-if (existingImages.length === 0) {
-  for (const img of seedGallery) {
-    db.insert(schema.galleryImages)
-      .values({
-        pillar: img.pillar,
-        filePath: img.filePath,
-        width: img.width,
-        height: img.height,
-        altEn: img.altEn,
-        altAr: img.altAr,
-        captionEn: img.captionEn,
-        captionAr: img.captionAr,
-        credit: null,
-        sort: img.sort,
-        published: img.published,
-      })
-      .run();
-  }
-  const published = seedGallery.filter((i) => i.published).length;
-  console.log(
-    `✓ gallery: ${seedGallery.length} owner photographs registered, ${published} published — no stock or generated imagery`,
-  );
-} else {
-  console.log(`· gallery already has ${existingImages.length} images — left untouched`);
-}
-
 /* --------------------------------------------------------------- reminders */
 
 console.log("");
 console.log("Seed complete. Deliberately EMPTY and awaiting real content:");
 console.log("  · packages (weddings / corporate / catering / brunch) — no invented prices or inclusions");
 console.log("  · venue spaces — no invented capacities");
+console.log("  · gallery — no stock or AI imagery; the gallery route stays hidden until real files exist");
 console.log("  · WhatsApp number, email address, map pin, shisha hours, Arabic copy");
 console.log("See docs/CONTENT-REGISTER.md for the full list.");
 
