@@ -43,7 +43,14 @@ export async function PageShell({
     <div className="flex min-h-dvh flex-col">
       <JsonLd data={graph} />
       <SiteHeader locale={locale} currentRoute={routeKey} onDark={transparentHeader} />
-      <main id="main" className="flex-1">
+      {/*
+        tabIndex={-1} is what makes the skip link actually work. Without it the browser
+        scrolls to #main but leaves focus on the link, so the next Tab goes back into the
+        header the visitor just asked to skip — the control looks like it fired and did
+        nothing. A negative tabindex makes <main> programmatically focusable without
+        putting it in the tab order.
+      */}
+      <main id="main" tabIndex={-1} className="flex-1">
         {children}
       </main>
       <SiteFooter locale={locale} showGallery={showGallery} settings={settings} />

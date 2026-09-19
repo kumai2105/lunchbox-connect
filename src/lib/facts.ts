@@ -53,7 +53,13 @@ export const FACTS = {
   email: f(null as string | null, "UNKNOWN", "Dossier §17.2 — redacted at retrieval"),
 
   /* ------------------------------------------------------------------ hours */
-  hoursOpen: f("10:00", "VERIFIED", "Dossier §2.4 — four sources incl. first-party e-menu"),
+  /*
+    CONTRADICTED, 19 Sep 2026. Four published sources (incl. the first-party e-menu) say
+    10:00; Zomato says 09:30; the OWNER says 09:00. The owner is authoritative for what the
+    restaurant actually does, so 09:00 is what we publish — but every platform listing is
+    then an hour wrong and should be corrected at source. Logged for the correction register.
+  */
+  hoursOpen: f("09:00", "OWNER_PROVIDED", "Owner statement 19 Sep 2026 — supersedes dossier §2.4 (10:00)"),
   hoursClose: f("02:00", "VERIFIED", "Dossier §2.4"),
   /**
    * Per-day variation, Ramadan hours and kitchen close are UNKNOWN (Dossier §17.2).

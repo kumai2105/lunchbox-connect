@@ -259,6 +259,16 @@ body {
   inset-block-start: 0;
 }
 
+/*
+  <main> is given tabindex="-1" so the skip link can move focus into it. That makes it a
+  focus target, and the default ring would then draw a box around the entire page. Keyboard
+  users still get the cue they need — the page scrolls and the next Tab lands inside the
+  content — so the ring is suppressed on this element only.
+*/
+main:focus {
+  outline: none;
+}
+
 /* Header disclosure: native <details> on small screens, permanent bar on large. */
 .nav-disclosure > .nav-panel { display: none; }
 .nav-disclosure[open] > .nav-panel { display: block; }

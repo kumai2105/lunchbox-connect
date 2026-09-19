@@ -8,6 +8,15 @@
  *   npm run build && npm start &   (or let this script assume a server on BASE)
  *   npm run smoke
  */
+/*
+  Read the same configuration the running server reads. Without this the script falls back
+  to the development admin password, so the moment a real one is set every admin check
+  fails on a login screen it never got past — which looks like eight broken features rather
+  than one unread file. Same order as scripts/preflight.ts.
+*/
+import { config as loadEnv } from "dotenv";
+for (const f of [".env.local", ".env"]) loadEnv({ path: f, override: false, quiet: true });
+
 import { chromium, type Browser, type Page } from "playwright";
 import Database from "better-sqlite3";
 import path from "node:path";
@@ -172,10 +181,25 @@ async function main() {
   await check("Every header link resolves to 200", async () => {
     const page = await browser.newPage();
     await page.goto(`${BASE}/en`, { waitUntil: "domcontentloaded" });
-    const hrefs = await page.locator("header nav a").evaluateAll((els) =>
+    const raw = await page.locator("header nav a").evaluateAll((els) =>
       els.map((e) => (e as HTMLAnchorElement).getAttribute("href")).filter(Boolean),
     );
     await page.close();
+    /*
+      The header renders the same list twice — a permanent bar at >=1024px and a <details>
+      disclosure below it — and both now sit inside a <nav>, because a small screen
+      otherwise gets no navigation landmark at all. Only one is ever exposed at a time
+      (the other is display:none, so it leaves the accessibility tree), but both are in
+      the markup, so count distinct destinations rather than anchors.
+
+      Asserting that the deduplicated count is 7 while the raw count is 14 also pins the
+      two renderings together: if they ever drift apart, this fails.
+    */
+    const hrefs = [...new Set(raw as string[])];
+    assert(
+      raw.length === hrefs.length * 2,
+      `the two header renderings have drifted — ${raw.length} anchors, ${hrefs.length} distinct`,
+    );
     // Seven by design: Menu, Restaurant, Weddings, Corporate, Catering, Brunch, Contact.
     // About and Gallery live in the footer — verified separately below.
     assert(hrefs.length === 7, `expected 7 nav links, found ${hrefs.length}`);
@@ -579,6 +603,28 @@ async function main() {
   /* ------------------------------------------- 7. accessibility & mobile */
   console.log("\n7. Accessibility and responsiveness");
 
+  await check("The skip link actually moves focus into the content", async () => {
+    const page = await browser.newPage();
+    await page.goto(`${BASE}/en`, { waitUntil: "domcontentloaded" });
+    // Tab once from the top of the document: the skip link is the first focusable thing.
+    await page.keyboard.press("Tab");
+    const onSkip = await page.evaluate(() => document.activeElement?.className ?? "");
+    assert(onSkip.includes("skip-link"), `first Tab landed on "${onSkip}", not the skip link`);
+    await page.keyboard.press("Enter");
+    // Without tabindex="-1" on <main> the browser scrolls but leaves focus on the link,
+    // so the next Tab walks straight back into the header the visitor asked to skip.
+    const landed = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      return { tag: el?.tagName ?? "", id: el?.id ?? "" };
+    });
+    await page.close();
+    assert(
+      landed.tag === "MAIN" && landed.id === "main",
+      `focus went to <${landed.tag.toLowerCase()} id="${landed.id}">, not <main>`,
+    );
+    return "focus lands on <main>";
+  });
+
   await check("Exactly one h1 per page, in order", async () => {
     for (const route of ["/en", "/en/weddings", "/en/menu", "/en/contact"]) {
       const page = await browser.newPage();
@@ -670,7 +716,10 @@ async function main() {
       await page.goto(`${BASE}/en`, { waitUntil: "domcontentloaded" });
       const visible = await page.locator("header nav:visible").count();
       await page.close();
-      assert(visible <= 1, `${visible} header nav landmarks visible at ${width}px`);
+      // Exactly one, not "at most one": `<= 1` is satisfied by zero, and zero is the bug
+      // this check was meant to catch. Below 1024px the permanent bar is display:none, so
+      // the disclosure needs its own <nav> or the page has no navigation landmark at all.
+      assert(visible === 1, `${visible} header nav landmarks visible at ${width}px, expected 1`);
     }
     return "one at 390px, one at 1280px";
   });

@@ -72,7 +72,10 @@ describe("structured data is evidence-safe", () => {
 
   it("publishes only the verified opening hours", () => {
     const spec = restaurantJsonLd("en").openingHoursSpecification[0];
-    expect(spec.opens).toBe("10:00");
+    // 09:00 is the owner's statement of 19 Sep 2026. It supersedes the four published
+    // listings that say 10:00 — see the note on FACTS.hoursOpen. Those listings are now
+    // known to be wrong at source and are on the correction list.
+    expect(spec.opens).toBe("09:00");
     expect(spec.closes).toBe("02:00");
   });
 

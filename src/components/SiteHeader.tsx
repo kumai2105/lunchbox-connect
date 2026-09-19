@@ -136,7 +136,15 @@ export function SiteHeader({
             </ul>
           </nav>
 
-          <details className="lg:hidden">
+          {/*
+            Below 1024px the desktop <nav> is display:none, which removes it from the
+            accessibility tree — so without this wrapper a phone or small-laptop visitor
+            gets a page with no navigation landmark at all, and "jump to navigation" has
+            nowhere to go. Both carry the same label because only ever one of them is
+            exposed at a time.
+          */}
+          <nav aria-label={t.nav.primaryLabel} className="lg:hidden">
+          <details>
             <summary
               className={`label cursor-pointer list-none border-t py-4 ${
                 onDark ? "border-brand-bone/20 text-brand-bone" : "border-brand-rule text-brand-ink"
@@ -165,6 +173,7 @@ export function SiteHeader({
               })}
             </ul>
           </details>
+          </nav>
         </div>
       </Container>
     </header>
